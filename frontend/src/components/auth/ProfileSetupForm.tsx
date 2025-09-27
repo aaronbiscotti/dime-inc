@@ -17,6 +17,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+
   // Client form fields
   const [companyName, setCompanyName] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
@@ -63,7 +64,6 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
         instagram_handle: instagramHandle || null,
         tiktok_handle: tiktokHandle || null,
         twitter_handle: twitterHandle || null,
-        follower_count: 0,
       };
     }
 

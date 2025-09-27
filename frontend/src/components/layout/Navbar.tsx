@@ -12,8 +12,13 @@ export function Navbar() {
   const pathname = usePathname();
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push("/");
+    try {
+      await signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+      // You could add a toast notification here to show the error to the user
+    }
   };
 
   if (!user || !profile) {
@@ -28,7 +33,7 @@ export function Navbar() {
           <div className="flex items-center space-x-8">
             <Link href="/profile" className="flex items-center">
               <Image
-                src="/dime-logo.svg"
+                src="/logo.svg"
                 alt="Dime Logo"
                 width={32}
                 height={32}
@@ -47,6 +52,17 @@ export function Navbar() {
                 }`}
               >
                 Profile
+              </Link>
+
+              <Link
+                href="/explore"
+                className={`text-sm font-medium transition-colors ${
+                  pathname === "/explore"
+                    ? "text-gray-900"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Explore
               </Link>
 
               <Link

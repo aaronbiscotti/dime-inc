@@ -2,17 +2,17 @@
 
 import { useAuth } from '@/contexts/AuthContext'
 import { Navbar } from '@/components/layout/Navbar'
-import { ChatInterface } from '@/components/chat/ChatInterface'
+import { ExploreInterface } from '@/components/explore/ExploreInterface'
 import { ProfileGuard } from '@/components/auth/ProfileGuard'
 
-export default function Chats() {
+export default function Explore() {
   const { profile } = useAuth()
 
   return (
     <ProfileGuard>
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        {profile && <ChatInterface userRole={profile.role} />}
+        {profile && <ExploreInterface userRole={profile.role} />}
       </div>
     </ProfileGuard>
   )

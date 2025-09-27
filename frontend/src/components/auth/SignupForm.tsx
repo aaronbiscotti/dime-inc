@@ -24,6 +24,7 @@ export function SignupForm({
   const role = initialRole || "client";
   const [error, setError] = useState<string | null>(null);
 
+
   const { signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,6 +38,11 @@ export function SignupForm({
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    if (!role) {
+      setError("Role is required for signup");
       return;
     }
 

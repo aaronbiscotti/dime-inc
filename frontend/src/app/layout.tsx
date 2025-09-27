@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { DebugPanel } from "@/components/debug/DebugPanel";
 
 export const metadata: Metadata = {
   title: "Dime - Login",
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body className="antialiased">
         <AuthProvider>
           {children}
+          <DebugPanel />
         </AuthProvider>
       </body>
     </html>

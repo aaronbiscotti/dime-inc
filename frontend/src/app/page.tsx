@@ -1,16 +1,37 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
+  const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user && profile) {
+      // Check if user has completed their role-specific profile
+      const hasCompleteProfile =
+        (profile.role === "ambassador" && ambassadorProfile) ||
+        (profile.role === "client" && clientProfile);
+
+      // If user has a complete profile, redirect to profile
+      if (hasCompleteProfile) {
+        router.push("/profile");
+      }
+    }
+  }, [user, profile, ambassadorProfile, clientProfile, loading, router]);
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <Image
-            src="/dime-logo.svg"
+            src="/logo.svg"
             alt="Dime Logo"
             width={150}
             height={75}
