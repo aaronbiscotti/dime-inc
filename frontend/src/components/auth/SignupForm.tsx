@@ -65,7 +65,10 @@ export function SignupForm({
           {initialRole && (
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-sm text-blue-800">
-                Creating account as: <strong>{initialRole === 'client' ? 'Client' : 'Brand Ambassador'}</strong>
+                Creating account as:{" "}
+                <span className="font-semibold">
+                  {initialRole === "client" ? "Client" : "Brand Ambassador"}
+                </span>
               </p>
             </div>
           )}

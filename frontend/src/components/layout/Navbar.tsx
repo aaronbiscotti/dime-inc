@@ -1,0 +1,75 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import Image from "next/image";
+
+export function Navbar() {
+  const { user, profile, signOut } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/");
+  };
+
+  if (!user || !profile) {
+    return null;
+  }
+
+  return (
+    <nav className="bg-white border-b-2 border-gray-300 w-full">
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="flex items-center justify-between w-full">
+          {/* Logo and Navigation Links */}
+          <div className="flex items-center space-x-8">
+            <Link href="/profile" className="flex items-center">
+              <Image
+                src="/dime-logo.svg"
+                alt="Dime Logo"
+                width={32}
+                height={32}
+                className="mr-3"
+              />
+              <span className="text-xl font-semibold text-gray-900">Dime</span>
+            </Link>
+
+            <div className="flex items-center space-x-6">
+              <Link
+                href="/profile"
+                className={`text-sm font-medium transition-colors ${
+                  pathname.startsWith("/profile")
+                    ? "text-gray-900"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Profile
+              </Link>
+
+              <Link
+                href="/chats"
+                className={`text-sm font-medium transition-colors ${
+                  pathname === "/chats"
+                    ? "text-gray-900"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Chats
+              </Link>
+            </div>
+          </div>
+
+          {/* Sign Out Button */}
+          <div>
+            <Button onClick={handleSignOut} variant="outline">
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}

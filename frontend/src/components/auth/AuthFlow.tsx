@@ -6,6 +6,7 @@ import { LoginForm } from "./LoginForm";
 import { SignupForm } from "./SignupForm";
 import { ProfileSetupForm } from "./ProfileSetupForm";
 import { useAuth } from "@/contexts/AuthContext";
+import { AuthSkeleton } from "@/components/skeletons/AuthSkeleton";
 import { UserRole } from "@/types/database";
 
 type AuthStep = "login" | "signup" | "profile-setup";
@@ -23,11 +24,11 @@ export function AuthFlow({
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(
     initialRole || null
   );
-  const { user, profile, ambassadorProfile, clientProfile } = useAuth();
+  const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (user && profile) {
+    if (!loading && user && profile) {
       const hasProfile =
         (profile.role === "ambassador" && ambassadorProfile) ||
         (profile.role === "client" && clientProfile);
@@ -39,7 +40,7 @@ export function AuthFlow({
         setCurrentStep("profile-setup");
       }
     }
-  }, [user, profile, ambassadorProfile, clientProfile, router, redirectTo]);
+  }, [user, profile, ambassadorProfile, clientProfile, loading, router, redirectTo]);
 
   const handleSignupSuccess = (role: UserRole) => {
     setSelectedRole(role);
@@ -49,6 +50,10 @@ export function AuthFlow({
   const handleProfileComplete = () => {
     router.push(redirectTo);
   };
+
+  if (loading) {
+    return <AuthSkeleton />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

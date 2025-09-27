@@ -14,6 +14,7 @@ interface ProfileSetupFormProps {
 
 export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
   const { createProfile } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Client form fields
@@ -32,6 +33,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError(null);
 
     let profileData: any = {};
@@ -39,6 +41,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
     if (role === "client") {
       if (!companyName) {
         setError("Company name is required");
+        setLoading(false);
         return;
       }
       profileData = {
@@ -50,6 +53,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
     } else if (role === "ambassador") {
       if (!fullName) {
         setError("Full name is required");
+        setLoading(false);
         return;
       }
       profileData = {
@@ -102,6 +106,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Enter your company name"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -117,6 +122,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={companyDescription}
                   onChange={(e) => setCompanyDescription(e.target.value)}
                   placeholder="Describe your company"
+                  disabled={loading}
                   rows={3}
                   className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl resize-none focus:border-blue-500 outline-none"
                 />
@@ -132,6 +138,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://your-website.com"
+                  disabled={loading}
                 />
               </div>
 
@@ -145,6 +152,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
                   placeholder="e.g., Technology, Fashion, Food"
+                  disabled={loading}
                 />
               </div>
             </>
@@ -161,6 +169,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your full name"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -173,6 +182,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us about yourself"
+                  disabled={loading}
                   rows={3}
                   className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl resize-none focus:border-blue-500 outline-none"
                 />
@@ -188,6 +198,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="City, Country"
+                  disabled={loading}
                 />
               </div>
 
@@ -204,6 +215,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={instagramHandle}
                   onChange={(e) => setInstagramHandle(e.target.value)}
                   placeholder="@username"
+                  disabled={loading}
                 />
               </div>
 
@@ -217,6 +229,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={tiktokHandle}
                   onChange={(e) => setTiktokHandle(e.target.value)}
                   placeholder="@username"
+                  disabled={loading}
                 />
               </div>
 
@@ -230,13 +243,14 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   value={twitterHandle}
                   onChange={(e) => setTwitterHandle(e.target.value)}
                   placeholder="@username"
+                  disabled={loading}
                 />
               </div>
             </>
           )}
 
-          <Button type="submit" className="w-full">
-            Complete Setup
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Creating profile...' : 'Complete Setup'}
           </Button>
         </form>
       </CardContent>

@@ -30,7 +30,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-3xl font-semibold">Dashboard</h1>
           <Button onClick={handleSignOut} variant="outline">
             Sign Out
           </Button>
@@ -43,7 +43,8 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600 mb-4">
-                You are logged in as a <strong>{profile.role}</strong>.
+                You are logged in as a{" "}
+                <span className="font-semibold">{profile.role}</span>.
               </p>
               <p className="text-sm text-gray-500">Email: {user.email}</p>
             </CardContent>
@@ -57,33 +58,36 @@ export default function Dashboard() {
               <CardContent>
                 <div className="space-y-2">
                   <p>
-                    <strong>Name:</strong> {ambassadorProfile.full_name}
+                    <span className="font-semibold">Name:</span>{" "}
+                    {ambassadorProfile.full_name}
                   </p>
                   {ambassadorProfile.bio && (
                     <p>
-                      <strong>Bio:</strong> {ambassadorProfile.bio}
+                      <span className="font-semibold">Bio:</span>{" "}
+                      {ambassadorProfile.bio}
                     </p>
                   )}
                   {ambassadorProfile.location && (
                     <p>
-                      <strong>Location:</strong> {ambassadorProfile.location}
+                      <span className="font-semibold">Location:</span>{" "}
+                      {ambassadorProfile.location}
                     </p>
                   )}
                   {ambassadorProfile.instagram_handle && (
                     <p>
-                      <strong>Instagram:</strong> @
+                      <span className="font-semibold">Instagram:</span> @
                       {ambassadorProfile.instagram_handle}
                     </p>
                   )}
                   {ambassadorProfile.tiktok_handle && (
                     <p>
-                      <strong>TikTok:</strong> @
+                      <span className="font-semibold">TikTok:</span> @
                       {ambassadorProfile.tiktok_handle}
                     </p>
                   )}
                   {ambassadorProfile.twitter_handle && (
                     <p>
-                      <strong>Twitter:</strong> @
+                      <span className="font-semibold">Twitter:</span> @
                       {ambassadorProfile.twitter_handle}
                     </p>
                   )}
@@ -100,17 +104,18 @@ export default function Dashboard() {
               <CardContent>
                 <div className="space-y-2">
                   <p>
-                    <strong>Company:</strong> {clientProfile.company_name}
+                    <span className="font-semibold">Company:</span>{" "}
+                    {clientProfile.company_name}
                   </p>
                   {clientProfile.company_description && (
                     <p>
-                      <strong>Description:</strong>{" "}
+                      <span className="font-semibold">Description:</span>{" "}
                       {clientProfile.company_description}
                     </p>
                   )}
                   {clientProfile.website && (
                     <p>
-                      <strong>Website:</strong>{" "}
+                      <span className="font-semibold">Website:</span>{" "}
                       <a
                         href={clientProfile.website}
                         target="_blank"
@@ -123,7 +128,8 @@ export default function Dashboard() {
                   )}
                   {clientProfile.industry && (
                     <p>
-                      <strong>Industry:</strong> {clientProfile.industry}
+                      <span className="font-semibold">Industry:</span>{" "}
+                      {clientProfile.industry}
                     </p>
                   )}
                 </div>

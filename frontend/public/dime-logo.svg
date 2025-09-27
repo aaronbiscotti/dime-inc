@@ -1,6 +1,1 @@
-<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="400" height="400" rx="50" fill="#FDDF31"/>
-<rect x="91" y="198" width="60" height="90" rx="29.5" fill="white"/>
-<circle cx="121" cy="147" r="30" fill="white"/>
-<path d="M168.24 298C168.24 281.6 182.24 274.5 189.24 273C199.906 273 226.14 268.6 245.74 251C265.34 233.4 265.906 200.333 263.74 186C261.74 177.333 255.34 157.7 245.74 148.5C233.74 137 210.74 127.5 194.24 127C177.74 126.5 172.24 119 168.24 114C164.24 109 162.74 79.9999 189.24 80.9999C210.44 81.7999 229.073 87.3332 235.74 89.9999C247.406 92.6665 275.94 106.9 296.74 142.5C317.54 178.1 310.406 222.667 304.24 240.5C299.74 254 284.14 285 257.74 301C231.34 317 204.406 320.667 194.24 320.5C185.573 319.833 168.24 314.4 168.24 298Z" fill="white"/>
-</svg>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" rx="8" fill="#f5d82e"/><text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#0a0a0a">D</text></svg>
