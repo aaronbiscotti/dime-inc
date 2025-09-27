@@ -64,7 +64,9 @@ export default function SignupFlow() {
             className="mx-auto mb-4"
           />
           {step === "email" && <CardTitle>Welcome to Dime</CardTitle>}
-          {step === "role" && <CardTitle>How are you joining us today?</CardTitle>}
+          {step === "role" && (
+            <CardTitle>How are you joining us today?</CardTitle>
+          )}
           {step === "signup" && <CardTitle>Create Your Account</CardTitle>}
           {step === "signin" && <CardTitle>Welcome Back!</CardTitle>}
         </CardHeader>
@@ -92,24 +94,30 @@ export default function SignupFlow() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card
-                  className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-border bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-border"
+                  className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-gray-300 bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300"
                   onClick={() => handleRoleSelect("brand-ambassador")}
                 >
                   <CardContent className="p-6 text-center">
                     <div className="text-4xl mb-4">📸</div>
-                    <h3 className="font-semibold text-lg mb-2">I'm a Brand Ambassador</h3>
-                    <p className="text-gray-600 text-sm">I create content and partner with brands.</p>
+                    <h3 className="font-semibold text-lg mb-2">
+                      I'm a Brand Ambassador
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      I create content and partner with brands.
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card
-                  className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-border bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-border"
+                  className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-gray-300 bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300"
                   onClick={() => handleRoleSelect("client")}
                 >
                   <CardContent className="p-6 text-center">
                     <div className="text-4xl mb-4">🏢</div>
                     <h3 className="font-semibold text-lg mb-2">I'm a Client</h3>
-                    <p className="text-gray-600 text-sm">I'm looking for talent for my brand.</p>
+                    <p className="text-gray-600 text-sm">
+                      I'm looking for talent for my brand.
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -123,7 +131,9 @@ export default function SignupFlow() {
                   type="text"
                   placeholder="Your Full Name"
                   value={formData.fullName}
-                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, fullName: e.target.value })
+                  }
                   className="w-full"
                   required
                 />
@@ -133,7 +143,9 @@ export default function SignupFlow() {
                   type="password"
                   placeholder="Create a Password"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
                   className="w-full"
                   required
                 />
@@ -154,7 +166,9 @@ export default function SignupFlow() {
                   type="password"
                   placeholder="Enter Your Password"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
                   className="w-full"
                   required
                 />
