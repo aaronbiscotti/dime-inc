@@ -33,6 +33,7 @@ interface AuthContextType extends AuthState {
   ) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   createProfile: (role: UserRole, profileData: Record<string, any>) => Promise<{ error: any }>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -159,6 +160,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Handle page visibility change - refresh when user returns
+    const handleVisibilityChange = () => {
+      if (!document.hidden && mounted) {
+        console.log('User returned to page, refreshing auth state...');
+        // Force a complete refresh when user returns to the page
+        initializeAuth();
+      }
+    };
+
+    // Handle window focus - additional refresh trigger
+    const handleWindowFocus = () => {
+      if (mounted) {
+        console.log('Window focused, refreshing auth state...');
+        // Force refresh when window gets focus
+        initializeAuth();
+      }
+    };
+
     initializeAuth();
 
     const {
@@ -172,9 +191,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await updateAuthState(session);
     });
 
+    // Add event listeners for page visibility and window focus
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
       // Cleanup function to reset any pending states
       if (isUpdatingProfile) {
         isUpdatingProfile = false;
@@ -358,12 +383,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshProfile = async () => {
+    if (!state.user) return;
+    
+    try {
+      const { profile, ambassadorProfile, clientProfile } = await fetchUserProfile(state.user.id);
+      setState(prev => ({
+        ...prev,
+        profile,
+        ambassadorProfile,
+        clientProfile,
+      }));
+    } catch (error) {
+      console.error("Error refreshing profile:", error);
+    }
+  };
+
   const value: AuthContextType = {
     ...state,
     signUp,
     signIn,
     signOut,
     createProfile,
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

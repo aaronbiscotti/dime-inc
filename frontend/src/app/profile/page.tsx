@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ProfileGuard } from "@/components/auth/ProfileGuard";
 import { CampaignForm } from "@/components/campaigns/CampaignForm";
 import { AmbassadorSelection } from "@/components/campaigns/AmbassadorSelection";
+import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { PortfolioItem, Campaign } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { campaignService } from "@/services/campaignService";
@@ -21,6 +22,7 @@ import {
   Users,
   DollarSign,
   Clock,
+  Edit,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -32,6 +34,7 @@ export default function Profile() {
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
   const [showAmbassadorSelection, setShowAmbassadorSelection] = useState(false);
+  const [showProfileEditModal, setShowProfileEditModal] = useState(false);
 
   // Fetch real data from database
   useEffect(() => {
@@ -110,7 +113,7 @@ export default function Profile() {
               {/* Left Sidebar - Profile Info */}
               <div className="lg:col-span-1">
                 <Card className="sticky top-6">
-                  <CardContent>
+                  <CardContent className="relative">
                     {/* Banner Area */}
                     <div className="h-32 bg-gradient-to-r from-[#f5d82e] to-[#FEE65D] rounded-xl mb-6 relative">
                       <div className="absolute -bottom-6 left-6">
@@ -146,6 +149,16 @@ export default function Profile() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Edit Button - positioned below yellow banner */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-36 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100"
+                      onClick={() => setShowProfileEditModal(true)}
+                    >
+                      <Edit className="w-4 h-4 text-gray-600" />
+                    </Button>
 
                     {/* Profile Info */}
                     <div className="mt-8 space-y-4">
@@ -630,6 +643,17 @@ export default function Profile() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Profile Edit Modal */}
+        {showProfileEditModal && (
+          <ProfileEditModal
+            isOpen={showProfileEditModal}
+            onClose={() => setShowProfileEditModal(false)}
+            onSave={(data) => {
+              console.log('Profile updated successfully:', data);
+            }}
+          />
         )}
 
         {/* Campaign Form Modal */}
