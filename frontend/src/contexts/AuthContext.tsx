@@ -159,6 +159,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Handle page visibility change - refresh when user returns
+    const handleVisibilityChange = () => {
+      if (!document.hidden && mounted) {
+        console.log('User returned to page, refreshing auth state...');
+        // Force a complete refresh when user returns to the page
+        initializeAuth();
+      }
+    };
+
+    // Handle window focus - additional refresh trigger
+    const handleWindowFocus = () => {
+      if (mounted) {
+        console.log('Window focused, refreshing auth state...');
+        // Force refresh when window gets focus
+        initializeAuth();
+      }
+    };
+
     initializeAuth();
 
     const {
@@ -172,9 +190,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await updateAuthState(session);
     });
 
+    // Add event listeners for page visibility and window focus
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
       // Cleanup function to reset any pending states
       if (isUpdatingProfile) {
         isUpdatingProfile = false;
