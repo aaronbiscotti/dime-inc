@@ -29,6 +29,7 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Initialize form state with current profile data
   const [formData, setFormData] = useState(() => {
@@ -58,11 +59,19 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
     // Clear error and success states when user starts editing
     if (error) setError(null);
     if (success) setSuccess(false);
+    if (showDeleteConfirm) setShowDeleteConfirm(false);
     
     setFormData(prev => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handleClose = () => {
+    setShowDeleteConfirm(false);
+    setError(null);
+    setSuccess(false);
+    onClose();
   };
 
   const handleSave = async () => {
@@ -133,20 +142,20 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
   if (!isOpen || !profile) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
       {/* Blurred Background Overlay - Fallback with visible effect */}
       <div 
-        className="absolute inset-0 bg-gradient-to-br from-black from-opacity-30 via-gray-900 via-opacity-40 to-black to-opacity-30"
+        className="fixed inset-0 bg-gradient-to-br from-black from-opacity-30 via-gray-900 via-opacity-40 to-black to-opacity-30"
         style={{
           backdropFilter: 'blur(12px) saturate(150%)',
           WebkitBackdropFilter: 'blur(12px) saturate(150%)',
           background: 'rgba(0, 0, 0, 0.4)',
         }}
-        onClick={onClose}
+        onClick={handleClose}
       />
       
       {/* Modal Content */}
-      <div className="relative z-10 w-full max-w-2xl mx-4">
+      <div className="relative z-10 w-full max-w-2xl my-8">
         <Card>
           <CardContent className="relative p-0">
             {/* Close Button */}
@@ -154,7 +163,7 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
               variant="ghost"
               size="sm"
               className="absolute top-4 right-4 z-20 h-8 w-8 p-0 hover:bg-black hover:bg-opacity-10"
-              onClick={onClose}
+              onClick={handleClose}
             >
               <X className="w-4 h-4 text-white" />
             </Button>
@@ -197,10 +206,13 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
               {/* Modal Header */}
               <div className="mt-8 mb-6">
                 <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                  Edit Profile
+                  {showDeleteConfirm ? "Delete Account" : "Edit Profile"}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Update your {profile.role === "ambassador" ? "ambassador" : "company"} information
+                  {showDeleteConfirm 
+                    ? "This action will permanently delete your account and all associated data."
+                    : `Update your ${profile.role === "ambassador" ? "ambassador" : "company"} information`
+                  }
                 </p>
                 
                 {/* Error Message */}
@@ -219,7 +231,8 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
               </div>
 
               {/* Form Fields - Grid Layout */}
-              <div className="grid grid-cols-2 gap-4">
+              {!showDeleteConfirm && (
+                <div className="grid grid-cols-2 gap-4">
                 {/* Ambassador Fields */}
                 {profile.role === "ambassador" && (
                   <>
@@ -388,25 +401,109 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
                   </>
                 )}
             </div>
+            )}
+
+            {/* Danger Zone - Delete Account */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-red-900 mb-1">
+                      Delete Account
+                    </h3>
+                    <p className="text-sm text-red-700 mb-3">
+                      Permanently delete your account and all associated data. This action cannot be undone.
+                    </p>
+                    {!showDeleteConfirm ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-300 text-red-700 hover:bg-red-100 hover:border-red-400"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={loading || success}
+                      >
+                        Delete Account
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-red-900">
+                          Are you sure? This will permanently delete your account and all data.
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+                            onClick={() => {
+                              // TODO: Add delete account functionality
+                              console.log('Delete account confirmed');
+                            }}
+                            disabled={loading || success}
+                          >
+                            Yes, Delete Account
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            disabled={loading || success}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 mt-8">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                className="flex-1"
-                disabled={loading || success}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                className="flex-1 bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]"
-                disabled={loading || success}
-              >
-                {loading ? "Saving..." : success ? "Saved!" : "Save Changes"}
-              </Button>
-            </div>
+            {!showDeleteConfirm && (
+              <div className="flex gap-3 mt-8 mb-4">
+                <Button
+                  variant="outline"
+                  onClick={handleClose}
+                  className="flex-1"
+                  disabled={loading || success}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  className="flex-1 bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]"
+                  disabled={loading || success}
+                >
+                  {loading ? "Saving..." : success ? "Saved!" : "Save Changes"}
+                </Button>
+              </div>
+            )}
+
+            {/* Delete Confirmation Actions */}
+            {showDeleteConfirm && (
+              <div className="flex gap-3 mt-8 mb-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1"
+                >
+                  Back to Edit
+                </Button>
+                <Button
+                  onClick={handleClose}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+              </div>
+            )}
             </div>
           </CardContent>
         </Card>
