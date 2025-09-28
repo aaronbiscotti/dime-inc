@@ -47,6 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
   });
 
+  let isUpdatingProfile = false;
+
   const fetchUserProfile = async (userId: string) => {
     try {
       // Use maybeSingle() instead of single() to handle 406 errors
@@ -100,7 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    let isUpdatingProfile = false;
 
     const updateAuthState = async (session: Session | null) => {
       if (!mounted || isUpdatingProfile) return;
@@ -174,6 +175,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      // Cleanup function to reset any pending states
+      if (isUpdatingProfile) {
+        isUpdatingProfile = false;
+      }
     };
   }, []);
 
@@ -259,6 +264,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Cancel any ongoing operations
+      if (isUpdatingProfile) {
+        isUpdatingProfile = false;
+      }
+
       // Clear state immediately for responsive UI
       setState({
         user: null,
@@ -269,23 +279,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading: false,
       });
 
+      // Clear all possible auth-related storage
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (storageError) {
+        console.warn("Could not clear storage:", storageError);
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error("Error signing out:", error);
-        // Don't throw here as the user is already signed out in the UI
       }
     } catch (error) {
       console.error("Sign out error:", error);
-      // Still clear state even if signOut fails
-      setState({
-        user: null,
-        session: null,
-        profile: null,
-        ambassadorProfile: null,
-        clientProfile: null,
-        loading: false,
-      });
     }
+
+    // Force a complete state reset regardless of errors
+    setState({
+      user: null,
+      session: null,
+      profile: null,
+      ambassadorProfile: null,
+      clientProfile: null,
+      loading: false,
+    });
   };
 
   const createProfile = async (role: UserRole, profileData: Record<string, any>) => {
