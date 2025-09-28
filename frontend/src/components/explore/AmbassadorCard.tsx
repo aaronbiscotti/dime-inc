@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -8,6 +10,8 @@ import {
   StarIcon,
   ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
+import { useAuth } from "@/contexts/AuthContext";
+import { chatService } from "@/services/chatService";
 
 interface AmbassadorCardProps {
   ambassador: {
@@ -25,6 +29,52 @@ interface AmbassadorCardProps {
 }
 
 export function AmbassadorCard({ ambassador }: AmbassadorCardProps) {
+  const [isContacting, setIsContacting] = useState(false);
+  const { profile, clientProfile } = useAuth();
+  const router = useRouter();
+
+  const handleContact = async () => {
+    if (!profile || !clientProfile || profile.role !== 'client') {
+      console.error('Only clients can contact ambassadors');
+      return;
+    }
+
+    setIsContacting(true);
+    try {
+      // Check if chat already exists
+      const { data: existingChat } = await chatService.checkExistingChat(
+        clientProfile.user_id,
+        ambassador.id // This is now the user_id from ExploreGrid
+      );
+
+      if (existingChat) {
+        // Redirect to existing chat
+        router.push(`/chats?chat=${existingChat.id}`);
+        return;
+      }
+
+      // Create new chat
+      const { data: newChat, error } = await chatService.createChat({
+        participantId: ambassador.id,
+        participantName: ambassador.name,
+        participantRole: 'ambassador',
+        subject: `Collaboration with ${ambassador.name}`
+      });
+
+      if (error || !newChat) {
+        console.error('Error creating chat:', error);
+        return;
+      }
+
+      // Redirect to new chat
+      router.push(`/chats?chat=${newChat.id}`);
+    } catch (error) {
+      console.error('Error handling contact:', error);
+    } finally {
+      setIsContacting(false);
+    }
+  };
+
   return (
     <Card className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
       <CardContent>
@@ -69,9 +119,13 @@ export function AmbassadorCard({ ambassador }: AmbassadorCardProps) {
             ))}
           </div>
 
-          <Button className="w-full bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-0">
+          <Button
+            onClick={handleContact}
+            disabled={isContacting || profile?.role !== 'client'}
+            className="w-full bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-0 disabled:bg-gray-300 disabled:text-gray-500"
+          >
             <ChatBubbleLeftRightIcon className="w-4 h-4 mr-2" />
-            Contact
+            {isContacting ? 'Connecting...' : 'Contact'}
           </Button>
         </div>
       </CardContent>

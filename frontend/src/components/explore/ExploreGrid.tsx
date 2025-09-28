@@ -28,12 +28,13 @@ export function ExploreGrid({
           // Client is looking for ambassadors
           const { data: ambassadors, error } = await supabase
             .from("ambassador_profiles")
-            .select("*");
+            .select("*, user_id");
 
           if (!error && ambassadors) {
             // Convert to expected format
             const formattedAmbassadors = ambassadors.map((ambassador) => ({
-              id: ambassador.id,
+              id: ambassador.user_id, // Use user_id as the main ID
+              profileId: ambassador.id, // Keep profile ID for reference
               name: ambassador.full_name,
               username: ambassador.full_name.toLowerCase().replace(/\s+/g, ""),
               bio: ambassador.bio || "Ambassador on Dime",

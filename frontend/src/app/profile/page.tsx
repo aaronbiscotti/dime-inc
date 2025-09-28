@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Navbar } from "@/components/layout/Navbar";
 import { ProfileGuard } from "@/components/auth/ProfileGuard";
+import { CampaignForm } from "@/components/campaigns/CampaignForm";
+import { AmbassadorSelection } from "@/components/campaigns/AmbassadorSelection";
 import { PortfolioItem, Campaign } from "@/types/database";
 import { supabase } from "@/lib/supabase";
+import { campaignService } from "@/services/campaignService";
 import {
   Plus,
   Instagram,
@@ -26,6 +29,9 @@ export default function Profile() {
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
+  const [showAmbassadorSelection, setShowAmbassadorSelection] = useState(false);
 
   // Fetch real data from database
   useEffect(() => {
@@ -65,21 +71,17 @@ export default function Profile() {
             setPortfolioItems(items);
           }
         } else if (profile.role === "client" && clientProfile) {
-          // Fetch bids/campaigns for client
-          const { data: bids, error } = await supabase
-            .from("bids")
-            .select("*")
-            .eq("client_id", clientProfile.id)
-            .order("created_at", { ascending: false });
+          // Fetch campaigns for client using campaign service
+          const { data: campaignBids, error } = await campaignService.getCampaignsForClient(clientProfile.id);
 
-          if (!error && bids) {
+          if (!error && campaignBids) {
             // Convert database bids to Campaign format
-            const clientCampaigns: Campaign[] = bids.map((bid) => ({
+            const clientCampaigns: Campaign[] = campaignBids.map((bid) => ({
               id: bid.id,
               title: bid.campaign_title,
               status: bid.status === "completed" ? "completed" : "active",
               budgetRange: bid.budget ? `$${bid.budget}` : "TBD",
-              ambassadorCount: 1, // For now, assuming 1 ambassador per bid
+              ambassadorCount: 0, // Open campaigns don't have ambassadors yet
               timeline: bid.timeline || "TBD",
               coverImage: undefined,
             }));
@@ -352,7 +354,15 @@ export default function Profile() {
                         ? "Portfolio"
                         : "Campaigns"}
                     </h3>
-                    <Button className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]">
+                    <Button
+                      onClick={() => {
+                        if (profile.role === "client") {
+                          setShowCampaignForm(true);
+                        }
+                        // For ambassadors, this could open a content upload form
+                      }}
+                      className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       {profile.role === "ambassador"
                         ? "Add Content"
@@ -620,6 +630,31 @@ export default function Profile() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Campaign Form Modal */}
+        {showCampaignForm && (
+          <CampaignForm
+            onClose={() => setShowCampaignForm(false)}
+            onCampaignCreated={(newCampaign) => {
+              setCampaigns(prev => [newCampaign, ...prev]);
+            }}
+            onOpenAmbassadorSelection={(campaign) => {
+              setSelectedCampaign(campaign);
+              setShowAmbassadorSelection(true);
+            }}
+          />
+        )}
+
+        {/* Ambassador Selection Modal */}
+        {showAmbassadorSelection && selectedCampaign && (
+          <AmbassadorSelection
+            campaign={selectedCampaign}
+            onClose={() => {
+              setShowAmbassadorSelection(false);
+              setSelectedCampaign(null);
+            }}
+          />
         )}
       </div>
     </ProfileGuard>
