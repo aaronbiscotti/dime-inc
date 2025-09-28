@@ -33,6 +33,7 @@ interface AuthContextType extends AuthState {
   ) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   createProfile: (role: UserRole, profileData: Record<string, any>) => Promise<{ error: any }>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -382,12 +383,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshProfile = async () => {
+    if (!state.user) return;
+    
+    try {
+      const { profile, ambassadorProfile, clientProfile } = await fetchUserProfile(state.user.id);
+      setState(prev => ({
+        ...prev,
+        profile,
+        ambassadorProfile,
+        clientProfile,
+      }));
+    } catch (error) {
+      console.error("Error refreshing profile:", error);
+    }
+  };
+
   const value: AuthContextType = {
     ...state,
     signUp,
     signIn,
     signOut,
     createProfile,
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
