@@ -14,35 +14,35 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      // If user is not logged in, redirect to login
-      if (!user) {
-        router.push("/login/client");
-        return;
-      }
+    if (loading) return; // Wait for auth to complete
 
-      // If user doesn't have a basic profile, redirect to login
-      if (!profile) {
-        router.push("/login/client");
-        return;
-      }
+    // If user is not logged in, redirect to login
+    if (!user) {
+      router.push("/login/client");
+      return;
+    }
 
-      // Check if user has completed their role-specific profile
-      // Only access profile.role if profile is not null
-      const hasCompleteProfile =
-        (profile.role === "ambassador" && ambassadorProfile) ||
-        (profile.role === "client" && clientProfile);
+    // If user doesn't have a basic profile, redirect to login
+    if (!profile) {
+      router.push("/login/client");
+      return;
+    }
 
-      // If user doesn't have a complete profile, redirect to profile setup
-      if (!hasCompleteProfile) {
-        const profileSetupPath = profile.role === "client"
-          ? "/login/client"
-          : "/login/brand-ambassador";
+    // Check if user has completed their role-specific profile
+    // Only access profile.role if profile is not null
+    const hasCompleteProfile =
+      (profile.role === "ambassador" && ambassadorProfile) ||
+      (profile.role === "client" && clientProfile);
 
-        console.log(`User has incomplete profile. Redirecting to ${profileSetupPath}`);
-        router.push(profileSetupPath);
-        return;
-      }
+    // If user doesn't have a complete profile, redirect to profile setup
+    if (!hasCompleteProfile) {
+      const profileSetupPath = profile.role === "client"
+        ? "/login/client"
+        : "/login/brand-ambassador";
+
+      console.log(`User has incomplete profile. Redirecting to ${profileSetupPath}`);
+      router.push(profileSetupPath);
+      return;
     }
   }, [user, profile, ambassadorProfile, clientProfile, loading, router]);
 
@@ -53,12 +53,12 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
 
   // Don't render children if user is not properly authenticated/profiled
   if (!user || !profile) {
-    return <AuthSkeleton />;
+    return null; // Don't show skeleton if redirecting
   }
 
   // Additional safety: ensure profile has a role before checking complete profile
   if (!profile.role) {
-    return <AuthSkeleton />;
+    return null; // Don't show skeleton if redirecting
   }
 
   const hasCompleteProfile =
@@ -66,7 +66,7 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
     (profile.role === "client" && clientProfile);
 
   if (!hasCompleteProfile) {
-    return <AuthSkeleton />;
+    return null; // Don't show skeleton if redirecting
   }
 
   // User is fully authenticated and has complete profile

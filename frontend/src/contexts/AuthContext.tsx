@@ -100,6 +100,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let isUpdatingProfile = false;
+
+    const updateAuthState = async (session: Session | null) => {
+      if (!mounted || isUpdatingProfile) return;
+
+      if (session?.user) {
+        isUpdatingProfile = true;
+        setState(prev => ({ ...prev, loading: true }));
+
+        try {
+          const { profile, ambassadorProfile, clientProfile } =
+            await fetchUserProfile(session.user.id);
+
+          if (mounted) {
+            setState({
+              user: session.user,
+              session,
+              profile,
+              ambassadorProfile,
+              clientProfile,
+              loading: false,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching profile:", error);
+          if (mounted) {
+            setState(prev => ({ ...prev, loading: false }));
+          }
+        } finally {
+          isUpdatingProfile = false;
+        }
+      } else {
+        setState({
+          user: null,
+          session: null,
+          profile: null,
+          ambassadorProfile: null,
+          clientProfile: null,
+          loading: false,
+        });
+      }
+    };
 
     const initializeAuth = async () => {
       try {
@@ -107,25 +149,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (session?.user && mounted) {
-          const { profile, ambassadorProfile, clientProfile } =
-            await fetchUserProfile(session.user.id);
-
-          setState({
-            user: session.user,
-            session,
-            profile,
-            ambassadorProfile,
-            clientProfile,
-            loading: false,
-          });
-        } else if (mounted) {
-          setState((prev) => ({ ...prev, loading: false }));
-        }
+        await updateAuthState(session);
       } catch (error) {
         console.error("Error initializing auth:", error);
         if (mounted) {
-          setState((prev) => ({ ...prev, loading: false }));
+          setState(prev => ({ ...prev, loading: false }));
         }
       }
     };
@@ -137,27 +165,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (event === "SIGNED_IN" && session?.user) {
-        const { profile, ambassadorProfile, clientProfile } =
-          await fetchUserProfile(session.user.id);
-        setState({
-          user: session.user,
-          session,
-          profile,
-          ambassadorProfile,
-          clientProfile,
-          loading: false,
-        });
-      } else if (event === "SIGNED_OUT") {
-        setState({
-          user: null,
-          session: null,
-          profile: null,
-          ambassadorProfile: null,
-          clientProfile: null,
-          loading: false,
-        });
-      }
+      // Add a small delay to prevent rapid state changes
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      await updateAuthState(session);
     });
 
     return () => {
@@ -248,11 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        throw error;
-      }
-      // Manually clear the state for an immediate UI update
+      // Clear state immediately for responsive UI
       setState({
         user: null,
         session: null,
@@ -261,8 +268,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clientProfile: null,
         loading: false,
       });
+
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Error signing out:", error);
+        // Don't throw here as the user is already signed out in the UI
+      }
     } catch (error) {
-      throw error;
+      console.error("Sign out error:", error);
+      // Still clear state even if signOut fails
+      setState({
+        user: null,
+        session: null,
+        profile: null,
+        ambassadorProfile: null,
+        clientProfile: null,
+        loading: false,
+      });
     }
   };
 
