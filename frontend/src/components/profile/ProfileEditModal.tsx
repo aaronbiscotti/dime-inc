@@ -139,6 +139,38 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!profile) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch("/api/delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profile.id }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        setSuccess(true);
+        setTimeout(async () => {
+          await supabase.auth.signOut();
+          window.location.href = "/";
+        }, 1500);
+      } else {
+        setError(result.error || "Failed to delete account");
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      setError("Failed to delete account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen || !profile) return null;
 
   return (
@@ -225,7 +257,9 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
                 {/* Success Message */}
                 {success && (
                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                    <p className="text-sm text-green-600">Profile updated successfully!</p>
+                    <p className="text-sm text-green-600">
+                      {showDeleteConfirm ? "Account deleted successfully! Redirecting..." : "Profile updated successfully!"}
+                    </p>
                   </div>
                 )}
               </div>
@@ -440,13 +474,10 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
                           <Button
                             size="sm"
                             className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
-                            onClick={() => {
-                              // TODO: Add delete account functionality
-                              console.log('Delete account confirmed');
-                            }}
+                            onClick={handleDeleteAccount}
                             disabled={loading || success}
                           >
-                            Yes, Delete Account
+                            {loading ? "Deleting..." : "Yes, Delete Account"}
                           </Button>
                           <Button
                             variant="outline"
