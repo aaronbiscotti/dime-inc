@@ -1,0 +1,242 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Profile, AmbassadorProfile, ClientProfile } from "@/types/database";
+import {
+  MapPin,
+  Calendar,
+  Instagram,
+  Twitter,
+  ExternalLink,
+  Edit,
+} from "lucide-react";
+import Image from "next/image";
+
+interface ProfileSidebarProps {
+  profile: Profile;
+  ambassadorProfile?: AmbassadorProfile | null;
+  clientProfile?: ClientProfile | null;
+  campaignCount?: number;
+  onEditProfile: () => void;
+}
+
+export function ProfileSidebar({
+  profile,
+  ambassadorProfile,
+  clientProfile,
+  campaignCount = 0,
+  onEditProfile,
+}: ProfileSidebarProps) {
+  return (
+    <div className="lg:col-span-1">
+      <Card className="sticky top-6">
+        <CardContent className="relative">
+          {/* Banner Area */}
+          <div className="h-32 bg-gradient-to-r from-[#f5d82e] to-[#FEE65D] rounded-xl mb-6 relative">
+            <div className="absolute -bottom-6 left-6">
+              <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 overflow-hidden">
+                {profile.role === "ambassador" && ambassadorProfile?.profile_photo_url ? (
+                  <Image
+                    src={ambassadorProfile.profile_photo_url}
+                    alt={ambassadorProfile.full_name}
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover"
+                  />
+                ) : profile.role === "client" && clientProfile?.logo_url ? (
+                  <Image
+                    src={clientProfile.logo_url}
+                    alt={clientProfile.company_name}
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-600 text-xl font-semibold">
+                    {profile.role === "ambassador" && ambassadorProfile
+                      ? ambassadorProfile.full_name.charAt(0)
+                      : profile.role === "client" && clientProfile
+                      ? clientProfile.company_name.charAt(0)
+                      : "?"}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Edit Button - positioned below yellow banner */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute top-36 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100"
+            onClick={onEditProfile}
+          >
+            <Edit className="w-4 h-4 text-gray-600" />
+          </Button>
+
+          {/* Profile Info */}
+          <div className="mt-8 space-y-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900">
+                {profile.role === "ambassador" && ambassadorProfile
+                  ? ambassadorProfile.full_name
+                  : profile.role === "client" && clientProfile
+                  ? clientProfile.company_name
+                  : "Profile"}
+              </h2>
+              <p className="text-gray-600">
+                @
+                {profile.role === "ambassador" && ambassadorProfile
+                  ? ambassadorProfile.full_name.toLowerCase().replace(/\s+/g, "")
+                  : profile.role === "client" && clientProfile
+                  ? clientProfile.company_name.toLowerCase().replace(/\s+/g, "")
+                  : "user"}
+              </p>
+            </div>
+
+            {/* Bio/Description */}
+            {profile.role === "ambassador" && ambassadorProfile?.bio && (
+              <p className="text-gray-700 leading-relaxed">{ambassadorProfile.bio}</p>
+            )}
+            {profile.role === "client" && clientProfile?.company_description && (
+              <p className="text-gray-700 leading-relaxed">
+                {clientProfile.company_description}
+              </p>
+            )}
+
+            {/* Details */}
+            <div className="space-y-2">
+              {/* Ambassador specific details */}
+              {profile.role === "ambassador" && ambassadorProfile && (
+                <>
+                  {ambassadorProfile.location && (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm">{ambassadorProfile.location}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-sm">
+                      Joined{" "}
+                      {new Date(ambassadorProfile.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Client specific details */}
+              {profile.role === "client" && clientProfile && (
+                <>
+                  {clientProfile.industry && (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <div className="w-4 h-4 bg-gray-600 rounded-sm flex items-center justify-center text-white text-xs font-semibold">
+                        I
+                      </div>
+                      <span className="text-sm">{clientProfile.industry}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-sm">
+                      Joined{" "}
+                      {new Date(clientProfile.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <span className="font-semibold text-gray-900">{campaignCount}</span> campaigns
+                    created
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Social Links / Website */}
+            <div className="space-y-2">
+              {/* Ambassador social links */}
+              {profile.role === "ambassador" && ambassadorProfile && (
+                <>
+                  {ambassadorProfile.instagram_handle && (
+                    <a
+                      href={`https://instagram.com/${ambassadorProfile.instagram_handle.replace(
+                        "@",
+                        ""
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-gray-600 hover:text-[#f5d82e] transition-colors"
+                    >
+                      <Instagram className="w-4 h-4" />
+                      <span className="text-sm">
+                        @{ambassadorProfile.instagram_handle.replace("@", "")}
+                      </span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  {ambassadorProfile.tiktok_handle && (
+                    <a
+                      href={`https://tiktok.com/@${ambassadorProfile.tiktok_handle.replace(
+                        "@",
+                        ""
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-gray-600 hover:text-[#f5d82e] transition-colors"
+                    >
+                      <div className="w-4 h-4 bg-gray-600 rounded-sm flex items-center justify-center text-white text-xs font-semibold">
+                        T
+                      </div>
+                      <span className="text-sm">
+                        @{ambassadorProfile.tiktok_handle.replace("@", "")}
+                      </span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  {ambassadorProfile.twitter_handle && (
+                    <a
+                      href={`https://twitter.com/${ambassadorProfile.twitter_handle.replace(
+                        "@",
+                        ""
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-gray-600 hover:text-[#f5d82e] transition-colors"
+                    >
+                      <Twitter className="w-4 h-4" />
+                      <span className="text-sm">
+                        @{ambassadorProfile.twitter_handle.replace("@", "")}
+                      </span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </>
+              )}
+
+              {/* Client website */}
+              {profile.role === "client" && clientProfile?.website && (
+                <a
+                  href={clientProfile.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-gray-600 hover:text-[#f5d82e] transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span className="text-sm">
+                    {clientProfile.website.replace(/^https?:\/\//, "")}
+                  </span>
+                </a>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
