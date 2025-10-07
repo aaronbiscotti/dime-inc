@@ -224,7 +224,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from("profiles")
           .upsert({
             id: data.user.id,
-            email: data.user.email,
             role,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -247,6 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     expectedRole?: UserRole
   ) => {
     try {
+      // Sign in with credentials
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -271,11 +271,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (profile && profile.role !== expectedRole) {
           // Sign out the user since their role doesn't match
           await supabase.auth.signOut();
+
+          const roleName = expectedRole === "client" ? "client" : "brand ambassador";
+          const userRoleName = profile.role === "client" ? "client" : "brand ambassador";
+
           return {
             error: {
-              message: `This login page is for ${
-                expectedRole === "client" ? "clients" : "brand ambassadors"
-              } only. Please use the correct login page for your account type.`,
+              message: `You have a ${userRoleName} account. Please sign in as a ${userRoleName}.`,
+              code: "ROLE_MISMATCH",
+              userRole: profile.role,
             },
           };
         }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
 import { UserRole } from "@/types/database";
 import { Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 import Image from "next/image";
@@ -24,6 +25,7 @@ type AuthError = {
 export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
   const router = useRouter();
   const { signIn, user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<AuthError | null>(null);
@@ -78,7 +80,11 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
 
       if (authError) {
         // Handle specific error types
-        if (authError.message?.includes("Invalid login credentials")) {
+        if (authError.code === "ROLE_MISMATCH") {
+          // Show toast for role mismatch with user's actual role info
+          showToast(authError.message, "error", 7000);
+          return;
+        } else if (authError.message?.includes("Invalid login credentials")) {
           setError({
             message: "Incorrect email or password. Please try again.",
             field: "password",
@@ -92,11 +98,6 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
           setError({
             message:
               "Too many login attempts. Please wait a moment and try again.",
-          });
-        } else if (authError.message?.includes("login page is for")) {
-          // Role mismatch error from AuthContext
-          setError({
-            message: authError.message,
           });
         } else {
           setError({

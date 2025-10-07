@@ -146,10 +146,12 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
       setLoading(true);
       setError(null);
 
-      const res = await fetch("/api/delete-user", {
-        method: "POST",
+
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const res = await fetch(`${backendUrl}/api/users/delete`, {
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: profile.id }),
+        body: JSON.stringify({ user_id: profile.id }),
       });
 
       const result = await res.json();
