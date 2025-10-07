@@ -23,7 +23,7 @@ export function SignupForm({
   const [confirmPassword, setConfirmPassword] = useState("");
   const role = initialRole || "client";
   const [error, setError] = useState<string | null>(null);
-
+  const [loading, setLoading] = useState(false);
 
   const { signUp } = useAuth();
 
@@ -46,6 +46,7 @@ export function SignupForm({
       return;
     }
 
+    setLoading(true);
     const { error } = await signUp(email, password, role);
 
     if (error) {
@@ -53,6 +54,7 @@ export function SignupForm({
     } else {
       onSignupSuccess?.(role);
     }
+    setLoading(false);
   };
 
   return (
@@ -90,6 +92,7 @@ export function SignupForm({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               required
+              disabled={loading}
             />
           </div>
 
@@ -104,6 +107,7 @@ export function SignupForm({
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               required
+              disabled={loading}
             />
           </div>
 
@@ -118,11 +122,12 @@ export function SignupForm({
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm your password"
               required
+              disabled={loading}
             />
           </div>
 
-          <Button type="submit" className="w-full">
-            Sign Up
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Signing Up..." : "Sign Up"}
           </Button>
 
           {onSwitchToLogin && (
@@ -131,6 +136,7 @@ export function SignupForm({
                 type="button"
                 onClick={onSwitchToLogin}
                 className="text-sm text-blue-600 hover:text-blue-800 underline"
+                disabled={loading}
               >
                 Already have an account? Sign in
               </button>

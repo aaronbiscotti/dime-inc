@@ -33,22 +33,6 @@ export function AuthFlow({
 
   useEffect(() => {
     if (!loading && user && profile) {
-
-      // Role validation: if requireRoleMatch is true, check if user's role matches the expected role
-      // BUT only during login step AND when user has a complete profile (not during fresh signup)
-      if (requireRoleMatch && initialRole && profile.role !== initialRole && currentStep === "login") {
-        const hasCompleteProfile =
-          (profile.role === "ambassador" && ambassadorProfile) ||
-          (profile.role === "client" && clientProfile);
-
-        // Only redirect if user has a complete profile (established user)
-        if (hasCompleteProfile) {
-          console.log(`Established user with wrong role. User role: ${profile.role}, Expected: ${initialRole}. Signing out...`);
-          signOut();
-          return;
-        }
-      }
-
       const hasProfile =
         (profile.role === "ambassador" && ambassadorProfile) ||
         (profile.role === "client" && clientProfile);
@@ -60,7 +44,7 @@ export function AuthFlow({
         setCurrentStep("profile-setup");
       }
     }
-  }, [user, profile, ambassadorProfile, clientProfile, loading, router, redirectTo, requireRoleMatch, initialRole]);
+  }, [user, profile, ambassadorProfile, clientProfile, loading, router, redirectTo]);
 
   const handleSignupSuccess = (role: UserRole) => {
     console.log('handleSignupSuccess: Setting selectedRole to:', role);

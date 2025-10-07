@@ -123,27 +123,15 @@ export default function SignupFlow() {
     setLoading(true);
 
     try {
-      // Check if user already exists
-      const { data, error: checkError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email.trim().toLowerCase())
-        .single();
+      // Check if user already exists by trying to get user from auth
+      // We can't check profiles table by email since it doesn't have that column
+      // Instead, we'll just proceed to role selection for new users
+      // and let Supabase auth handle the "already registered" error
 
-      if (checkError && checkError.code !== "PGRST116") {
-        // PGRST116 means no rows returned (user doesn't exist)
-        throw new Error("Unable to verify email. Please try again.");
-      }
-
-      if (data) {
-        // User exists, go to signin
-        setEmailChecked(true);
-        setStep("signin");
-      } else {
-        // New user, go to role selection
-        setEmailChecked(true);
-        setStep("role");
-      }
+      // For better UX, we could call a backend endpoint to check user existence
+      // For now, just go to role selection
+      setEmailChecked(true);
+      setStep("role");
     } catch (err: any) {
       console.error("Email check error:", err);
       setError({
@@ -236,9 +224,12 @@ export default function SignupFlow() {
 
       // If we have a session, the user is logged in
       if (authData.session) {
-        // Profile creation is handled by the AuthContext's createProfile function
-        // which will be triggered by the auth state change
-        router.push("/profile/setup");
+        // Redirect to the login page which will handle profile setup
+        // AuthFlow will detect incomplete profile and show ProfileSetupForm
+        const redirectPath = role === "client"
+          ? "/login/client"
+          : "/login/brand-ambassador";
+        router.push(redirectPath);
       }
 
     } catch (err: any) {

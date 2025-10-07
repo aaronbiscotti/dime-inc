@@ -1,153 +1,5 @@
-export type UserRole = "client" | "ambassador";
-
-export type BidStatus = "pending" | "accepted" | "rejected" | "completed";
-export type ContractStatus =
-  | "draft"
-  | "pending_signatures"
-  | "signed"
-  | "completed"
-  | "cancelled";
-export type ChatStatus = "active" | "completed" | "pending" | "overdue";
-
-export interface Profile {
-  id: string;
-  role: UserRole;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AmbassadorProfile {
-  id: string;
-  user_id: string;
-  full_name: string;
-  bio: string | null;
-  location: string | null;
-  profile_photo_url: string | null;
-  instagram_handle: string | null;
-  tiktok_handle: string | null;
-  twitter_handle: string | null;
-  niche: string[] | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ClientProfile {
-  id: string;
-  user_id: string;
-  company_name: string;
-  company_description: string | null;
-  website: string | null;
-  logo_url: string | null;
-  industry: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Bid {
-  id: string;
-  client_id: string;
-  ambassador_id: string;
-  campaign_title: string;
-  campaign_description?: string;
-  budget?: number;
-  timeline?: string;
-  requirements?: string;
-  status: BidStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ChatRoom {
-  id: string;
-  name?: string;
-  is_group: boolean;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ChatParticipant {
-  id: string;
-  chat_room_id: string;
-  user_id: string;
-  joined_at: string;
-}
-
-export interface Message {
-  id: string;
-  chat_room_id: string;
-  sender_id: string;
-  content?: string;
-  file_url?: string;
-  created_at: string;
-}
-
-export interface Contract {
-  id: string;
-  bid_id: string;
-  document_url?: string;
-  terms?: any;
-  status: ContractStatus;
-  signed_by_client_at?: string;
-  signed_by_ambassador_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Portfolio {
-  id: string;
-  ambassador_id: string;
-  client_id?: string;
-  title: string;
-  description?: string;
-  campaign_date?: string;
-  instagram_url?: string;
-  tiktok_url?: string;
-  media_urls?: string[];
-  results?: any;
-  created_at: string;
-  updated_at: string;
-}
-
-// Chat types for UI components
-export interface Chat {
-  id: string;
-  name: string;
-  lastMessage: string;
-  timestamp: string;
-  unreadCount: number;
-  profilePicture?: string;
-  isOnline: boolean;
-  isGroup: boolean;
-  participants?: string[];
-  status?: ChatStatus;
-  milestone?: string;
-  contractId?: string;
-}
-
-// Portfolio and Campaign types for profile page
-export interface PortfolioItem {
-  id: string;
-  title: string;
-  description?: string;
-  platform: "instagram" | "tiktok" | "youtube" | "twitter";
-  postUrl: string;
-  thumbnailUrl?: string;
-  date: string;
-  views?: string;
-  likes?: string;
-  engagement?: string;
-}
-
-export interface Campaign {
-  id: string;
-  title: string;
-  status: "active" | "completed";
-  budgetRange: string;
-  ambassadorCount: number;
-  timeline: string;
-  coverImage?: string;
-}
+// Auto-generated from Supabase schema - DO NOT EDIT MANUALLY
+// To regenerate: Run supabase gen types typescript --local
 
 export type Json =
   | string
@@ -157,72 +9,51 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
-      profiles: {
-        Row: {
-          id: string
-          role: UserRole
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          role: UserRole
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          role?: UserRole
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       ambassador_profiles: {
         Row: {
-          id: string
-          user_id: string
-          full_name: string
           bio: string | null
-          location: string | null
-          profile_photo_url: string | null
+          created_at: string | null
+          full_name: string
+          id: string
           instagram_handle: string | null
+          location: string | null
+          niche: string[] | null
+          profile_photo_url: string | null
           tiktok_handle: string | null
           twitter_handle: string | null
-          niche: string[] | null
-          created_at: string
-          updated_at: string
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          full_name: string
           bio?: string | null
-          location?: string | null
-          profile_photo_url?: string | null
+          created_at?: string | null
+          full_name: string
+          id?: string
           instagram_handle?: string | null
+          location?: string | null
+          niche?: string[] | null
+          profile_photo_url?: string | null
           tiktok_handle?: string | null
           twitter_handle?: string | null
-          niche?: string[] | null
-          created_at?: string
-          updated_at?: string
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          full_name?: string
           bio?: string | null
-          location?: string | null
-          profile_photo_url?: string | null
+          created_at?: string | null
+          full_name?: string
+          id?: string
           instagram_handle?: string | null
+          location?: string | null
+          niche?: string[] | null
+          profile_photo_url?: string | null
           tiktok_handle?: string | null
           twitter_handle?: string | null
-          niche?: string[] | null
-          created_at?: string
-          updated_at?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -231,94 +62,57 @@ export interface Database {
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          }
-        ]
-      }
-      client_profiles: {
-        Row: {
-          id: string
-          user_id: string
-          company_name: string
-          company_description: string | null
-          website: string | null
-          logo_url: string | null
-          industry: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          company_name: string
-          company_description?: string | null
-          website?: string | null
-          logo_url?: string | null
-          industry?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          company_name?: string
-          company_description?: string | null
-          website?: string | null
-          logo_url?: string | null
-          industry?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
+          },
         ]
       }
       bids: {
         Row: {
-          id: string
-          client_id: string
           ambassador_id: string
-          campaign_title: string
-          campaign_description: string | null
           budget: number | null
-          timeline: string | null
+          campaign_description: string | null
+          campaign_title: string
+          client_id: string
+          created_at: string | null
+          id: string
           requirements: string | null
-          status: BidStatus
-          created_at: string
-          updated_at: string
+          status: Database["public"]["Enums"]["bid_status"] | null
+          timeline: string | null
+          updated_at: string | null
         }
         Insert: {
-          id?: string
-          client_id: string
           ambassador_id: string
-          campaign_title: string
-          campaign_description?: string | null
           budget?: number | null
-          timeline?: string | null
+          campaign_description?: string | null
+          campaign_title: string
+          client_id: string
+          created_at?: string | null
+          id?: string
           requirements?: string | null
-          status?: BidStatus
-          created_at?: string
-          updated_at?: string
+          status?: Database["public"]["Enums"]["bid_status"] | null
+          timeline?: string | null
+          updated_at?: string | null
         }
         Update: {
-          id?: string
-          client_id?: string
           ambassador_id?: string
-          campaign_title?: string
-          campaign_description?: string | null
           budget?: number | null
-          timeline?: string | null
+          campaign_description?: string | null
+          campaign_title?: string
+          client_id?: string
+          created_at?: string | null
+          id?: string
           requirements?: string | null
-          status?: BidStatus
-          created_at?: string
-          updated_at?: string
+          status?: Database["public"]["Enums"]["bid_status"] | null
+          timeline?: string | null
+          updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "bids_ambassador_id_fkey"
+            columns: ["ambassador_id"]
+            isOneToOne: false
+            referencedRelation: "ambassador_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bids_client_id_fkey"
             columns: ["client_id"]
@@ -326,68 +120,26 @@ export interface Database {
             referencedRelation: "client_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "bids_ambassador_id_fkey"
-            columns: ["ambassador_id"]
-            isOneToOne: false
-            referencedRelation: "ambassador_profiles"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      chat_rooms: {
-        Row: {
-          id: string
-          name: string | null
-          is_group: boolean
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name?: string | null
-          is_group?: boolean
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string | null
-          is_group?: boolean
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chat_rooms_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
         ]
       }
       chat_participants: {
         Row: {
-          id: string
           chat_room_id: string
+          id: string
+          joined_at: string | null
           user_id: string
-          joined_at: string
         }
         Insert: {
-          id?: string
           chat_room_id: string
+          id?: string
+          joined_at?: string | null
           user_id: string
-          joined_at?: string
         }
         Update: {
-          id?: string
           chat_room_id?: string
+          id?: string
+          joined_at?: string | null
           user_id?: string
-          joined_at?: string
         }
         Relationships: [
           {
@@ -403,33 +155,156 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          }
+          },
+        ]
+      }
+      chat_rooms: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_group: boolean | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_group?: boolean | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_group?: boolean | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_rooms_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_profiles: {
+        Row: {
+          company_description: string | null
+          company_name: string
+          created_at: string | null
+          id: string
+          industry: string | null
+          logo_url: string | null
+          updated_at: string | null
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          company_description?: string | null
+          company_name: string
+          created_at?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          updated_at?: string | null
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          company_description?: string | null
+          company_name?: string
+          created_at?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          updated_at?: string | null
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          bid_id: string
+          created_at: string | null
+          document_url: string | null
+          id: string
+          signed_by_ambassador_at: string | null
+          signed_by_client_at: string | null
+          status: Database["public"]["Enums"]["contract_status"] | null
+          terms: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          bid_id: string
+          created_at?: string | null
+          document_url?: string | null
+          id?: string
+          signed_by_ambassador_at?: string | null
+          signed_by_client_at?: string | null
+          status?: Database["public"]["Enums"]["contract_status"] | null
+          terms?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          bid_id?: string
+          created_at?: string | null
+          document_url?: string | null
+          id?: string
+          signed_by_ambassador_at?: string | null
+          signed_by_client_at?: string | null
+          status?: Database["public"]["Enums"]["contract_status"] | null
+          terms?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bids"
+            referencedColumns: ["id"]
+          },
         ]
       }
       messages: {
         Row: {
-          id: string
           chat_room_id: string
-          sender_id: string
           content: string | null
+          created_at: string | null
           file_url: string | null
-          created_at: string
+          id: string
+          sender_id: string
         }
         Insert: {
-          id?: string
           chat_room_id: string
-          sender_id: string
           content?: string | null
+          created_at?: string | null
           file_url?: string | null
-          created_at?: string
+          id?: string
+          sender_id: string
         }
         Update: {
-          id?: string
           chat_room_id?: string
-          sender_id?: string
           content?: string | null
+          created_at?: string | null
           file_url?: string | null
-          created_at?: string
+          id?: string
+          sender_id?: string
         }
         Relationships: [
           {
@@ -445,95 +320,51 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          }
-        ]
-      }
-      contracts: {
-        Row: {
-          id: string
-          bid_id: string
-          document_url: string | null
-          terms: Json | null
-          status: ContractStatus
-          signed_by_client_at: string | null
-          signed_by_ambassador_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          bid_id: string
-          document_url?: string | null
-          terms?: Json | null
-          status?: ContractStatus
-          signed_by_client_at?: string | null
-          signed_by_ambassador_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          bid_id?: string
-          document_url?: string | null
-          terms?: Json | null
-          status?: ContractStatus
-          signed_by_client_at?: string | null
-          signed_by_ambassador_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contracts_bid_id_fkey"
-            columns: ["bid_id"]
-            isOneToOne: true
-            referencedRelation: "bids"
-            referencedColumns: ["id"]
-          }
+          },
         ]
       }
       portfolios: {
         Row: {
-          id: string
           ambassador_id: string
-          client_id: string | null
-          title: string
-          description: string | null
           campaign_date: string | null
+          client_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
           instagram_url: string | null
-          tiktok_url: string | null
           media_urls: string[] | null
           results: Json | null
-          created_at: string
-          updated_at: string
+          tiktok_url: string | null
+          title: string
+          updated_at: string | null
         }
         Insert: {
-          id?: string
           ambassador_id: string
-          client_id?: string | null
-          title: string
-          description?: string | null
           campaign_date?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
           instagram_url?: string | null
-          tiktok_url?: string | null
           media_urls?: string[] | null
           results?: Json | null
-          created_at?: string
-          updated_at?: string
+          tiktok_url?: string | null
+          title: string
+          updated_at?: string | null
         }
         Update: {
-          id?: string
           ambassador_id?: string
-          client_id?: string | null
-          title?: string
-          description?: string | null
           campaign_date?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
           instagram_url?: string | null
-          tiktok_url?: string | null
           media_urls?: string[] | null
           results?: Json | null
-          created_at?: string
-          updated_at?: string
+          tiktok_url?: string | null
+          title?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -549,8 +380,29 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "client_profiles"
             referencedColumns: ["id"]
-          }
+          },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -560,12 +412,68 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      user_role: UserRole
-      bid_status: BidStatus
-      contract_status: ContractStatus
+      bid_status: "pending" | "accepted" | "rejected" | "expired"
+      contract_status: "draft" | "sent" | "signed" | "active" | "completed"
+      user_role: "ambassador" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
     }
   }
+}
+
+// Helper types for easier usage
+export type UserRole = Database["public"]["Enums"]["user_role"]
+export type BidStatus = Database["public"]["Enums"]["bid_status"]
+export type ContractStatus = Database["public"]["Enums"]["contract_status"]
+
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
+export type AmbassadorProfile = Database["public"]["Tables"]["ambassador_profiles"]["Row"]
+export type ClientProfile = Database["public"]["Tables"]["client_profiles"]["Row"]
+export type Bid = Database["public"]["Tables"]["bids"]["Row"]
+export type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
+export type ChatParticipant = Database["public"]["Tables"]["chat_participants"]["Row"]
+export type Message = Database["public"]["Tables"]["messages"]["Row"]
+export type Contract = Database["public"]["Tables"]["contracts"]["Row"]
+export type Portfolio = Database["public"]["Tables"]["portfolios"]["Row"]
+
+// Legacy types for UI components (keep for compatibility)
+export type ChatStatus = "active" | "completed" | "pending" | "overdue"
+
+export interface Chat {
+  id: string
+  name: string
+  lastMessage: string
+  timestamp: string
+  unreadCount: number
+  profilePicture?: string
+  isOnline: boolean
+  isGroup: boolean
+  participants?: string[]
+  status?: ChatStatus
+  milestone?: string
+  contractId?: string
+}
+
+export interface PortfolioItem {
+  id: string
+  title: string
+  description?: string
+  platform: "instagram" | "tiktok" | "youtube" | "twitter"
+  postUrl: string
+  thumbnailUrl?: string
+  date: string
+  views?: string
+  likes?: string
+  engagement?: string
+}
+
+export interface Campaign {
+  id: string
+  title: string
+  status: "active" | "completed"
+  budgetRange: string
+  ambassadorCount: number
+  timeline: string
+  coverImage?: string
 }
