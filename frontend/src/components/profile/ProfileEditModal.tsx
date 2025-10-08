@@ -179,19 +179,19 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
-      {/* Blurred Background Overlay - Fallback with visible effect */}
-      <div 
-        className="fixed inset-0 bg-gradient-to-br from-black from-opacity-30 via-gray-900 via-opacity-40 to-black to-opacity-30"
+      {/* Blurred Background Overlay */}
+      <div
+        className="fixed inset-0"
         style={{
-          backdropFilter: 'blur(12px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(12px) saturate(150%)',
-          background: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          background: 'rgba(0, 0, 0, 0.5)',
         }}
         onClick={handleClose}
       />
-      
-      {/* Modal Content */}
-      <div className="relative z-10 w-full max-w-2xl my-8">
+
+      {/* Modal Content with bounce animation */}
+      <div className="relative z-10 w-full max-w-2xl my-8 animate-bounce-in">
         <Card>
           <CardContent className="relative p-0">
             {/* Close Button */}

@@ -199,8 +199,20 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop with blur effect */}
+      <div
+        className="fixed inset-0"
+        style={{
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          background: 'rgba(0, 0, 0, 0.5)',
+        }}
+        onClick={onClose}
+      />
+
+      {/* Modal with bounce animation */}
+      <Card className="relative z-10 w-full max-w-4xl max-h-[90vh] overflow-hidden animate-bounce-in">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
