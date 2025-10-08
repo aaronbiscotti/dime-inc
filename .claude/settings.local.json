@@ -10,7 +10,14 @@
       "Bash(chmod:*)",
       "Bash(cat:*)",
       "mcp__supabase__get_project_url",
-      "mcp__supabase__get_anon_key"
+      "mcp__supabase__get_anon_key",
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__execute_sql",
+      "WebSearch",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:github.com)",
+      "mcp__supabase__search_docs",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

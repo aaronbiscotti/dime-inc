@@ -156,14 +156,16 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
 
       const result = await res.json();
 
-      if (result.success) {
+      if (res.ok && result.success) {
         setSuccess(true);
+        // Sign out and redirect after successful deletion
         setTimeout(async () => {
           await supabase.auth.signOut();
+          // Force reload to clear all app state
           window.location.href = "/";
         }, 1500);
       } else {
-        setError(result.error || "Failed to delete account");
+        setError(result.message || result.error || "Failed to delete account");
       }
     } catch (error) {
       console.error("Error deleting account:", error);

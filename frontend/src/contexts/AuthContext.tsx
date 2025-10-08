@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/utils/supabase/client";
 import {
   Profile,
   UserRole,
@@ -39,6 +39,8 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+
   const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
   });
 
-  let isUpdatingProfile = false;
+  const isUpdatingProfileRef = React.useRef(false);
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -104,12 +106,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    const updateAuthState = async (session: Session | null) => {
-      if (!mounted || isUpdatingProfile) return;
+    const updateAuthState = async (session: Session | null, isInitialLoad = false) => {
+      if (!mounted) return;
+      if (isUpdatingProfileRef.current) return;
 
       if (session?.user) {
-        isUpdatingProfile = true;
-        setState(prev => ({ ...prev, loading: true }));
+        isUpdatingProfileRef.current = true;
+
+        // Only show loading skeleton on initial load, not on refresh
+        if (isInitialLoad) {
+          setState(prev => ({ ...prev, loading: true }));
+        }
 
         try {
           const { profile, ambassadorProfile, clientProfile } =
@@ -131,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setState(prev => ({ ...prev, loading: false }));
           }
         } finally {
-          isUpdatingProfile = false;
+          isUpdatingProfileRef.current = false;
         }
       } else {
         setState({
@@ -145,13 +152,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    const initializeAuth = async () => {
+    const initializeAuth = async (isInitialLoad = false) => {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        await updateAuthState(session);
+        await updateAuthState(session, isInitialLoad);
       } catch (error) {
         console.error("Error initializing auth:", error);
         if (mounted) {
@@ -160,25 +167,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Handle page visibility change - refresh when user returns
+    // Handle page visibility change - refresh when user returns (background refresh)
     const handleVisibilityChange = () => {
       if (!document.hidden && mounted) {
-        console.log('User returned to page, refreshing auth state...');
-        // Force a complete refresh when user returns to the page
-        initializeAuth();
+        // Background refresh - don't show loading skeleton
+        initializeAuth(false);
       }
     };
 
-    // Handle window focus - additional refresh trigger
+    // Handle window focus - additional refresh trigger (background refresh)
     const handleWindowFocus = () => {
       if (mounted) {
-        console.log('Window focused, refreshing auth state...');
-        // Force refresh when window gets focus
-        initializeAuth();
+        // Background refresh - don't show loading skeleton
+        initializeAuth(false);
       }
     };
 
-    initializeAuth();
+    // Initial load - show loading skeleton
+    initializeAuth(true);
 
     const {
       data: { subscription },
@@ -188,21 +194,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Add a small delay to prevent rapid state changes
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      await updateAuthState(session);
+      // Auth state change - don't show loading skeleton (background refresh)
+      await updateAuthState(session, false);
     });
 
-    // Add event listeners for page visibility and window focus
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus);
+    // Delay adding event listeners to prevent them from firing during initial mount
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleWindowFocus);
+      }
+    }, 1000);
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
       // Cleanup function to reset any pending states
-      if (isUpdatingProfile) {
-        isUpdatingProfile = false;
+      if (isUpdatingProfileRef.current) {
+        isUpdatingProfileRef.current = false;
       }
     };
   }, []);
@@ -294,8 +306,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       // Cancel any ongoing operations
-      if (isUpdatingProfile) {
-        isUpdatingProfile = false;
+      if (isUpdatingProfileRef.current) {
+        isUpdatingProfileRef.current = false;
       }
 
       // Clear state immediately for responsive UI

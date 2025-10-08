@@ -17,8 +17,18 @@ class DeleteUserResponse(BaseModel):
 @router.delete("/delete")
 async def delete_user(request: DeleteUserRequest) -> DeleteUserResponse:
     """
-    Delete a user and all their associated data.
-    This replaces the Next.js API route.
+    Atomically delete a user and all their associated data.
+    Uses database CASCADE deletes for atomic deletion.
+
+    Deletion order (CASCADE handles automatically):
+    1. auth.users deleted → triggers CASCADE on profiles
+    2. profiles deleted → triggers CASCADE on:
+       - ambassador_profiles → CASCADE on portfolios, bids, contracts
+       - client_profiles → CASCADE on bids, contracts
+       - chat_participants → CASCADE deletes orphaned chat_rooms (via trigger)
+       - messages
+
+    All deletions are atomic within a database transaction.
     """
     try:
         user_id = request.user_id
@@ -29,53 +39,35 @@ async def delete_user(request: DeleteUserRequest) -> DeleteUserResponse:
                 detail="Missing user_id"
             )
 
-        # Delete related data (cascading deletes should handle most of this)
-        # But we'll be explicit for safety
+        # Verify user exists
+        profile = admin_client.table("profiles").select("id").eq("id", user_id).maybe_single().execute()
 
-        # Delete chat participants
-        admin_client.table("chat_participants").delete().eq("user_id", user_id).execute()
+        if not profile.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
 
-        # Delete messages
-        admin_client.table("messages").delete().eq("sender_id", user_id).execute()
+        # Delete from auth.users - this triggers CASCADE delete on everything
+        # The database handles all related deletions automatically:
+        # - profiles (ON DELETE CASCADE from auth.users)
+        # - ambassador_profiles/client_profiles (ON DELETE CASCADE from profiles)
+        # - portfolios (ON DELETE CASCADE from ambassador_profiles)
+        # - bids (ON DELETE CASCADE from ambassador_profiles/client_profiles)
+        # - contracts (ON DELETE CASCADE from bids)
+        # - chat_participants (ON DELETE CASCADE from profiles)
+        # - messages (ON DELETE CASCADE from profiles)
+        # - orphaned chat_rooms (via trigger after chat_participants delete)
 
-        # Get profile to determine role
-        profile = admin_client.table("profiles").select("id, role").eq("id", user_id).maybe_single().execute()
-
-        if profile.data:
-            role = profile.data["role"]
-
-            # Delete role-specific profile
-            if role == "ambassador":
-                # Get ambassador_profile id first
-                amb_profile = admin_client.table("ambassador_profiles").select("id").eq("user_id", user_id).maybe_single().execute()
-                if amb_profile.data:
-                    # Delete portfolios
-                    admin_client.table("portfolios").delete().eq("ambassador_id", amb_profile.data["id"]).execute()
-                    # Delete bids
-                    admin_client.table("bids").delete().eq("ambassador_id", amb_profile.data["id"]).execute()
-                    # Delete ambassador profile
-                    admin_client.table("ambassador_profiles").delete().eq("user_id", user_id).execute()
-
-            elif role == "client":
-                # Get client_profile id first
-                client_profile = admin_client.table("client_profiles").select("id").eq("user_id", user_id).maybe_single().execute()
-                if client_profile.data:
-                    # Delete bids
-                    admin_client.table("bids").delete().eq("client_id", client_profile.data["id"]).execute()
-                    # Delete client profile
-                    admin_client.table("client_profiles").delete().eq("user_id", user_id).execute()
-
-        # Delete main profile
-        admin_client.table("profiles").delete().eq("id", user_id).execute()
-
-        # Delete from auth
-        result = admin_client.auth.admin.delete_user(user_id)
+        admin_client.auth.admin.delete_user(user_id)
 
         return DeleteUserResponse(
             success=True,
-            message="User deleted successfully"
+            message="User and all associated data deleted successfully"
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

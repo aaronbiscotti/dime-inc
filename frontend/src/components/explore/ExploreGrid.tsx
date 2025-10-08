@@ -51,12 +51,13 @@ export function ExploreGrid({
           // Ambassador is looking for clients
           const { data: clients, error } = await supabase
             .from("client_profiles")
-            .select("*");
+            .select("*, user_id");
 
           if (!error && clients) {
             // Convert to expected format
             const formattedClients = clients.map((client) => ({
-              id: client.id,
+              id: client.user_id, // Use user_id as the main ID (same as ambassadors)
+              profileId: client.id, // Keep profile ID for reference
               companyName: client.company_name,
               industry: client.industry || "Various",
               description: client.company_description || "Company on Dime",

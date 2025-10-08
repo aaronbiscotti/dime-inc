@@ -27,7 +27,6 @@ export function AuthFlow({
     initialRole || null
   );
 
-  console.log('AuthFlow state:', { currentStep, selectedRole, initialRole });
   const { user, profile, ambassadorProfile, clientProfile, loading, signOut } = useAuth();
   const router = useRouter();
 
@@ -47,7 +46,6 @@ export function AuthFlow({
   }, [user, profile, ambassadorProfile, clientProfile, loading, router, redirectTo]);
 
   const handleSignupSuccess = (role: UserRole) => {
-    console.log('handleSignupSuccess: Setting selectedRole to:', role);
     setSelectedRole(role);
     setCurrentStep("profile-setup");
   };
@@ -56,9 +54,8 @@ export function AuthFlow({
     router.push(redirectTo);
   };
 
-  if (loading) {
-    return <AuthSkeleton />;
-  }
+  // Don't show a separate loading skeleton - let each form handle its own loading state
+  // This prevents the flash of a separate skeleton page
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
