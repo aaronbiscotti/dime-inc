@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { DebugPanel } from "@/components/debug/DebugPanel";
-import { ToastProvider } from "@/components/ui/toast";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Dime - Login",
-  description: "Dime application login portal",
+  title: "Dime",
+  description: "Dime application",
 };
 
 export default function RootLayout({
@@ -17,12 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <ToastProvider>
-          <AuthProvider>
-            {children}
-            <DebugPanel />
-          </AuthProvider>
-        </ToastProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

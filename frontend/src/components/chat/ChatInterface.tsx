@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ChatSidebar } from './ChatSidebar'
 import { ChatArea } from './ChatArea'
 import { ContextPanel } from './ContextPanel'
@@ -11,8 +12,21 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ userRole }: ChatInterfaceProps) {
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+
+  // Initialize state from URL immediately (before first render)
+  const chatIdFromUrl = searchParams.get('chat')
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(chatIdFromUrl)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Sync with URL changes
+  useEffect(() => {
+    const chatId = searchParams.get('chat')
+    if (chatId && chatId !== selectedChatId) {
+      setSelectedChatId(chatId)
+      setIsMobileMenuOpen(false) // Close sidebar on mobile to show chat
+    }
+  }, [searchParams, selectedChatId])
 
   return (
     <div className="max-w-7xl mx-auto p-6">

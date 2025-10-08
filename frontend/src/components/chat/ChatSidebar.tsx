@@ -65,47 +65,52 @@ export function ChatSidebar({
 
         // For each chat room, get the latest message and other participants
         const chatPromises = userChatRooms.map(async (chatRoom: any) => {
-          // Get latest message
+          // Get latest message (maybeSingle allows 0 or 1 row)
           const { data: latestMessage } = await supabase
             .from("messages")
             .select("content, created_at")
             .eq("chat_room_id", chatRoom.id)
             .order("created_at", { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
-          // Get other participants (avoiding inner joins)
-          const { data: otherParticipants } = await supabase
+          // Get other participants (simple queries to avoid RLS issues)
+          const { data: participantIds } = await supabase
             .from("chat_participants")
-            .select(
-              `
-              user_id,
-              profiles!inner (
-                id, role,
-                ambassador_profiles(full_name),
-                client_profiles(company_name)
-              )
-            `
-            )
+            .select("user_id")
             .eq("chat_room_id", chatRoom.id)
             .neq("user_id", user.id);
+
+          let otherParticipants: any[] = [];
+          if (participantIds && participantIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select(`
+                id, role,
+                ambassador_profiles(full_name, profile_photo_url),
+                client_profiles(company_name, logo_url)
+              `)
+              .in("id", participantIds.map(p => p.user_id));
+
+            if (profiles) {
+              otherParticipants = profiles;
+            }
+          }
 
           // Format chat name
           let chatName = chatRoom.name;
           if (!chatName && otherParticipants && otherParticipants.length > 0) {
             const otherParticipant = otherParticipants[0] as any;
             if (
-              otherParticipant.profiles?.role === "ambassador" &&
-              otherParticipant.profiles.ambassador_profiles?.[0]
+              otherParticipant.role === "ambassador" &&
+              otherParticipant.ambassador_profiles?.[0]
             ) {
-              chatName =
-                otherParticipant.profiles.ambassador_profiles[0].full_name;
+              chatName = otherParticipant.ambassador_profiles[0].full_name;
             } else if (
-              otherParticipant.profiles?.role === "client" &&
-              otherParticipant.profiles.client_profiles?.[0]
+              otherParticipant.role === "client" &&
+              otherParticipant.client_profiles?.[0]
             ) {
-              chatName =
-                otherParticipant.profiles.client_profiles[0].company_name;
+              chatName = otherParticipant.client_profiles[0].company_name;
             } else {
               chatName = "Unknown User";
             }
@@ -121,7 +126,7 @@ export function ChatSidebar({
             unreadCount: 0, // TODO: Implement unread count tracking
             isOnline: false, // TODO: Implement online status
             isGroup: chatRoom.is_group,
-            participants: otherParticipants?.map((p: any) => p.user_id) || [],
+            participants: otherParticipants?.map((p: any) => p.id) || [],
           };
 
           return chat;

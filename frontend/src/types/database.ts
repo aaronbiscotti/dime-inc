@@ -409,7 +409,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_chat_participant: {
+        Args: { p_chat_room_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      find_private_chat_between_users: {
+        Args: { user1_id: string; user2_id: string }
+        Returns: string
+      }
+      is_chat_member: {
+        Args: { p_chat_room_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_chat_participant: {
+        Args: { room_id: string; user_id: string }
+        Returns: boolean
+      }
+      remove_chat_participant: {
+        Args: { p_chat_room_id: string; p_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       bid_status: "pending" | "accepted" | "rejected" | "expired"

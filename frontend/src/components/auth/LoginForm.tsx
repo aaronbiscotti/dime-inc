@@ -177,27 +177,8 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
     }
   };
 
-  if (authLoading) {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-6 bg-gray-200 rounded w-3/4 mx-auto"></div>
-            <div className="h-4 bg-gray-200 rounded w-full mx-auto"></div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-20"></div>
-              <div className="h-10 bg-gray-200 rounded-lg w-full"></div>
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-24"></div>
-              <div className="h-10 bg-gray-200 rounded-lg w-full"></div>
-            </div>
-            <div className="h-10 bg-gray-200 rounded-lg w-full"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Note: AuthFlow already handles the loading state, so we don't need to check it here
+  // This prevents the brief loading skeleton flash on page load
 
   return (
     <Card className="w-full max-w-md mx-auto">

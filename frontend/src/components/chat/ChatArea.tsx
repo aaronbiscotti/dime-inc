@@ -85,31 +85,34 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
           return;
         }
 
-        // Get participants for the chat room using join to avoid policy issues
-        const { data: participantsData } = await supabase
-          .from("chat_rooms")
-          .select(`
-            chat_participants!inner(
-              user_id,
-              profiles!inner(
-                id, role,
-                ambassador_profiles(full_name),
-                client_profiles(company_name)
-              )
-            )
-          `)
-          .eq("id", selectedChatId)
-          .neq("chat_participants.user_id", user.id)
-          .single();
+        // Get participants for the chat room (simple query to avoid RLS issues)
+        const { data: participantsData, error: participantsError } = await supabase
+          .from("chat_participants")
+          .select("user_id")
+          .eq("chat_room_id", selectedChatId)
+          .neq("user_id", user.id);
 
+        if (participantsError) {
+          console.error("Error fetching participants:", participantsError);
+        }
+
+        // Get profile details for other participants
         let participants: any[] = [];
-        if (participantsData?.chat_participants) {
-          participants = participantsData.chat_participants.map((participant: any) => ({
-            user_id: participant.user_id,
-            profiles: participant.profiles,
-            ambassador_profiles: participant.profiles?.ambassador_profiles?.[0] || null,
-            client_profiles: participant.profiles?.client_profiles?.[0] || null
-          }));
+        if (participantsData && participantsData.length > 0) {
+          const otherUserIds = participantsData.map(p => p.user_id);
+
+          const { data: profilesData } = await supabase
+            .from("profiles")
+            .select(`
+              id, role,
+              ambassador_profiles(full_name, profile_photo_url),
+              client_profiles(company_name, logo_url)
+            `)
+            .in("id", otherUserIds);
+
+          if (profilesData) {
+            participants = profilesData;
+          }
         }
 
         setChatRoom({ ...chatRoomData, participants });
@@ -344,6 +347,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
 
       if (error) {
         console.error("Error sending message:", error);
+        alert(`Failed to send message: ${error.message || 'Unknown error'}`);
         return;
       }
 
