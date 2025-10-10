@@ -39,7 +39,9 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
+  // Create Supabase client once and memoize it
+  const supabaseRef = React.useRef(createClient());
+  const supabase = supabaseRef.current;
 
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -54,7 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Use maybeSingle() instead of single() to handle 406 errors
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -79,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from("ambassador_profiles")
           .select("*")
           .eq("user_id", userId)
-          .maybeSingle(); // Use maybeSingle() here too
+          .maybeSingle();
 
         if (!error && data) {
           ambassadorProfile = data;
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from("client_profiles")
           .select("*")
           .eq("user_id", userId)
-          .maybeSingle(); // Use maybeSingle() here too
+          .maybeSingle();
 
         if (!error && data) {
           clientProfile = data;
@@ -190,6 +191,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+
+      // Skip INITIAL_SESSION event - we handle this in initializeAuth
+      if (event === 'INITIAL_SESSION') {
+        return;
+      }
 
       // Add a small delay to prevent rapid state changes
       await new Promise(resolve => setTimeout(resolve, 100));

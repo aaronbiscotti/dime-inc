@@ -13,16 +13,20 @@ import Image from "next/image";
 interface AmbassadorPortfolioProps {
   portfolioItems: PortfolioItem[];
   loading: boolean;
+  onAddContent: () => void;
 }
 
-export function AmbassadorPortfolio({ portfolioItems, loading }: AmbassadorPortfolioProps) {
+export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: AmbassadorPortfolioProps) {
   if (loading) {
     return (
       <div className="lg:col-span-2">
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold text-gray-900">Portfolio</h3>
-            <Button className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]">
+            <Button
+              onClick={onAddContent}
+              className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Content
             </Button>
@@ -50,7 +54,10 @@ export function AmbassadorPortfolio({ portfolioItems, loading }: AmbassadorPortf
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-semibold text-gray-900">Portfolio</h3>
-          <Button className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]">
+          <Button
+            onClick={onAddContent}
+            className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Content
           </Button>

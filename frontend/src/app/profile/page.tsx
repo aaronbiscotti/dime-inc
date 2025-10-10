@@ -10,9 +10,11 @@ import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileSidebar } from "@/components/profile/ProfileSidebar";
 import { AmbassadorPortfolio } from "@/components/profile/AmbassadorPortfolio";
 import { ClientCampaigns } from "@/components/profile/ClientCampaigns";
+import { AddContentModal } from "@/components/portfolio/AddContentModal";
 import { PortfolioItem, Campaign } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { campaignService } from "@/services/campaignService";
+import { instagramService, InstagramMedia } from "@/services/instagramService";
 
 export default function Profile() {
   const { profile, ambassadorProfile, clientProfile } = useAuth();
@@ -30,6 +32,7 @@ export default function Profile() {
   } | null>(null);
   const [showAmbassadorSelection, setShowAmbassadorSelection] = useState(false);
   const [showProfileEditModal, setShowProfileEditModal] = useState(false);
+  const [showAddContentModal, setShowAddContentModal] = useState(false);
 
   // Fetch real data from database
   useEffect(() => {
@@ -96,6 +99,62 @@ export default function Profile() {
     fetchData();
   }, [profile, ambassadorProfile, clientProfile]);
 
+  // Handle content addition from Instagram
+  const handleContentSelected = async (mediaItems: InstagramMedia[]) => {
+    if (!ambassadorProfile) return;
+
+    try {
+      // Save each selected media item to portfolio
+      for (const media of mediaItems) {
+        // Fetch insights for the media
+        const insightsResponse = await fetch(`/api/instagram/insights/${media.id}`);
+        const { data: insights } = await insightsResponse.json();
+
+        // Create portfolio item
+        await supabase.from("portfolios").insert({
+          ambassador_id: ambassadorProfile.id,
+          title: media.caption || `Instagram Reel - ${new Date(media.timestamp).toLocaleDateString()}`,
+          description: media.caption || null,
+          instagram_url: media.permalink,
+          media_urls: [media.media_url],
+          campaign_date: media.timestamp,
+          results: {
+            views: insights?.plays || 0,
+            likes: insights?.likes || 0,
+            engagement: insights?.total_interactions || 0,
+          },
+        });
+      }
+
+      // Refresh portfolio items
+      const { data: portfolios } = await supabase
+        .from("portfolios")
+        .select("*")
+        .eq("ambassador_id", ambassadorProfile.id)
+        .order("created_at", { ascending: false });
+
+      if (portfolios) {
+        const items: PortfolioItem[] = portfolios.map((portfolio) => ({
+          id: portfolio.id,
+          title: portfolio.title,
+          description: portfolio.description || undefined,
+          platform: portfolio.instagram_url ? "instagram" : "tiktok",
+          postUrl: portfolio.instagram_url || portfolio.tiktok_url || "#",
+          thumbnailUrl: (portfolio.media_urls as string[])?.[0] || undefined,
+          date: new Date(
+            portfolio.campaign_date || portfolio.created_at || new Date()
+          ).toLocaleDateString(),
+          views: (portfolio.results as any)?.views?.toString() || undefined,
+          likes: (portfolio.results as any)?.likes?.toString() || undefined,
+          engagement: (portfolio.results as any)?.engagement?.toString() || undefined,
+        }));
+        setPortfolioItems(items);
+      }
+    } catch (error) {
+      console.error("Error saving content:", error);
+    }
+  };
+
   return (
     <ProfileGuard>
       <div className="min-h-screen bg-gray-50">
@@ -119,6 +178,7 @@ export default function Profile() {
                 <AmbassadorPortfolio
                   portfolioItems={portfolioItems}
                   loading={loading}
+                  onAddContent={() => setShowAddContentModal(true)}
                 />
               ) : (
                 <ClientCampaigns
@@ -164,6 +224,15 @@ export default function Profile() {
               setShowAmbassadorSelection(false);
               setSelectedCampaign(null);
             }}
+          />
+        )}
+
+        {/* Add Content Modal */}
+        {showAddContentModal && (
+          <AddContentModal
+            isOpen={showAddContentModal}
+            onClose={() => setShowAddContentModal(false)}
+            onContentSelected={handleContentSelected}
           />
         )}
       </div>
