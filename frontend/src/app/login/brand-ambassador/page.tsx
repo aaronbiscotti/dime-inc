@@ -4,7 +4,7 @@ export default function BrandAmbassadorLogin() {
   return (
     <AuthFlow
       initialRole="ambassador"
-      redirectTo="/profile"
+      redirectTo="/dashboard"
       requireRoleMatch={true}
     />
   );
