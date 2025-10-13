@@ -31,7 +31,10 @@ export function Navbar() {
         <div className="flex items-center justify-between w-full">
           {/* Logo and Navigation Links */}
           <div className="flex items-center space-x-8">
-            <Link href="/profile" className="flex items-center">
+            <Link 
+              href={profile.role === "client" ? "/client-dashboard" : "/ambassador-dashboard"} 
+              className="flex items-center"
+            >
               <Image
                 src="/logo.svg"
                 alt="Dime Logo"
@@ -43,38 +46,101 @@ export function Navbar() {
             </Link>
 
             <div className="flex items-center space-x-6">
-              <Link
-                href="/profile"
-                className={`text-sm font-medium transition-colors ${
-                  pathname.startsWith("/profile")
-                    ? "text-gray-900"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Profile
-              </Link>
+              {profile.role === "client" ? (
+                <>
+                  {/* Client Navigation */}
+                  <Link
+                    href="/client-dashboard"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/client-dashboard"
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+                  
+                  <Link
+                    href="/campaigns"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/campaigns"
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Campaigns
+                  </Link>
 
-              <Link
-                href="/explore"
-                className={`text-sm font-medium transition-colors ${
-                  pathname === "/explore"
-                    ? "text-gray-900"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Explore
-              </Link>
+                  <Link
+                    href="/explore"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/explore"
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Explore
+                  </Link>
 
-              <Link
-                href="/chats"
-                className={`text-sm font-medium transition-colors ${
-                  pathname === "/chats"
-                    ? "text-gray-900"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Chats
-              </Link>
+                  <Link
+                    href="/chats"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/chats"
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Chats
+                  </Link>
+                </>
+              ) : (
+                <>
+                  {/* Ambassador Navigation */}
+                  <Link
+                    href="/ambassador-dashboard"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/ambassador-dashboard"
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+
+                  <Link
+                    href="/profile"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname.startsWith("/profile")
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Profile
+                  </Link>
+
+                  <Link
+                    href="/explore"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/explore"
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Explore
+                  </Link>
+
+                  <Link
+                    href="/chats"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/chats"
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Chats
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 

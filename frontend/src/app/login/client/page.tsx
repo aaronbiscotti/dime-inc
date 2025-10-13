@@ -4,7 +4,7 @@ export default function ClientLogin() {
   return (
     <AuthFlow
       initialRole="client"
-      redirectTo="/profile"
+      redirectTo="/dashboard"
       requireRoleMatch={true}
     />
   );

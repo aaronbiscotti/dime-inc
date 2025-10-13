@@ -36,7 +36,7 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
   // Redirect if already authenticated
   useEffect(() => {
     if (user && !authLoading) {
-      router.push("/profile");
+      router.push("/dashboard");
     }
   }, [user, authLoading, router]);
 
@@ -108,8 +108,8 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
         return;
       }
 
-      // Success - redirect to profile page
-      router.push("/profile");
+      // Success - redirect to dashboard
+      router.push("/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);
 

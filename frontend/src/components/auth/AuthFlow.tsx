@@ -19,7 +19,7 @@ interface AuthFlowProps {
 
 export function AuthFlow({
   initialRole,
-  redirectTo = "/profile",
+  redirectTo = "/dashboard",
   requireRoleMatch = false,
 }: AuthFlowProps) {
   const [currentStep, setCurrentStep] = useState<AuthStep>("login");
