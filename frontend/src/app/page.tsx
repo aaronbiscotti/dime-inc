@@ -20,9 +20,9 @@ export default function Home() {
         (profile.role === "ambassador" && ambassadorProfile) ||
         (profile.role === "client" && clientProfile);
 
-      // If user has a complete profile, redirect to profile
+      // If user has a complete profile, redirect to dashboard
       if (hasCompleteProfile) {
-        router.push("/profile");
+        router.push("/dashboard");
       }
     }
   }, [user, profile, ambassadorProfile, clientProfile, loading, router]);
