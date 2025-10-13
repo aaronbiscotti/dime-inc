@@ -3,23 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { ExploreInterface } from "@/components/explore/ExploreInterface";
 import { Navbar } from "@/components/layout/Navbar";
-import { ProfileSidebar } from "@/components/profile/ProfileSidebar";
-import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
-import { useAuth } from "@/contexts/AuthContext";
-import { campaignService } from "@/services/campaignService";
 
 export default function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
-  const { profile, clientProfile } = useAuth();
-
-  useEffect(() => {
+  const supabase = createClient();  useEffect(() => {
     const checkClientRole = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -53,31 +43,6 @@ export default function ClientDashboard() {
     checkClientRole();
   }, [router, supabase]);
 
-  // Fetch campaigns for client
-  useEffect(() => {
-    const fetchCampaigns = async () => {
-      if (!clientProfile) return;
-
-      try {
-        const { data: campaignBids, error } = await campaignService.getCampaignsForClient(clientProfile.id);
-
-        if (!error && campaignBids) {
-          setCampaigns(campaignBids);
-        }
-      } catch (error) {
-        console.error("Error fetching campaigns:", error);
-      }
-    };
-
-    if (isClient && clientProfile) {
-      fetchCampaigns();
-    }
-  }, [isClient, clientProfile]);
-
-  const handleEditProfile = () => {
-    setIsEditModalOpen(true);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -95,38 +60,16 @@ export default function ClientDashboard() {
       <Navbar />
       <div className="pt-16">
         <div className="max-w-7xl mx-auto p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Profile Sidebar */}
-            {profile && (
-              <div className="lg:col-span-1">
-                <ProfileSidebar
-                  profile={profile}
-                  clientProfile={clientProfile}
-                  campaignCount={campaigns.length}
-                  onEditProfile={handleEditProfile}
-                />
-              </div>
-            )}
-            
-            {/* Main Content - Ambassador Discovery */}
-            <div className="lg:col-span-3">
-              <ExploreInterface userRole="client" />
-            </div>
+          <div className="text-center py-12">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Client Dashboard
+            </h1>
+            <p className="text-gray-600">
+              Welcome to your client dashboard. More features coming soon!
+            </p>
           </div>
         </div>
       </div>
-
-      {/* Profile Edit Modal */}
-      {isEditModalOpen && (
-        <ProfileEditModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          onSave={() => {
-            setIsEditModalOpen(false);
-            // Refresh will happen automatically through AuthContext
-          }}
-        />
-      )}
     </div>
   );
 }

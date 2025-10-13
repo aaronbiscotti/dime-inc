@@ -92,6 +92,17 @@ export function Navbar() {
                   >
                     Chats
                   </Link>
+
+                  <Link
+                    href="/profile"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname.startsWith("/profile")
+                        ? "text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Profile
+                  </Link>
                 </>
               ) : (
                 <>
