@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   EllipsisVerticalIcon,
   Bars3Icon,
@@ -50,9 +50,61 @@ interface ChatAreaProps {
 
 export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdate, onChatDeleted }: ChatAreaProps) {
   const { user } = useAuth();
+  
+  // Helper function to get participant name from user ID (same as ChatSidebar)
+  const getParticipantNameFromUserId = useCallback(async (userId: string): Promise<string | null> => {
+    try {
+      console.log('ChatArea - looking up user ID:', userId);
+      
+      // Get the user's role first
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (!profile) {
+        console.log('ChatArea - no profile found for user ID:', userId);
+        return null;
+      }
+
+      console.log('ChatArea - found profile role:', profile.role);
+
+      // Get detailed profile based on role
+      if (profile.role === 'ambassador') {
+        const { data: ambassadorProfile } = await supabase
+          .from('ambassador_profiles')
+          .select('full_name')
+          .eq('user_id', userId)
+          .single();
+
+        if (ambassadorProfile) {
+          console.log('ChatArea - found ambassador name:', ambassadorProfile.full_name);
+          return ambassadorProfile.full_name;
+        }
+      } else if (profile.role === 'client') {
+        const { data: clientProfile } = await supabase
+          .from('client_profiles')
+          .select('company_name')
+          .eq('user_id', userId)
+          .single();
+
+        if (clientProfile) {
+          console.log('ChatArea - found client name:', clientProfile.company_name);
+          return clientProfile.company_name;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('ChatArea - error looking up user:', error);
+      return null;
+    }
+  }, []);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
+  const [chatDisplayName, setChatDisplayName] = useState<string>("Unknown Chat");
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -62,6 +114,21 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
   const [deleting, setDeleting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update chat display name when chat room changes
+  useEffect(() => {
+    const updateDisplayName = async () => {
+      if (!chatRoom) {
+        setChatDisplayName("Unknown Chat");
+        return;
+      }
+
+      const displayName = await getChatDisplayName();
+      setChatDisplayName(displayName);
+    };
+
+    updateDisplayName();
+  }, [chatRoom, user]); // Re-run when chatRoom or user changes
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch chat room data and set up real-time messaging
@@ -326,7 +393,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
   };
 
   // Get chat display name
-  const getChatDisplayName = () => {
+  const getChatDisplayName = useCallback(async () => {
     if (!chatRoom) return "Unknown Chat";
 
     // For group chats, use the chat name
@@ -334,23 +401,52 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
       return chatRoom.name;
     }
 
-    // For private chats, prioritize participant name over chat name
+    // For private chats, construct "Chat with {participant name}"
     if (chatRoom.participants && chatRoom.participants.length > 0) {
       const participant = chatRoom.participants[0];
-      console.log('Getting name for participant:', participant);
+      console.log('ChatArea - Getting name for participant:', participant);
       
+      let participantName = "Unknown User";
       if (participant.profiles?.role === "ambassador" && participant.ambassador_profiles) {
-        return participant.ambassador_profiles.full_name;
+        participantName = participant.ambassador_profiles.full_name;
       } else if (participant.profiles?.role === "client" && participant.client_profiles) {
-        return participant.client_profiles.company_name;
+        participantName = participant.client_profiles.company_name;
+      }
+      
+      return `Chat with ${participantName}`;
+    }
+
+    // Fallback: try to parse neutral chat name format
+    if (chatRoom.name && user) {
+      console.log('ChatArea - no participants found, trying to parse chat name:', chatRoom.name);
+      console.log('ChatArea - current user ID:', user.id);
+      
+      if (chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/)) {
+        // This is a neutral format chat name, try to get the other user ID
+        const neutralMatch = chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/);
+        if (neutralMatch) {
+          const [, userId1, userId2] = neutralMatch;
+          const otherUserId = userId1 === user.id ? userId2 : userId1;
+          console.log('ChatArea - found other user ID from neutral name:', otherUserId);
+          
+          // Try to get their profile
+          const foundName = await getParticipantNameFromUserId(otherUserId);
+          if (foundName) {
+            console.log('ChatArea - successfully resolved name:', foundName);
+            return `Chat with ${foundName}`;
+          } else {
+            console.log('ChatArea - could not resolve name, using fallback');
+          }
+        }
+      } else if (chatRoom.name.match(/Chat with (.+)/)) {
+        // Old format, keep as is
+        return chatRoom.name;
       }
     }
 
-    // Fallback to chat name if participant info isn't available
-    if (chatRoom.name) return chatRoom.name;
-
-    return "Unknown User";
-  };
+    // Final fallback for private chats without participant info
+    return "Private Chat";
+  }, [chatRoom, user, getParticipantNameFromUserId]);
 
   // Format message timestamp
   const formatTimestamp = (timestamp: string) => {
@@ -505,27 +601,27 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
               ) : (
                 <div
                   className={`w-10 h-10 bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-semibold ${
-                    getChatDisplayName().includes("Team") ||
-                    getChatDisplayName().includes("Nike") ||
-                    getChatDisplayName().includes("Corp") ||
-                    getChatDisplayName().includes("Inc") ||
-                    getChatDisplayName().includes("LLC") ||
-                    getChatDisplayName().includes("Ltd") ||
-                    getChatDisplayName().includes("Company") ||
-                    getChatDisplayName().includes("Brand") ||
-                    getChatDisplayName().includes("Marketing")
+                    chatDisplayName.includes("Team") ||
+                    chatDisplayName.includes("Nike") ||
+                    chatDisplayName.includes("Corp") ||
+                    chatDisplayName.includes("Inc") ||
+                    chatDisplayName.includes("LLC") ||
+                    chatDisplayName.includes("Ltd") ||
+                    chatDisplayName.includes("Company") ||
+                    chatDisplayName.includes("Brand") ||
+                    chatDisplayName.includes("Marketing")
                       ? "rounded-lg"
                       : "rounded-full"
                   }`}
                 >
-                  {getChatDisplayName().charAt(0)}
+                  {chatDisplayName.charAt(0)}
                 </div>
               )}
             </div>
 
             {/* Chat Info */}
             <div>
-              <h2 className="font-semibold text-gray-900">{getChatDisplayName()}</h2>
+              <h2 className="font-semibold text-gray-900">{chatDisplayName}</h2>
               {chatRoom?.is_group ? (
                 <p className="text-sm text-gray-500">
                   {(chatRoom.participants?.length || 0) + 1} members

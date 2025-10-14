@@ -63,13 +63,19 @@ export const chatService = {
       console.log('🔄 Creating or finding private chat between:', user.id, 'and', params.participantId);
       console.log('👤 Participant name:', params.participantName);
       
+      // Create a neutral chat name using sorted user IDs for consistency
+      const sortedIds = [user.id, params.participantId].sort();
+      const neutralChatName = `chat_${sortedIds[0]}_${sortedIds[1]}`;
+      
+      console.log('🏷️ Using neutral chat name:', neutralChatName);
+      
       // Use the new RPC function to create or find private chat
       // NOTE: You need to run the SQL in create_private_chat.sql in your Supabase SQL editor first!
       const { data: chatResult, error: rpcError } = await supabase
         .rpc('create_private_chat_between_users' as any, {
           participant1_id: user.id,
           participant2_id: params.participantId,
-          chat_name: params.subject || `Chat with ${params.participantName}`
+          chat_name: neutralChatName
         });
 
       if (rpcError) {
@@ -114,11 +120,17 @@ export const chatService = {
 
       console.log('🔄 FALLBACK: Creating chat room manually...');
 
+      // Create a neutral chat name using sorted user IDs for consistency
+      const sortedIds = [user.id, params.participantId].sort();
+      const neutralChatName = `chat_${sortedIds[0]}_${sortedIds[1]}`;
+      
+      console.log('🏷️ FALLBACK: Using neutral chat name:', neutralChatName);
+
       // Create a new private chat room
       const { data: chatRoom, error: chatError } = await supabase
         .from('chat_rooms')
         .insert({
-          name: params.subject || `Chat with ${params.participantName}`,
+          name: neutralChatName,
           is_group: false,
           created_by: user.id
         })
@@ -560,7 +572,8 @@ export const chatService = {
   },
 
   /**
-   * Get other participant by parsing chat room name (workaround for RLS)
+   * Get other participant by parsing neutral chat name to extract user ID
+   * This replaces the old username-based parsing approach
    */
   async getOtherParticipantFromChatName(chatRoomId: string) {
     try {
@@ -568,6 +581,8 @@ export const chatService = {
       if (userError || !user) {
         return { data: null, error: userError || new Error('User not authenticated') };
       }
+
+      console.log('🔍 Finding other participant via neutral chat name for chat:', chatRoomId);
 
       // Get chat room info
       const { data: chatRoom, error: chatError } = await supabase
@@ -583,34 +598,156 @@ export const chatService = {
 
       console.log('🔍 Chat room name:', chatRoom.name);
 
-      // Extract username from chat name (format: "Chat with username")
+      // Parse the chat name to extract the other user ID
       const chatName = chatRoom.name || '';
       console.log('🔍 Attempting to parse chat name:', chatName);
       
-      // Try multiple patterns
-      let extractedUsername = null;
+      let otherUserId = null;
       
-      // Pattern 1: "Chat with username"
-      let match = chatName.match(/Chat with (.+)/);
-      if (match) {
-        extractedUsername = match[1];
-        console.log('🔍 Pattern 1 matched - extracted username:', extractedUsername);
+      // Try neutral format first: "chat_user1_user2"
+      const neutralMatch = chatName.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/);
+      if (neutralMatch) {
+        const [, userId1, userId2] = neutralMatch;
+        otherUserId = userId1 === user.id ? userId2 : userId1;
+        console.log('🎯 Neutral format matched - other user ID:', otherUserId);
       } else {
-        // Pattern 2: Just the username directly
-        if (chatName && chatName !== 'Chat with') {
-          extractedUsername = chatName.replace('Chat with ', '').trim();
-          console.log('🔍 Pattern 2 - cleaned username:', extractedUsername);
+        // Fallback: try old "Chat with username" format
+        console.log('🔍 Trying old format fallback...');
+        const oldMatch = chatName.match(/Chat with (.+)/);
+        if (oldMatch) {
+          const extractedUsername = oldMatch[1];
+          console.log('🔍 Old format matched - extracted username:', extractedUsername);
+          
+          // Search for this user in profiles to get their ID
+          return await this.searchUserByName(extractedUsername);
+        } else {
+          console.log('❌ Could not parse chat name in any known format:', chatName);
+          return { data: null, error: new Error('Could not parse chat name') };
         }
       }
       
-      if (!extractedUsername || extractedUsername === '') {
-        console.log('❌ Could not extract username from chat name:', chatName);
-        console.log('🔍 Chat name length:', chatName.length);
-        console.log('🔍 Chat name characters:', chatName.split('').map(c => c.charCodeAt(0)));
-        return { data: null, error: new Error('Could not parse chat name') };
+      if (!otherUserId) {
+        console.log('❌ Could not determine other user ID from chat name:', chatName);
+        return { data: null, error: new Error('Could not determine other user ID') };
       }
-      console.log('👤 Extracted username:', extractedUsername);
 
+      console.log('👤 Other user ID:', otherUserId);
+
+      // Get the user's role and profile
+      return await this.getProfileByUserId(otherUserId);
+
+    } catch (error) {
+      console.error('❌ Unexpected error getting participant from chat name:', error);
+      return { data: null, error };
+    }
+  },
+
+  /**
+   * Helper function to get profile by user ID
+   */
+  async getProfileByUserId(userId: string) {
+    try {
+      // Get the user's role from profiles table
+      const { data: profileInfo, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) {
+        console.error('❌ Error fetching participant profile:', profileError);
+        return { data: null, error: profileError };
+      }
+
+      const participantRole = profileInfo?.role;
+      console.log('👤 Other participant role:', participantRole);
+
+      // Fetch detailed profile information based on role
+      let profileData = null;
+      if (participantRole === 'ambassador') {
+        const { data: ambassadorProfile, error: ambassadorError } = await supabase
+          .from('ambassador_profiles')
+          .select(`
+            id,
+            full_name,
+            bio,
+            location,
+            niche,
+            profile_photo_url,
+            instagram_handle,
+            tiktok_handle,
+            twitter_handle
+          `)
+          .eq('user_id', userId)
+          .single();
+
+        if (ambassadorError) {
+          console.error('❌ Error fetching ambassador profile:', ambassadorError);
+          return { data: null, error: ambassadorError };
+        }
+
+        console.log('✅ Ambassador profile loaded:', ambassadorProfile);
+
+        profileData = {
+          userId: userId,
+          role: 'ambassador' as const,
+          id: ambassadorProfile.id,
+          name: ambassadorProfile.full_name,
+          bio: ambassadorProfile.bio,
+          location: ambassadorProfile.location,
+          niche: ambassadorProfile.niche,
+          profilePhoto: ambassadorProfile.profile_photo_url,
+          instagramHandle: ambassadorProfile.instagram_handle,
+          tiktokHandle: ambassadorProfile.tiktok_handle,
+          twitterHandle: ambassadorProfile.twitter_handle,
+        };
+      } else if (participantRole === 'client') {
+        const { data: clientProfile, error: clientError } = await supabase
+          .from('client_profiles')
+          .select(`
+            id,
+            company_name,
+            company_description,
+            industry,
+            logo_url,
+            website
+          `)
+          .eq('user_id', userId)
+          .single();
+
+        if (clientError) {
+          console.error('❌ Error fetching client profile:', clientError);
+          return { data: null, error: clientError };
+        }
+
+        console.log('✅ Client profile loaded:', clientProfile);
+
+        profileData = {
+          userId: userId,
+          role: 'client' as const,
+          id: clientProfile.id,
+          name: clientProfile.company_name,
+          description: clientProfile.company_description,
+          industry: clientProfile.industry,
+          logo: clientProfile.logo_url,
+          website: clientProfile.website,
+        };
+      }
+
+      console.log('✅ Other participant profile loaded:', profileData);
+      return { data: profileData, error: null };
+
+    } catch (error) {
+      console.error('❌ Unexpected error getting profile by user ID:', error);
+      return { data: null, error };
+    }
+  },
+
+  /**
+   * Helper function to search for user by name (fallback for old chat names)
+   */
+  async searchUserByName(extractedUsername: string) {
+    try {
       // Search for this user in ambassador profiles first
       console.log('🔍 Searching ambassador profiles for:', extractedUsername);
       const { data: ambassadorProfiles, error: ambassadorError } = await supabase
@@ -698,7 +835,7 @@ export const chatService = {
       return { data: null, error: new Error('No matching profile found') };
 
     } catch (error) {
-      console.error('❌ Unexpected error getting participant from chat name:', error);
+      console.error('❌ Unexpected error searching user by name:', error);
       return { data: null, error };
     }
   },
