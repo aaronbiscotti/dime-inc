@@ -6,10 +6,12 @@ import {
   Bars3Icon,
   PaperClipIcon,
   PaperAirplaneIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { chatService } from "@/services/chatService";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface Message {
@@ -42,9 +44,11 @@ interface ChatRoom {
 interface ChatAreaProps {
   selectedChatId: string | null;
   onOpenMobileMenu: () => void;
+  onParticipantsUpdate?: () => void;
+  onChatDeleted?: () => void;
 }
 
-export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
+export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdate, onChatDeleted }: ChatAreaProps) {
   const { user } = useAuth();
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,6 +58,8 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [sending, setSending] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -100,8 +106,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
         let participants: any[] = [];
         if (participantsData && participantsData.length > 0) {
           const otherUserIds = participantsData.map(p => p.user_id);
+          console.log('Fetching profiles for other users:', otherUserIds);
 
-          const { data: profilesData } = await supabase
+          const { data: profilesData, error: profilesError } = await supabase
             .from("profiles")
             .select(`
               id, role,
@@ -110,12 +117,29 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
             `)
             .in("id", otherUserIds);
 
+          console.log('Profiles data:', profilesData, 'Error:', profilesError);
+
           if (profilesData) {
-            participants = profilesData;
+            participants = profilesData.map(profile => ({
+              user_id: profile.id,
+              profiles: { role: profile.role },
+              ambassador_profiles: profile.ambassador_profiles || null,
+              client_profiles: profile.client_profiles || null
+            }));
+            console.log('Mapped participants:', participants);
           }
         }
 
-        setChatRoom({ ...chatRoomData, participants });
+        setChatRoom({ 
+          ...chatRoomData, 
+          participants,
+          is_group: chatRoomData.is_group || false
+        });
+
+        // Pass participants to parent component
+        if (onParticipantsUpdate) {
+          onParticipantsUpdate?.();
+        }
 
         // Fetch existing messages
         const { data: messagesData, error: messagesError } = await supabase
@@ -240,6 +264,23 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
     }
   }, [messages]);
 
+  // Close options menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showOptionsMenu) {
+        setShowOptionsMenu(false);
+      }
+    };
+
+    if (showOptionsMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showOptionsMenu]);
+
   // Handle typing indicators
   const handleTypingStart = async () => {
     if (!channel || isTyping) return;
@@ -288,16 +329,25 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
   const getChatDisplayName = () => {
     if (!chatRoom) return "Unknown Chat";
 
-    if (chatRoom.name) return chatRoom.name;
+    // For group chats, use the chat name
+    if (chatRoom.is_group && chatRoom.name) {
+      return chatRoom.name;
+    }
 
+    // For private chats, prioritize participant name over chat name
     if (chatRoom.participants && chatRoom.participants.length > 0) {
       const participant = chatRoom.participants[0];
+      console.log('Getting name for participant:', participant);
+      
       if (participant.profiles?.role === "ambassador" && participant.ambassador_profiles) {
         return participant.ambassador_profiles.full_name;
       } else if (participant.profiles?.role === "client" && participant.client_profiles) {
         return participant.client_profiles.company_name;
       }
     }
+
+    // Fallback to chat name if participant info isn't available
+    if (chatRoom.name) return chatRoom.name;
 
     return "Unknown User";
   };
@@ -364,6 +414,45 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    if (!selectedChatId) return;
+    
+    // Confirm deletion
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this chat? This action cannot be undone and will delete all messages in this conversation."
+    );
+    
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setShowOptionsMenu(false);
+
+    try {
+      const result = await chatService.deleteChat(selectedChatId);
+      
+      if (result.error) {
+        console.error('Failed to delete chat:', result.error);
+        alert('Failed to delete chat: ' + (result.error instanceof Error ? result.error.message : 'Unknown error'));
+        return;
+      }
+
+      console.log('Chat deleted successfully');
+      
+      // Notify parent component
+      onChatDeleted?.();
+      
+      // Clear local state
+      setMessages([]);
+      setChatRoom(null);
+      
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      alert('An error occurred while deleting the chat');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -454,9 +543,28 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
           </div>
 
           {/* Options Menu */}
-          <Button variant="ghost" size="sm">
-            <EllipsisVerticalIcon className="w-5 h-5" />
-          </Button>
+          <div className="relative">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+            >
+              <EllipsisVerticalIcon className="w-5 h-5" />
+            </Button>
+            
+            {showOptionsMenu && (
+              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[150px]">
+                <button
+                  onClick={handleDeleteChat}
+                  disabled={deleting}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  {deleting ? 'Deleting...' : 'Delete Chat'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
