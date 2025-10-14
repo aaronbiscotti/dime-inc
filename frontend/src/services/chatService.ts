@@ -33,37 +33,65 @@ export const chatService = {
         return { data: null, error: userError || new Error('User not authenticated') };
       }
 
-      // Use database function to check for existing private chat
-      const { data: existingChatId, error: checkError } = await supabase
-        .rpc('find_private_chat_between_users', {
-          user1_id: user.id,
-          user2_id: params.participantId
+      console.log('� Creating or finding private chat between:', user.id, 'and', params.participantId);
+      console.log('� Participant name:', params.participantName);
+      
+      // Use the new RPC function to create or find private chat
+      // NOTE: You need to run the SQL in create_private_chat.sql in your Supabase SQL editor first!
+      const { data: chatResult, error: rpcError } = await supabase
+        .rpc('create_private_chat_between_users' as any, {
+          participant1_id: user.id,
+          participant2_id: params.participantId,
+          chat_name: params.subject || `Chat with ${params.participantName}`
         });
 
-      if (checkError) {
-        console.error('Error checking for existing chat:', checkError);
-        // Continue to try creating a new chat even if check fails
+      if (rpcError) {
+        console.error('❌ Error creating chat via RPC:', rpcError);
+        
+        // Fallback to old method if RPC fails
+        console.log('⚠️ Falling back to old chat creation method...');
+        return this.createChatFallback(params);
       }
 
-      // If chat exists, fetch and return it
-      if (existingChatId) {
-        const { data: existingChat, error: fetchError } = await supabase
-          .from('chat_rooms')
-          .select('*')
-          .eq('id', existingChatId)
-          .single();
-
-        if (!fetchError && existingChat) {
-          console.log('Found existing chat:', existingChatId);
-          return { data: existingChat, error: null };
-        }
+      if (!chatResult) {
+        console.error('❌ No result from chat creation RPC');
+        return { data: null, error: new Error('Failed to create or find chat') };
       }
+
+      console.log('✅ Chat result:', chatResult);
+      
+      // Parse the result (it comes as JSON from the database)
+      const chat = typeof chatResult === 'string' ? JSON.parse(chatResult) : chatResult;
+      
+      if (chat.existed) {
+        console.log('🎉 *** FOUND EXISTING PRIVATE CHAT *** 🎉:', chat.id);
+      } else {
+        console.log('✅ *** CREATED NEW PRIVATE CHAT *** ✅:', chat.id);
+      }
+
+      return { data: chat, error: null };
+
+    } catch (error) {
+      console.error('Unexpected error creating chat:', error);
+      return { data: null, error };
+    }
+  },
+
+  // Fallback method for when RPC function is not available
+  async createChatFallback(params: CreateChatParams) {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { data: null, error: userError || new Error('User not authenticated') };
+      }
+
+      console.log('� FALLBACK: Creating chat room manually...');
 
       // Create a new private chat room
       const { data: chatRoom, error: chatError } = await supabase
         .from('chat_rooms')
         .insert({
-          name: params.subject || null, // Let the UI handle naming
+          name: params.subject || `Chat with ${params.participantName}`,
           is_group: false,
           created_by: user.id
         })
@@ -75,32 +103,27 @@ export const chatService = {
         return { data: null, error: chatError };
       }
 
-      // Add both participants to the chat room
-      const { error: participantError } = await supabase
+      // Add current user as participant (this should work)
+      const { error: currentUserError } = await supabase
         .from('chat_participants')
-        .insert([
-          {
-            chat_room_id: chatRoom.id,
-            user_id: user.id
-          },
-          {
-            chat_room_id: chatRoom.id,
-            user_id: params.participantId
-          }
-        ]);
+        .insert({
+          chat_room_id: chatRoom.id,
+          user_id: user.id
+        });
 
-      if (participantError) {
-        console.error('Error adding participants:', participantError);
-        // Clean up - delete the chat room if we can't add participants
+      if (currentUserError) {
+        console.error('❌ Could not add current user as participant:', currentUserError);
         await supabase.from('chat_rooms').delete().eq('id', chatRoom.id);
-        return { data: null, error: participantError };
+        return { data: null, error: currentUserError };
       }
 
-      console.log('Created new private chat:', chatRoom.id);
+      console.log('⚠️ FALLBACK: Chat created with only current user due to RLS restrictions');
+      console.log('⚠️ The other participant will need to be added via a different method');
+      
       return { data: chatRoom, error: null };
 
     } catch (error) {
-      console.error('Unexpected error creating chat:', error);
+      console.error('Unexpected error in fallback method:', error);
       return { data: null, error };
     }
   },
@@ -274,5 +297,88 @@ export const chatService = {
       console.error('Unexpected error checking membership:', error);
       return { data: false, error };
     }
-  }
+  },
+
+  /**
+   * Delete a chat room and all associated messages
+   */
+  async deleteChat(chatRoomId: string) {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('User not authenticated:', userError);
+        return { data: null, error: userError || new Error('User not authenticated') };
+      }
+
+      console.log('🗑️ Deleting chat room:', chatRoomId);
+
+      // Use the RPC function to delete the chat room
+      const { data: deleteResult, error: rpcError } = await supabase
+        .rpc('delete_chat_room' as any, {
+          chat_room_id: chatRoomId,
+          requesting_user_id: user.id
+        });
+
+      if (rpcError) {
+        console.error('❌ Error deleting chat via RPC:', rpcError);
+        return { data: null, error: rpcError };
+      }
+
+      if (!deleteResult) {
+        console.error('❌ No result from delete chat RPC');
+        return { data: null, error: new Error('Failed to delete chat') };
+      }
+
+      // Parse the result
+      const result = typeof deleteResult === 'string' ? JSON.parse(deleteResult) : deleteResult;
+      
+      if (!result.success) {
+        console.error('❌ Delete chat failed:', result.error);
+        return { data: null, error: new Error(result.error) };
+      }
+
+      console.log('✅ Chat deleted successfully:', result);
+      return { data: result, error: null };
+
+    } catch (error) {
+      console.error('Unexpected error deleting chat:', error);
+      return { data: null, error };
+    }
+  },
+
+  /**
+   * Send a message to a chat room
+   */
+  async sendMessage(chatRoomId: string, content: string) {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('User not authenticated:', userError);
+        return { data: null, error: userError || new Error('User not authenticated') };
+      }
+
+      // Send the message
+      const { data: message, error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          chat_room_id: chatRoomId,
+          sender_id: user.id,
+          content: content.trim()
+        })
+        .select()
+        .single();
+
+      if (messageError) {
+        console.error('Error sending message:', messageError);
+        return { data: null, error: messageError };
+      }
+
+      console.log('Message sent successfully:', message.id);
+      return { data: message, error: null };
+
+    } catch (error) {
+      console.error('Unexpected error sending message:', error);
+      return { data: null, error };
+    }
+  },
 };

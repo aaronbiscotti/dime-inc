@@ -1,89 +1,213 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Heart, ChevronDown } from 'lucide-react'
 import { UserRole } from '@/types/database'
+import { supabase } from '@/lib/supabase'
+import { chatService } from '@/services/chatService'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { ExploreSkeleton } from '@/components/skeletons/ExploreSkeleton'
 
-interface ExploreInterfaceProps {
-  userRole: UserRole
-}
+// Interface can be added back if userRole is needed for role-based filtering later
 
 interface Influencer {
   id: string
+  userId: string // Added to track the user_id for chat creation
   name: string
-  handle: string
+  handle: string | null
   platforms: string[]
-  followers: string
-  engagement: string
+  followers: string | null
+  engagement: string | null
   categories: string[]
-  avatar: string
-  associatedWith?: string
+  avatar: string | null
+  associatedWith?: string | null
 }
 
-const mockInfluencers: Influencer[] = [
-  {
-    id: '1',
-    name: 'Ava Martinez',
-    handle: '@avmartinez',
-    platforms: ['YouTube', 'Twitter'],
-    followers: '200K',
-    engagement: '6.1%',
-    categories: ['Travel', 'Fashion'],
-    avatar: '/api/placeholder/40/40',
-    associatedWith: 'Meta'
-  },
-  {
-    id: '2',
-    name: 'Liam Johnson',
-    handle: '@liamjohnson',
-    platforms: ['Facebook', 'Snapchat'],
-    followers: '150K',
-    engagement: '5.5%',
-    categories: ['Fitness', 'Health'],
-    avatar: '/api/placeholder/40/40',
-    associatedWith: 'Meta'
-  },
-  {
-    id: '3',
-    name: 'Olivia Brown',
-    handle: '@oliviabrown',
-    platforms: ['Pinterest', 'Reddit'],
-    followers: '90K',
-    engagement: '3.7%',
-    categories: ['Food', 'Recipes'],
-    avatar: '/api/placeholder/40/40',
-    associatedWith: 'Meta'
-  },
-  {
-    id: '4',
-    name: 'Ethan Smith',
-    handle: '@ethansmith',
-    platforms: ['LinkedIn', 'Tumblr'],
-    followers: '220K',
-    engagement: '7.4%',
-    categories: ['Tech', 'Gadgets'],
-    avatar: '/api/placeholder/40/40',
-    associatedWith: 'Meta'
-  },
-  {
-    id: '5',
-    name: 'Mia Davis',
-    handle: '@miadavis',
-    platforms: ['Snapchat', 'TikTok'],
-    followers: '300K',
-    engagement: '8.2%',
-    categories: ['Dance', 'Music'],
-    avatar: '/api/placeholder/40/40',
-    associatedWith: 'Meta'
-  }
-]
-
-export function ExploreInterface({ userRole }: ExploreInterfaceProps) {
+export function ExploreInterface() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('Most relevant')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [influencers, setInfluencers] = useState<Influencer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [invitingId, setInvitingId] = useState<string | null>(null)
+  const router = useRouter()
+  const { user } = useAuth()
 
-  const filters = ['Most relevant', 'Highest engagement', 'Newest joined']
+  const filters = ['Most relevant', 'Highest engagement', 'Newest joined', 'All Categories']
+
+  // Fetch ambassadors from database
+  useEffect(() => {
+    const fetchAmbassadors = async () => {
+      try {
+        setLoading(true)
+        
+        const { data: ambassadorProfiles, error } = await supabase
+          .from('ambassador_profiles')
+          .select(`
+            id,
+            full_name,
+            bio,
+            location,
+            niche,
+            instagram_handle,
+            tiktok_handle,
+            twitter_handle,
+            profile_photo_url,
+            user_id
+          `)
+          .limit(20) // Limit to 20 results for now
+
+        console.log('Loaded', ambassadorProfiles?.length || 0, 'ambassador profiles')
+
+        if (error) {
+          console.error('Error fetching ambassadors:', error)
+          return
+        }
+
+        if (ambassadorProfiles && ambassadorProfiles.length > 0) {
+          const mappedInfluencers: Influencer[] = ambassadorProfiles.map((profile) => {
+
+            // Create platforms array from available handles
+            const platforms: string[] = []
+            if (profile.instagram_handle) platforms.push('Instagram')
+            if (profile.tiktok_handle) platforms.push('TikTok')
+            if (profile.twitter_handle) platforms.push('Twitter')
+
+            // Use niche as categories, fallback to empty array
+            const categories = profile.niche || []
+
+            return {
+              id: profile.id, // Use profile ID as the display ID
+              userId: profile.user_id, // Use user_id for chat functionality
+              name: profile.full_name,
+              handle: profile.instagram_handle ? `@${profile.instagram_handle}` : null,
+              platforms,
+              followers: null, // We don't have follower data in the current schema
+              engagement: null, // We don't have engagement data in the current schema
+              categories,
+              avatar: profile.profile_photo_url,
+              associatedWith: null // We don't have association data in the current schema
+            }
+          })
+
+          setInfluencers(mappedInfluencers)
+          console.log(`Loaded ${mappedInfluencers.length} ambassadors for display`)
+        } else {
+          // Create mock data for testing if no ambassadors exist
+          const mockInfluencers: Influencer[] = [
+            {
+              id: 'mock-1',
+              userId: user?.id || 'test-user-id', // Use current user for testing
+              name: 'Test Ambassador',
+              handle: '@testambassador',
+              platforms: ['Instagram', 'TikTok'],
+              followers: '10K',
+              engagement: '5.2%',
+              categories: ['Lifestyle', 'Fashion'],
+              avatar: null,
+              associatedWith: null
+            }
+          ]
+          setInfluencers(mockInfluencers)
+          console.log('Using mock data: no ambassador profiles found in database')
+        }
+      } catch (error) {
+        console.error('Error fetching ambassadors:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAmbassadors()
+  }, [supabase])
+
+  const handleInvite = async (ambassadorUserId: string, ambassadorName: string) => {
+    if (!user) {
+      console.error('User not authenticated')
+      return
+    }
+
+    console.log('Starting invite process:', {
+      currentUser: user.id,
+      ambassadorUserId,
+      ambassadorName
+    })
+
+    setInvitingId(ambassadorUserId)
+
+    try {
+      // First, verify that the ambassador user exists in the profiles table
+      console.log('Verifying ambassador exists in profiles table:', ambassadorUserId)
+      const { data: ambassadorProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', ambassadorUserId)
+        .single()
+
+      if (profileError || !ambassadorProfile) {
+        console.error('Ambassador profile not found:', profileError)
+        alert('This ambassador profile is not properly set up. Please contact support.')
+        return
+      }
+
+      console.log('Ambassador profile found:', ambassadorProfile)
+
+      // Create or find existing chat with the ambassador
+      console.log('Creating chat with ambassador:', ambassadorUserId)
+      const { data: chatRoom, error: chatError } = await chatService.createChat({
+        participantId: ambassadorUserId,
+        participantName: ambassadorName,
+        participantRole: 'ambassador'
+      })
+
+      if (chatError || !chatRoom) {
+        console.error('Error creating chat:', chatError)
+        return
+      }
+
+      console.log('Chat created successfully:', chatRoom.id)
+
+      // Send initial "Hi" message
+      console.log('Sending initial message to chat:', chatRoom.id)
+      const { data: message, error: messageError } = await chatService.sendMessage(chatRoom.id, 'Hi')
+
+      if (messageError) {
+        console.error('Error sending initial message:', messageError)
+        return
+      }
+
+      console.log('Message sent successfully:', message)
+
+      // Redirect to the specific chat we just created
+      router.push(`/chats?chat=${chatRoom.id}`)
+
+    } catch (error) {
+      console.error('Error inviting ambassador:', error)
+    } finally {
+      setInvitingId(null)
+    }
+  }
+
+  // Filter and search logic
+  const filteredInfluencers = influencers.filter((influencer) => {
+    // Search filter
+    const matchesSearch = searchQuery === '' || 
+      influencer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      influencer.categories.some(category => 
+        category.toLowerCase().includes(searchQuery.toLowerCase())
+      ) ||
+      (influencer.handle && influencer.handle.toLowerCase().includes(searchQuery.toLowerCase()))
+
+    // Category filter
+    const matchesCategory = activeFilter === 'All Categories' || 
+      activeFilter === 'Most relevant' ||
+      influencer.categories.some(category => 
+        category.toLowerCase() === activeFilter.toLowerCase()
+      )
+
+    return matchesSearch && matchesCategory
+  })
 
   return (
     <div className="pt-16">
@@ -107,7 +231,7 @@ export function ExploreInterface({ userRole }: ExploreInterfaceProps) {
           </div>
 
           {/* Filter Buttons */}
-          <div className="flex justify-center gap-4 mb-8">
+          <div className="flex justify-center gap-4 mb-8 flex-wrap">
             {filters.map((filter) => (
               <button
                 key={filter}
@@ -141,100 +265,160 @@ export function ExploreInterface({ userRole }: ExploreInterfaceProps) {
                   <label className="flex items-center">
                     <input 
                       type="checkbox" 
-                      className="w-4 h-4 rounded border-gray-300 text-[#f5d82e] focus:ring-gray-200 focus:ring-2 accent-[#f5d82e]" 
+                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
                     />
-                    <span className="ml-2 text-sm text-gray-700">UGC (New Account Farmers)</span>
+                    <span className="text-sm text-gray-700">Lifestyle</span>
                   </label>
                   <label className="flex items-center">
                     <input 
                       type="checkbox" 
-                      className="w-4 h-4 rounded border-gray-300 text-[#f5d82e] focus:ring-gray-200 focus:ring-2 accent-[#f5d82e]" 
+                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Influencers in network</span>
+                    <span className="text-sm text-gray-700">Fashion</span>
                   </label>
                   <label className="flex items-center">
                     <input 
                       type="checkbox" 
-                      className="w-4 h-4 rounded border-gray-300 text-[#f5d82e] focus:ring-gray-200 focus:ring-2 accent-[#f5d82e]" 
+                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Influencer search</span>
+                    <span className="text-sm text-gray-700">Beauty</span>
                   </label>
                   <label className="flex items-center">
                     <input 
                       type="checkbox" 
-                      className="w-4 h-4 rounded border-gray-300 text-[#f5d82e] focus:ring-gray-200 focus:ring-2 accent-[#f5d82e]" 
+                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Followers</span>
+                    <span className="text-sm text-gray-700">Technology</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                    />
+                    <span className="text-sm text-gray-700">Food & Travel</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                    />
+                    <span className="text-sm text-gray-700">Fitness</span>
                   </label>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Influencers Grid */}
+          {/* Main Content */}
           <div className="flex-1">
-            <div className="space-y-4">
-              {mockInfluencers.map((influencer) => (
-                <div key={influencer.id} className="bg-white rounded-lg border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
+            {loading ? (
+              <div className="space-y-4">
+                {/* Loading skeletons */}
+                {[...Array(5)].map((_, index) => (
+                  <div key={index} className="bg-white rounded-lg border border-gray-200 p-6">
                     <div className="flex items-center gap-4">
-                      {/* Avatar */}
-                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-gray-600 font-medium">
-                          {influencer.name.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      
-                      {/* Info */}
+                      <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">{influencer.name}</h3>
-                          <span className="text-gray-500 text-sm">{influencer.handle}</span>
-                          <div className="flex gap-1">
-                            {influencer.platforms.map((platform) => (
-                              <span key={platform} className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                {platform}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                          <span>Followers: {influencer.followers}</span>
-                          <span>Engagement: {influencer.engagement}</span>
-                          <div className="flex gap-1">
-                            {influencer.categories.map((category) => (
-                              <span key={category} className="text-gray-500">
-                                {category}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {influencer.associatedWith && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-500">Associated with</span>
-                            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">M</span>
-                            </div>
-                          </div>
-                        )}
+                        <div className="h-4 bg-gray-200 rounded w-1/4 mb-2 animate-pulse"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
                       </div>
-                    </div>
-                    
-                    {/* Actions */}
-                    <div className="flex items-center gap-3">
-                      <button className="p-2 text-gray-400 hover:text-red-500 transition-colors">
-                        <Heart className="w-5 h-5" />
-                      </button>
-                      <button className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 font-medium px-6 py-2 rounded-lg transition-colors">
-                        Invite
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredInfluencers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">
+                      {searchQuery || activeFilter !== 'All Categories' ? 
+                        'No ambassadors found matching your criteria.' : 
+                        'No ambassadors found.'
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  filteredInfluencers.map((influencer) => (
+                    <div key={influencer.id} className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          {/* Avatar */}
+                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                            {influencer.avatar ? (
+                              <img 
+                                src={influencer.avatar} 
+                                alt={influencer.name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-gray-600 font-medium">
+                                {influencer.name.split(' ').map((n: string) => n[0]).join('')}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Info */}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-gray-900">{influencer.name}</h3>
+                              {influencer.handle && (
+                                <span className="text-gray-500 text-sm">{influencer.handle}</span>
+                              )}
+                              {influencer.platforms.length > 0 && (
+                                <div className="flex gap-1">
+                                  {influencer.platforms.map((platform: string) => (
+                                    <span key={platform} className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                      {platform}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                              {influencer.followers && <span>Followers: {influencer.followers}</span>}
+                              {influencer.engagement && <span>Engagement: {influencer.engagement}</span>}
+                              {influencer.categories.length > 0 && (
+                                <div className="flex gap-1">
+                                  {influencer.categories.map((category: string) => (
+                                    <span key={category} className="text-gray-500">
+                                      {category}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {influencer.associatedWith && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-500">Associated with</span>
+                                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">M</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-3">
+                          <button className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                            <Heart className="w-5 h-5" />
+                          </button>
+                          <button 
+                            onClick={() => handleInvite(influencer.userId, influencer.name)}
+                            disabled={invitingId === influencer.userId}
+                            className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 font-medium px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {invitingId === influencer.userId ? 'Inviting...' : 'Invite'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -12,7 +12,7 @@ export default function Explore() {
     <ProfileGuard>
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        {profile && <ExploreInterface userRole={profile.role} />}
+        {profile && <ExploreInterface />}
       </div>
     </ProfileGuard>
   )

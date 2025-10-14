@@ -47,6 +47,7 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
           <ChatArea
             selectedChatId={selectedChatId}
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+            onChatDeleted={() => setSelectedChatId(null)}
           />
         </div>
 

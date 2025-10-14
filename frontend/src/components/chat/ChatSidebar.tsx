@@ -97,30 +97,34 @@ export function ChatSidebar({
             }
           }
 
-          // Format chat name
+          // Format chat name - prioritize participant name for private chats
           let chatName = chatRoom.name;
-          if (!chatName && otherParticipants && otherParticipants.length > 0) {
+          if (!chatRoom.is_group && otherParticipants && otherParticipants.length > 0) {
             const otherParticipant = otherParticipants[0] as any;
+            console.log('Sidebar - formatting name for participant:', otherParticipant);
+            
             if (
               otherParticipant.role === "ambassador" &&
-              otherParticipant.ambassador_profiles?.[0]
+              otherParticipant.ambassador_profiles
             ) {
-              chatName = otherParticipant.ambassador_profiles[0].full_name;
+              chatName = otherParticipant.ambassador_profiles.full_name;
             } else if (
               otherParticipant.role === "client" &&
-              otherParticipant.client_profiles?.[0]
+              otherParticipant.client_profiles
             ) {
-              chatName = otherParticipant.client_profiles[0].company_name;
+              chatName = otherParticipant.client_profiles.company_name;
             } else {
               chatName = "Unknown User";
             }
+          } else if (!chatName) {
+            chatName = "Unknown User";
           }
 
           const chat: Chat = {
             id: chatRoom.id,
             name: chatName || "Unnamed Chat",
             lastMessage: latestMessage?.content || "No messages yet",
-            timestamp: latestMessage
+            timestamp: latestMessage && latestMessage.created_at
               ? new Date(latestMessage.created_at).toLocaleDateString()
               : new Date(chatRoom.created_at).toLocaleDateString(),
             unreadCount: 0, // TODO: Implement unread count tracking
