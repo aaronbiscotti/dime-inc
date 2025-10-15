@@ -404,6 +404,104 @@ export type Database = {
         }
         Relationships: []
       }
+      campaigns: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          client_id: string
+          budget_min: number
+          budget_max: number
+          deadline: string | null
+          requirements: string | null
+          status: Database["public"]["Enums"]["campaign_status"]
+          max_ambassadors: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description: string
+          client_id: string
+          budget_min: number
+          budget_max: number
+          deadline?: string | null
+          requirements?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          max_ambassadors?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string
+          client_id?: string
+          budget_min?: number
+          budget_max?: number
+          deadline?: string | null
+          requirements?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          max_ambassadors?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_ambassadors: {
+        Row: {
+          id: string
+          campaign_id: string
+          ambassador_id: string
+          selected_at: string
+          agreed_budget: number | null
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          ambassador_id: string
+          selected_at?: string
+          agreed_budget?: number | null
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          ambassador_id?: string
+          selected_at?: string
+          agreed_budget?: number | null
+          status?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_ambassadors_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_ambassadors_ambassador_id_fkey"
+            columns: ["ambassador_id"]
+            isOneToOne: false
+            referencedRelation: "ambassador_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -432,6 +530,7 @@ export type Database = {
     }
     Enums: {
       bid_status: "pending" | "accepted" | "rejected" | "expired"
+      campaign_status: "draft" | "active" | "completed" | "cancelled"
       contract_status: "draft" | "sent" | "signed" | "active" | "completed"
       user_role: "ambassador" | "client"
     }
@@ -444,12 +543,15 @@ export type Database = {
 // Helper types for easier usage
 export type UserRole = Database["public"]["Enums"]["user_role"]
 export type BidStatus = Database["public"]["Enums"]["bid_status"]
+export type CampaignStatus = Database["public"]["Enums"]["campaign_status"]
 export type ContractStatus = Database["public"]["Enums"]["contract_status"]
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type AmbassadorProfile = Database["public"]["Tables"]["ambassador_profiles"]["Row"]
 export type ClientProfile = Database["public"]["Tables"]["client_profiles"]["Row"]
 export type Bid = Database["public"]["Tables"]["bids"]["Row"]
+export type Campaign = Database["public"]["Tables"]["campaigns"]["Row"]
+export type CampaignAmbassador = Database["public"]["Tables"]["campaign_ambassadors"]["Row"]
 export type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
 export type ChatParticipant = Database["public"]["Tables"]["chat_participants"]["Row"]
 export type Message = Database["public"]["Tables"]["messages"]["Row"]
@@ -487,7 +589,8 @@ export interface PortfolioItem {
   engagement?: string
 }
 
-export interface Campaign {
+// Campaign display type for UI components
+export interface CampaignDisplay {
   id: string
   title: string
   status: "active" | "completed"
@@ -496,3 +599,5 @@ export interface Campaign {
   timeline: string
   coverImage?: string
 }
+
+

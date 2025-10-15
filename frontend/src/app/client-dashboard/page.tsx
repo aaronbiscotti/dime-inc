@@ -9,7 +9,9 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
-  const supabase = createClient();  useEffect(() => {
+  const supabase = createClient();
+
+  useEffect(() => {
     const checkClientRole = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
