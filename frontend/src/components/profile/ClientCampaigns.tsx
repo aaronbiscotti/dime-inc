@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Campaign } from "@/types/database";
+import { CampaignDisplay } from "@/types/database";
 import {
   Plus,
   Calendar,
@@ -13,7 +13,7 @@ import {
 import Image from "next/image";
 
 interface ClientCampaignsProps {
-  campaigns: Campaign[];
+  campaigns: CampaignDisplay[];
   loading: boolean;
   onCreateCampaign: () => void;
 }
@@ -164,7 +164,7 @@ export function ClientCampaigns({ campaigns, loading, onCreateCampaign }: Client
           </div>
         ) : (
           /* Filled Cards - Client Campaigns */
-          campaigns.map((campaign: Campaign) => (
+          campaigns.map((campaign: CampaignDisplay) => (
             <Card
               key={campaign.id}
               className="group cursor-pointer hover:scale-105 hover:shadow-lg transition-all duration-200"
