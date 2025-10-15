@@ -697,13 +697,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                   message.sender_id === user?.id ? "justify-end" : "justify-start"
                 }`}
               >
-                <div
-                  className={`max-w-xs lg:max-w-md xl:max-w-lg ${
-                    message.sender_id === user?.id ? "order-2" : "order-1"
-                  }`}
-                >
+                <div className="max-w-xs lg:max-w-md xl:max-w-lg">
                   {message.sender_id !== user?.id && chatRoom?.is_group && (
-                    <p className="text-xs text-gray-600 mb-1 px-3 font-medium">
+                    <p className="text-xs text-gray-600 mb-1 pl-3 font-medium">
                       {getSenderName(message)}
                     </p>
                   )}
