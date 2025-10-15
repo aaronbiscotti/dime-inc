@@ -623,13 +623,13 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             <div>
               <h2 className="font-semibold text-gray-900">{chatDisplayName}</h2>
               {chatRoom?.is_group ? (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-600">
                   {(chatRoom.participants?.length || 0) + 1} members
                 </p>
               ) : (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-600">
                   {typingUsers.size > 0 ? (
-                    <span className="text-green-600">Typing...</span>
+                    <span className="text-green-600 font-medium">Typing...</span>
                   ) : (
                     "Last seen recently"
                   )}
@@ -686,7 +686,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-600">
             No messages yet. Start the conversation!
           </div>
         ) : (
@@ -703,20 +703,24 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                   }`}
                 >
                   {message.sender_id !== user?.id && chatRoom?.is_group && (
-                    <p className="text-xs text-gray-500 mb-1 px-3">
+                    <p className="text-xs text-gray-600 mb-1 px-3 font-medium">
                       {getSenderName(message)}
                     </p>
                   )}
                   <div
                     className={`px-4 py-2 rounded-2xl ${
                       message.sender_id === user?.id
-                        ? "bg-[#FEE65D] text-gray-900"
-                        : "bg-white border border-gray-200 text-gray-900"
+                        ? "bg-[#1a1a1a] text-white"
+                        : "bg-gray-100 text-gray-900"
                     }`}
                   >
                     <p className="text-sm">{message.content}</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1 px-3">
+                  <p className={`text-xs mt-1 ${
+                    message.sender_id === user?.id 
+                      ? "text-gray-300 text-right pr-3" 
+                      : "text-gray-500 text-left pl-3"
+                  }`}>
                     {formatTimestamp(message.created_at)}
                   </p>
                 </div>
@@ -732,13 +736,13 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
               <div className="bg-gray-100 px-4 py-2 rounded-2xl">
                 <div className="flex items-center space-x-1">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1 px-3">
+              <p className="text-xs text-gray-600 mt-1 pl-3 font-medium text-left">
                 Someone is typing...
               </p>
             </div>
