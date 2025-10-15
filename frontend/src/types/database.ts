@@ -593,11 +593,10 @@ export interface PortfolioItem {
 export interface CampaignDisplay {
   id: string
   title: string
-  status: "active" | "completed"
+  status: "draft" | "active" | "completed" | "cancelled"
   budgetRange: string
   ambassadorCount: number
   timeline: string
   coverImage?: string
 }
-
 

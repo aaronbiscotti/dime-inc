@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { Search, Heart, ChevronDown } from 'lucide-react'
-import { UserRole } from '@/types/database'
+import { UserRole, Campaign } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { chatService } from '@/services/chatService'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { ExploreSkeleton } from '@/components/skeletons/ExploreSkeleton'
+import { CampaignCard } from '@/components/explore/CampaignCard'
 
 // Interface can be added back if userRole is needed for role-based filtering later
 
@@ -24,21 +25,32 @@ interface Influencer {
   associatedWith?: string | null
 }
 
+interface CampaignWithClient extends Campaign {
+  client_profiles?: {
+    company_name: string
+    logo_url: string | null
+  }
+}
+
 export function ExploreInterface() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('Most relevant')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [influencers, setInfluencers] = useState<Influencer[]>([])
+  const [campaigns, setCampaigns] = useState<CampaignWithClient[]>([])
   const [loading, setLoading] = useState(true)
   const [invitingId, setInvitingId] = useState<string | null>(null)
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
 
   const filters = ['Most relevant', 'Highest engagement', 'Newest joined', 'All Categories']
+  const isAmbassador = profile?.role === 'ambassador'
 
-  // Fetch ambassadors from database
+  // Fetch ambassadors from database (for clients)
   useEffect(() => {
     const fetchAmbassadors = async () => {
+      if (isAmbassador) return // Skip if user is an ambassador
+      
       try {
         setLoading(true)
         
@@ -120,7 +132,49 @@ export function ExploreInterface() {
     }
 
     fetchAmbassadors()
-  }, [supabase])
+  }, [supabase, isAmbassador])
+
+  // Fetch active campaigns (for ambassadors)
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      if (!isAmbassador) return // Skip if user is not an ambassador
+      
+      try {
+        setLoading(true)
+        
+        const { data: activeCampaigns, error } = await supabase
+          .from('campaigns')
+          .select(`
+            *,
+            client_profiles (
+              company_name,
+              logo_url
+            )
+          `)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        console.log('Loaded', activeCampaigns?.length || 0, 'active campaigns')
+
+        if (error) {
+          console.error('Error fetching campaigns:', error)
+          return
+        }
+
+        if (activeCampaigns) {
+          setCampaigns(activeCampaigns as CampaignWithClient[])
+          console.log(`Loaded ${activeCampaigns.length} active campaigns for display`)
+        }
+      } catch (error) {
+        console.error('Error fetching campaigns:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCampaigns()
+  }, [supabase, isAmbassador])
 
   const handleInvite = async (ambassadorUserId: string, ambassadorName: string) => {
     if (!user) {
@@ -215,7 +269,9 @@ export function ExploreInterface() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">
-            Find the right influencers for your brand
+            {isAmbassador 
+              ? 'Discover Active Campaigns' 
+              : 'Find the right influencers for your brand'}
           </h1>
           
           {/* Search Bar */}
@@ -223,110 +279,154 @@ export function ExploreInterface() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search keywords..."
+              placeholder={isAmbassador ? "Search campaigns..." : "Search keywords..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
             />
           </div>
 
-          {/* Filter Buttons */}
-          <div className="flex justify-center gap-4 mb-8 flex-wrap">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  activeFilter === filter
-                    ? 'bg-[#f5d82e] text-gray-900'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
+          {/* Filter Buttons - Only show for clients */}
+          {!isAmbassador && (
+            <div className="flex justify-center gap-4 mb-8 flex-wrap">
+              {filters.map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    activeFilter === filter
+                      ? 'bg-[#f5d82e] text-gray-900'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-6">
-          {/* Sidebar Filters */}
-          <div className="w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <button
-                onClick={() => setFiltersOpen(!filtersOpen)}
-                className="flex items-center justify-between w-full text-left font-medium text-gray-900 mb-4"
-              >
-                Influencer Type Filters
-                <ChevronDown className={`w-4 h-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {filtersOpen && (
-                <div className="space-y-3">
-                  <label className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                    />
-                    <span className="text-sm text-gray-700">Lifestyle</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                    />
-                    <span className="text-sm text-gray-700">Fashion</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                    />
-                    <span className="text-sm text-gray-700">Beauty</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                    />
-                    <span className="text-sm text-gray-700">Technology</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                    />
-                    <span className="text-sm text-gray-700">Food & Travel</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                    />
-                    <span className="text-sm text-gray-700">Fitness</span>
-                  </label>
-                </div>
-              )}
+          {/* Sidebar Filters - Only show for clients */}
+          {!isAmbassador && (
+            <div className="w-64 flex-shrink-0">
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <button
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                  className="flex items-center justify-between w-full text-left font-medium text-gray-900 mb-4"
+                >
+                  Influencer Type Filters
+                  <ChevronDown className={`w-4 h-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {filtersOpen && (
+                  <div className="space-y-3">
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">Lifestyle</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">Fashion</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">Beauty</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">Technology</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">Food & Travel</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700">Fitness</span>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Main Content */}
-          <div className="flex-1">
+          <div className={isAmbassador ? "w-full" : "flex-1"}>
             {loading ? (
-              <div className="space-y-4">
-                {/* Loading skeletons */}
-                {[...Array(5)].map((_, index) => (
-                  <div key={index} className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-1/4 mb-2 animate-pulse"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+              isAmbassador ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[...Array(6)].map((_, index) => (
+                    <div key={index} className="bg-white rounded-xl border border-gray-200 p-6">
+                      <div className="space-y-4 animate-pulse">
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-200 rounded w-full"></div>
+                        <div className="h-3 bg-gray-200 rounded w-full"></div>
                       </div>
                     </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, index) => (
+                    <div key={index} className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2 animate-pulse"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : isAmbassador ? (
+              // Campaign Grid for Ambassadors
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {campaigns.length === 0 ? (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-gray-600">
+                      No active campaigns available at the moment.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  campaigns
+                    .filter(campaign => 
+                      searchQuery === '' ||
+                      campaign.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      campaign.description.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((campaign) => (
+                      <CampaignCard
+                        key={campaign.id}
+                        campaign={campaign}
+                        clientName={campaign.client_profiles?.company_name}
+                        clientLogo={campaign.client_profiles?.logo_url || undefined}
+                      />
+                    ))
+                )}
               </div>
             ) : (
+              // Ambassador List for Clients
               <div className="space-y-4">
                 {filteredInfluencers.length === 0 ? (
                   <div className="text-center py-8">
