@@ -70,7 +70,7 @@ export default function Profile() {
             const clientCampaigns: CampaignDisplay[] = campaignData.map((campaign) => ({
               id: campaign.id,
               title: campaign.title,
-              status: campaign.status === "completed" ? "completed" : "active",
+              status: campaign.status as "draft" | "active" | "completed" | "cancelled",
               budgetRange: `$${campaign.budget_min.toFixed(2)} - $${campaign.budget_max.toFixed(2)}`,
               ambassadorCount: 0,
               timeline: campaign.deadline ? new Date(campaign.deadline).toLocaleDateString() : "TBD",

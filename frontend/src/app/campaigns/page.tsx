@@ -156,7 +156,7 @@ export default function Campaigns() {
                               : "bg-red-100 text-red-700"
                           }`}
                         >
-                          {campaign.status}
+                          {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                         </span>
                       </div>
                       <p className="text-gray-600 mb-4 line-clamp-2">{campaign.description}</p>
