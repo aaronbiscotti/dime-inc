@@ -55,7 +55,7 @@ CREATE TABLE campaign_ambassadors (
   agreed_budget DECIMAL(10, 2),
   
   -- Status of their work
-  status TEXT DEFAULT 'working' CHECK (status IN ('working', 'submitted', 'approved', 'paid')),
+  status campaign_ambassador_status DEFAULT 'proposal_received',
   
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   
@@ -156,6 +156,6 @@ CREATE TRIGGER campaigns_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_campaigns_updated_at();
 
--- =====================================================
+-- =================================================
 -- END OF MIGRATION
 -- =====================================================
