@@ -65,63 +65,6 @@ export type Database = {
           },
         ]
       }
-      bids: {
-        Row: {
-          ambassador_id: string
-          budget: number | null
-          campaign_description: string | null
-          campaign_title: string
-          client_id: string
-          created_at: string | null
-          id: string
-          requirements: string | null
-          status: Database["public"]["Enums"]["bid_status"] | null
-          timeline: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          ambassador_id: string
-          budget?: number | null
-          campaign_description?: string | null
-          campaign_title: string
-          client_id: string
-          created_at?: string | null
-          id?: string
-          requirements?: string | null
-          status?: Database["public"]["Enums"]["bid_status"] | null
-          timeline?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          ambassador_id?: string
-          budget?: number | null
-          campaign_description?: string | null
-          campaign_title?: string
-          client_id?: string
-          created_at?: string | null
-          id?: string
-          requirements?: string | null
-          status?: Database["public"]["Enums"]["bid_status"] | null
-          timeline?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bids_ambassador_id_fkey"
-            columns: ["ambassador_id"]
-            isOneToOne: false
-            referencedRelation: "ambassador_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bids_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "client_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       chat_participants: {
         Row: {
           chat_room_id: string
@@ -233,50 +176,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      contracts: {
-        Row: {
-          bid_id: string
-          created_at: string | null
-          document_url: string | null
-          id: string
-          signed_by_ambassador_at: string | null
-          signed_by_client_at: string | null
-          status: Database["public"]["Enums"]["contract_status"] | null
-          terms: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          bid_id: string
-          created_at?: string | null
-          document_url?: string | null
-          id?: string
-          signed_by_ambassador_at?: string | null
-          signed_by_client_at?: string | null
-          status?: Database["public"]["Enums"]["contract_status"] | null
-          terms?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          bid_id?: string
-          created_at?: string | null
-          document_url?: string | null
-          id?: string
-          signed_by_ambassador_at?: string | null
-          signed_by_client_at?: string | null
-          status?: Database["public"]["Enums"]["contract_status"] | null
-          terms?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contracts_bid_id_fkey"
-            columns: ["bid_id"]
-            isOneToOne: false
-            referencedRelation: "bids"
             referencedColumns: ["id"]
           },
         ]
@@ -532,9 +431,7 @@ export type Database = {
       }
     }
     Enums: {
-      bid_status: "pending" | "accepted" | "rejected" | "expired"
       campaign_status: "draft" | "active" | "completed" | "cancelled"
-      contract_status: "draft" | "sent" | "signed" | "active" | "completed"
       user_role: "ambassador" | "client"
     }
     CompositeTypes: {
@@ -545,20 +442,16 @@ export type Database = {
 
 // Helper types for easier usage
 export type UserRole = Database["public"]["Enums"]["user_role"]
-export type BidStatus = Database["public"]["Enums"]["bid_status"]
 export type CampaignStatus = Database["public"]["Enums"]["campaign_status"]
-export type ContractStatus = Database["public"]["Enums"]["contract_status"]
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type AmbassadorProfile = Database["public"]["Tables"]["ambassador_profiles"]["Row"]
 export type ClientProfile = Database["public"]["Tables"]["client_profiles"]["Row"]
-export type Bid = Database["public"]["Tables"]["bids"]["Row"]
 export type Campaign = Database["public"]["Tables"]["campaigns"]["Row"]
 export type CampaignAmbassador = Database["public"]["Tables"]["campaign_ambassadors"]["Row"]
 export type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
 export type ChatParticipant = Database["public"]["Tables"]["chat_participants"]["Row"]
 export type Message = Database["public"]["Tables"]["messages"]["Row"]
-export type Contract = Database["public"]["Tables"]["contracts"]["Row"]
 export type Portfolio = Database["public"]["Tables"]["portfolios"]["Row"]
 
 // Legacy types for UI components (keep for compatibility)
@@ -576,7 +469,6 @@ export interface Chat {
   participants?: string[]
   status?: ChatStatus
   milestone?: string
-  contractId?: string
 }
 
 export interface PortfolioItem {

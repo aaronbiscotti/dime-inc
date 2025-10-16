@@ -135,10 +135,10 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const mockMilestones = [
     {
       id: "1",
-      name: "Contract Signed",
+      name: "Campaign Started",
       status: "completed",
       date: "2025-09-15",
-      description: "Initial agreement signed",
+      description: "Campaign successfully launched",
     },
     {
       id: "2",
@@ -533,7 +533,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
 
               <Button className="w-full bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 mb-3">
                 <DocumentTextIcon className="w-4 h-4 mr-2" />
-                View Contract
+                View Campaign Details
               </Button>
 
               <Button variant="outline" className="w-full">
