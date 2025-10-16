@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { ChatSidebar } from './ChatSidebar'
 import { ChatArea } from './ChatArea'
 import { ContextPanel } from './ContextPanel'
@@ -13,6 +13,7 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ userRole }: ChatInterfaceProps) {
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   // Initialize state from URL immediately (before first render)
   const chatIdFromUrl = searchParams.get('chat')
@@ -28,6 +29,12 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
     }
   }, [searchParams, selectedChatId])
 
+  // Handle chat selection - update URL
+  const handleSelectChat = (chatId: string) => {
+    setSelectedChatId(chatId)
+    router.push(`/chats?chat=${chatId}`)
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="h-[calc(100vh-145px)] flex gap-6">
@@ -37,7 +44,7 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
         } lg:block`}>
           <ChatSidebar
             selectedChatId={selectedChatId}
-            onSelectChat={setSelectedChatId}
+            onSelectChat={handleSelectChat}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
         </div>

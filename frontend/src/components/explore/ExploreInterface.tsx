@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Heart, ChevronDown } from 'lucide-react'
+import { Search, Heart, ChevronDown, X } from 'lucide-react'
 import { UserRole, Campaign } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { chatService } from '@/services/chatService'
+import { campaignService } from '@/services/campaignService'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { ExploreSkeleton } from '@/components/skeletons/ExploreSkeleton'
@@ -41,6 +42,11 @@ export function ExploreInterface() {
   const [loading, setLoading] = useState(true)
   const [invitingId, setInvitingId] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<Set<string>>(new Set()) // Track favorited ambassadors
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [selectedAmbassador, setSelectedAmbassador] = useState<{ userId: string; name: string } | null>(null)
+  const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([])
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
+  const [inviteMessage, setInviteMessage] = useState('')
   const router = useRouter()
   const { user, profile } = useAuth()
 
@@ -201,21 +207,58 @@ export function ExploreInterface() {
       return
     }
 
+    // Set the selected ambassador and open the modal
+    setSelectedAmbassador({ userId: ambassadorUserId, name: ambassadorName })
+    
+    // Fetch active campaigns for the dropdown
+    try {
+      const campaigns = await campaignService.getClientCampaigns()
+      const active = campaigns.filter(c => c.status === 'active')
+      setActiveCampaigns(active)
+    } catch (error) {
+      console.error('Error fetching campaigns:', error)
+      setActiveCampaigns([])
+    }
+    
+    // Reset form state
+    setSelectedCampaignId('')
+    setInviteMessage('')
+    setShowInviteModal(true)
+  }
+
+  const handleCampaignSelect = (campaignId: string) => {
+    setSelectedCampaignId(campaignId)
+    
+    // Find the selected campaign and load its proposal message
+    const campaign = activeCampaigns.find(c => c.id === campaignId)
+    if (campaign && campaign.proposal_message) {
+      setInviteMessage(campaign.proposal_message)
+    } else {
+      setInviteMessage('')
+    }
+  }
+
+  const handleSendInvite = async () => {
+    if (!user || !selectedAmbassador) {
+      console.error('User not authenticated or no ambassador selected')
+      return
+    }
+
     console.log('Starting invite process:', {
       currentUser: user.id,
-      ambassadorUserId,
-      ambassadorName
+      ambassadorUserId: selectedAmbassador.userId,
+      ambassadorName: selectedAmbassador.name
     })
 
-    setInvitingId(ambassadorUserId)
+    setInvitingId(selectedAmbassador.userId)
 
     try {
       // First, verify that the ambassador user exists in the profiles table
-      console.log('Verifying ambassador exists in profiles table:', ambassadorUserId)
+      console.log('Verifying ambassador exists in profiles table:', selectedAmbassador.userId)
       const { data: ambassadorProfile, error: profileError } = await supabase
         .from('profiles')
         .select('id, role')
-        .eq('id', ambassadorUserId)
+        .eq('id', selectedAmbassador.userId)
         .single()
 
       if (profileError || !ambassadorProfile) {
@@ -227,10 +270,10 @@ export function ExploreInterface() {
       console.log('Ambassador profile found:', ambassadorProfile)
 
       // Create or find existing chat with the ambassador
-      console.log('Creating chat with ambassador:', ambassadorUserId)
+      console.log('Creating chat with ambassador:', selectedAmbassador.userId)
       const { data: chatRoom, error: chatError } = await chatService.createChat({
-        participantId: ambassadorUserId,
-        participantName: ambassadorName,
+        participantId: selectedAmbassador.userId,
+        participantName: selectedAmbassador.name,
         participantRole: 'ambassador'
       })
 
@@ -241,18 +284,20 @@ export function ExploreInterface() {
 
       console.log('Chat created successfully:', chatRoom.id)
 
-      // Send initial "Hi" message
-      console.log('Sending initial message to chat:', chatRoom.id)
-      const { data: message, error: messageError } = await chatService.sendMessage(chatRoom.id, 'Hi')
+      // Send the invite message
+      console.log('Sending invite message to chat:', chatRoom.id)
+      const messageToSend = inviteMessage || 'Hi'
+      const { data: message, error: messageError } = await chatService.sendMessage(chatRoom.id, messageToSend)
 
       if (messageError) {
-        console.error('Error sending initial message:', messageError)
+        console.error('Error sending invite message:', messageError)
         return
       }
 
       console.log('Message sent successfully:', message)
 
-      // Redirect to the specific chat we just created
+      // Close modal and redirect to the specific chat
+      setShowInviteModal(false)
       router.push(`/chats?chat=${chatRoom.id}`)
 
     } catch (error) {
@@ -539,6 +584,109 @@ export function ExploreInterface() {
           </div>
         </div>
       </div>
+
+      {/* Invite to Campaign Modal */}
+      {showInviteModal && selectedAmbassador && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => setShowInviteModal(false)}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Invite to campaign</h3>
+              <button 
+                onClick={() => setShowInviteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Ambassador Info */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">
+                    {selectedAmbassador.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{selectedAmbassador.name}</p>
+                  <p className="text-sm text-gray-500">Brand Ambassador</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Campaign Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Choose a campaign
+              </label>
+              <select
+                value={selectedCampaignId}
+                onChange={(e) => handleCampaignSelect(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
+                disabled={activeCampaigns.length === 0}
+              >
+                <option value="">
+                  {activeCampaigns.length === 0 ? 'No active campaigns available' : 'Select a job'}
+                </option>
+                {activeCampaigns.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.title}
+                  </option>
+                ))}
+              </select>
+              {activeCampaigns.length === 0 && (
+                <p className="text-sm text-gray-500 mt-2">
+                  You need to create and activate a campaign first.
+                </p>
+              )}
+            </div>
+
+            {/* Message */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message
+              </label>
+              <textarea
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+                placeholder="Write your message..."
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent resize-none"
+                rows={4}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowInviteModal(false)}
+                disabled={invitingId !== null}
+                className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendInvite}
+                disabled={invitingId !== null || !inviteMessage.trim()}
+                className="flex-1 px-4 py-2.5 bg-[#f5d82e] hover:bg-[#e5c820] text-black rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {invitingId !== null ? 'Sending...' : 'Send Invitation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
