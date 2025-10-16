@@ -708,7 +708,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                     </div>
                   )}
 
-                  <div className={isCurrentUser ? "max-w-[70%]" : "max-w-[45%]"}>
+                  <div className="max-w-[60%]">
                     {!isCurrentUser && chatRoom?.is_group && (
                       <p className="text-xs text-gray-600 mb-1 pl-3 font-medium">
                         {senderName}
