@@ -8,6 +8,7 @@ export interface CreateCampaignData {
   budget_max: number;
   deadline?: string | null;
   requirements?: string | null;
+  proposal_message?: string | null;
   max_ambassadors?: number;
 }
 
@@ -123,6 +124,30 @@ export const campaignService = {
       console.error("Error updating campaign status:", error);
       throw new Error(error.message);
     }
+  },
+
+  /**
+   * Update campaign details
+   */
+  async updateCampaign(campaignId: string, data: Partial<CreateCampaignData>): Promise<Campaign | null> {
+    const supabase = createClient();
+    
+    const { data: campaign, error } = await supabase
+      .from("campaigns")
+      .update({
+        ...data,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", campaignId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating campaign:", error);
+      throw new Error(error.message);
+    }
+
+    return campaign;
   },
 
   /**
