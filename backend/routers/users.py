@@ -23,8 +23,8 @@ async def delete_user(request: DeleteUserRequest) -> DeleteUserResponse:
     Deletion order (CASCADE handles automatically):
     1. auth.users deleted → triggers CASCADE on profiles
     2. profiles deleted → triggers CASCADE on:
-       - ambassador_profiles → CASCADE on portfolios, bids, contracts
-       - client_profiles → CASCADE on bids, contracts
+       - ambassador_profiles → CASCADE on portfolios, campaign_ambassadors
+       - client_profiles → CASCADE on campaigns
        - chat_participants → CASCADE deletes orphaned chat_rooms (via trigger)
        - messages
 
@@ -53,8 +53,8 @@ async def delete_user(request: DeleteUserRequest) -> DeleteUserResponse:
         # - profiles (ON DELETE CASCADE from auth.users)
         # - ambassador_profiles/client_profiles (ON DELETE CASCADE from profiles)
         # - portfolios (ON DELETE CASCADE from ambassador_profiles)
-        # - bids (ON DELETE CASCADE from ambassador_profiles/client_profiles)
-        # - contracts (ON DELETE CASCADE from bids)
+        # - campaigns (ON DELETE CASCADE from client_profiles)
+        # - campaign_ambassadors (ON DELETE CASCADE from campaigns/ambassador_profiles)
         # - chat_participants (ON DELETE CASCADE from profiles)
         # - messages (ON DELETE CASCADE from profiles)
         # - orphaned chat_rooms (via trigger after chat_participants delete)

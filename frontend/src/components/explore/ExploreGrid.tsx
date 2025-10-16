@@ -62,7 +62,7 @@ export function ExploreGrid({
               industry: client.industry || "Various",
               description: client.company_description || "Company on Dime",
               location: "Location not specified", // Add location to client_profiles if needed
-              activeCampaigns: 0, // TODO: Calculate from bids
+              activeCampaigns: 0, // TODO: Calculate from campaigns table
               budgetRange: "TBD",
               rating: 4.7, // Default rating
               completedPartnerships: 0, // TODO: Calculate from actual data
