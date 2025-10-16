@@ -35,11 +35,12 @@ interface CampaignWithClient extends Campaign {
 export function ExploreInterface() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('Most relevant')
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(true) // Start open by default
   const [influencers, setInfluencers] = useState<Influencer[]>([])
   const [campaigns, setCampaigns] = useState<CampaignWithClient[]>([])
   const [loading, setLoading] = useState(true)
   const [invitingId, setInvitingId] = useState<string | null>(null)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set()) // Track favorited ambassadors
   const router = useRouter()
   const { user, profile } = useAuth()
 
@@ -89,11 +90,17 @@ export function ExploreInterface() {
             // Use niche as categories, fallback to empty array
             const categories = profile.niche || []
 
+            // Format handle, avoiding double @ if it already exists
+            const formatHandle = (handle: string | null) => {
+              if (!handle) return null
+              return handle.startsWith('@') ? handle : `@${handle}`
+            }
+
             return {
               id: profile.id, // Use profile ID as the display ID
               userId: profile.user_id, // Use user_id for chat functionality
               name: profile.full_name,
-              handle: profile.instagram_handle ? `@${profile.instagram_handle}` : null,
+              handle: formatHandle(profile.instagram_handle),
               platforms,
               followers: null, // We don't have follower data in the current schema
               engagement: null, // We don't have engagement data in the current schema
@@ -175,6 +182,18 @@ export function ExploreInterface() {
 
     fetchCampaigns()
   }, [supabase, isAmbassador])
+
+  const handleToggleFavorite = (ambassadorId: string) => {
+    setFavorites((prev) => {
+      const newFavorites = new Set(prev)
+      if (newFavorites.has(ambassadorId)) {
+        newFavorites.delete(ambassadorId)
+      } else {
+        newFavorites.add(ambassadorId)
+      }
+      return newFavorites
+    })
+  }
 
   const handleInvite = async (ambassadorUserId: string, ambassadorName: string) => {
     if (!user) {
@@ -288,15 +307,15 @@ export function ExploreInterface() {
 
           {/* Filter Buttons - Only show for clients */}
           {!isAmbassador && (
-            <div className="flex justify-center gap-4 mb-8 flex-wrap">
+            <div className="flex justify-center gap-3 mb-8 flex-wrap">
               {filters.map((filter) => (
                 <button
                   key={filter}
                   onClick={() => setActiveFilter(filter)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
                     activeFilter === filter
-                      ? 'bg-[#f5d82e] text-gray-900'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-[#f5d82e] text-black shadow-sm'
+                      : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                   }`}
                 >
                   {filter}
@@ -310,58 +329,44 @@ export function ExploreInterface() {
           {/* Sidebar Filters - Only show for clients */}
           {!isAmbassador && (
             <div className="w-64 flex-shrink-0">
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <button
                   onClick={() => setFiltersOpen(!filtersOpen)}
-                  className="flex items-center justify-between w-full text-left font-medium text-gray-900 mb-4"
+                  className="flex items-center justify-between w-full text-left font-semibold text-gray-900 mb-4"
                 >
                   Influencer Type Filters
                   <ChevronDown className={`w-4 h-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
                 </button>
                 
                 {filtersOpen && (
-                  <div className="space-y-3">
-                    <label className="flex items-center">
+                  <div className="space-y-2.5">
+                    <label className="flex items-center cursor-pointer group">
                       <input 
                         type="checkbox" 
-                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                        className="mr-3 w-4 h-4 accent-[#f5d82e] border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2 cursor-pointer"
                       />
-                      <span className="text-sm text-gray-700">Lifestyle</span>
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900">UGC (New Account Farmers)</span>
                     </label>
-                    <label className="flex items-center">
+                    <label className="flex items-center cursor-pointer group">
                       <input 
                         type="checkbox" 
-                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                        className="mr-3 w-4 h-4 accent-[#f5d82e] border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2 cursor-pointer"
                       />
-                      <span className="text-sm text-gray-700">Fashion</span>
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900">Influencers in network</span>
                     </label>
-                    <label className="flex items-center">
+                    <label className="flex items-center cursor-pointer group">
                       <input 
                         type="checkbox" 
-                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                        className="mr-3 w-4 h-4 accent-[#f5d82e] border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2 cursor-pointer"
                       />
-                      <span className="text-sm text-gray-700">Beauty</span>
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900">Influencer search</span>
                     </label>
-                    <label className="flex items-center">
+                    <label className="flex items-center cursor-pointer group">
                       <input 
                         type="checkbox" 
-                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
+                        className="mr-3 w-4 h-4 accent-[#f5d82e] border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2 cursor-pointer"
                       />
-                      <span className="text-sm text-gray-700">Technology</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input 
-                        type="checkbox" 
-                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                      />
-                      <span className="text-sm text-gray-700">Food & Travel</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input 
-                        type="checkbox" 
-                        className="mr-3 w-4 h-4 text-[#f5d82e] bg-gray-100 border-gray-300 rounded focus:ring-[#f5d82e] focus:ring-2"
-                      />
-                      <span className="text-sm text-gray-700">Fitness</span>
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900">Followers</span>
                     </label>
                   </div>
                 )}
@@ -439,61 +444,64 @@ export function ExploreInterface() {
                   </div>
                 ) : (
                   filteredInfluencers.map((influencer) => (
-                    <div key={influencer.id} className="bg-white rounded-lg border border-gray-200 p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                    <div key={influencer.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-sm transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4 flex-1">
                           {/* Avatar */}
-                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                          <div className="w-16 h-16 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
                             {influencer.avatar ? (
                               <img 
                                 src={influencer.avatar} 
                                 alt={influencer.name}
-                                className="w-full h-full rounded-full object-cover"
+                                className="w-full h-full object-cover"
                               />
                             ) : (
-                              <span className="text-gray-600 font-medium">
+                              <span className="text-gray-600 font-medium text-lg">
                                 {influencer.name.split(' ').map((n: string) => n[0]).join('')}
                               </span>
                             )}
                           </div>
                           
                           {/* Info */}
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-gray-900">{influencer.name}</h3>
-                              {influencer.handle && (
-                                <span className="text-gray-500 text-sm">{influencer.handle}</span>
-                              )}
-                              {influencer.platforms.length > 0 && (
-                                <div className="flex gap-1">
-                                  {influencer.platforms.map((platform: string) => (
-                                    <span key={platform} className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                      {platform}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
+                          <div className="flex-1 min-w-0">
+                            <div className="mb-2">
+                              <h3 className="font-semibold text-gray-900 text-lg mb-1">{influencer.name}</h3>
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                {influencer.handle && (
+                                  <span>{influencer.handle}</span>
+                                )}
+                                {influencer.platforms.length > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{influencer.platforms.join(' | ')}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                             
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                              {influencer.followers && <span>Followers: {influencer.followers}</span>}
-                              {influencer.engagement && <span>Engagement: {influencer.engagement}</span>}
+                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                              {influencer.followers && (
+                                <span><span className="font-medium">Followers:</span> {influencer.followers}</span>
+                              )}
+                              {influencer.engagement && (
+                                <>
+                                  <span>•</span>
+                                  <span><span className="font-medium">Engagement:</span> {influencer.engagement}</span>
+                                </>
+                              )}
                               {influencer.categories.length > 0 && (
-                                <div className="flex gap-1">
-                                  {influencer.categories.map((category: string) => (
-                                    <span key={category} className="text-gray-500">
-                                      {category}
-                                    </span>
-                                  ))}
-                                </div>
+                                <>
+                                  <span>•</span>
+                                  <span>{influencer.categories.join(', ')}</span>
+                                </>
                               )}
                             </div>
                             
                             {influencer.associatedWith && (
-                              <div className="flex items-center gap-2 text-sm">
-                                <span className="text-gray-500">Associated with</span>
-                                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                                  <span className="text-white text-xs font-bold">M</span>
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Associated with</span>
+                                <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">Z</span>
                                 </div>
                               </div>
                             )}
@@ -501,14 +509,23 @@ export function ExploreInterface() {
                         </div>
                         
                         {/* Actions */}
-                        <div className="flex items-center gap-3">
-                          <button className="p-2 text-gray-400 hover:text-red-500 transition-colors">
-                            <Heart className="w-5 h-5" />
+                        <div className="flex items-center gap-3 ml-4">
+                          <button 
+                            onClick={() => handleToggleFavorite(influencer.id)}
+                            className="p-2.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                          >
+                            <Heart 
+                              className={`w-5 h-5 transition-colors ${
+                                favorites.has(influencer.id) 
+                                  ? 'fill-red-500 text-red-500' 
+                                  : 'text-gray-400 hover:text-red-500'
+                              }`}
+                            />
                           </button>
                           <button 
                             onClick={() => handleInvite(influencer.userId, influencer.name)}
                             disabled={invitingId === influencer.userId}
-                            className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 font-medium px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="bg-[#f5d82e] hover:bg-[#e5c820] text-black font-medium px-6 py-2.5 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                           >
                             {invitingId === influencer.userId ? 'Inviting...' : 'Invite'}
                           </button>

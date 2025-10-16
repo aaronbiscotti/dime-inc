@@ -206,4 +206,15 @@
   .button-press {
     animation: buttonPress 0.15s ease-out;
   }
+
+  /* Custom yellow checkbox styling */
+  input[type="checkbox"] {
+    @apply w-4 h-4 rounded border-gray-300 cursor-pointer;
+    accent-color: #f5d82e;
+  }
+
+  input[type="checkbox"]:checked {
+    background-color: #f5d82e;
+    border-color: #f5d82e;
+  }
 }
