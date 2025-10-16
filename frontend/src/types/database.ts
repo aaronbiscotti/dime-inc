@@ -414,6 +414,7 @@ export type Database = {
           budget_max: number
           deadline: string | null
           requirements: string | null
+          proposal_message: string | null
           status: Database["public"]["Enums"]["campaign_status"]
           max_ambassadors: number
           created_at: string
@@ -428,6 +429,7 @@ export type Database = {
           budget_max: number
           deadline?: string | null
           requirements?: string | null
+          proposal_message?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           max_ambassadors?: number
           created_at?: string
@@ -442,6 +444,7 @@ export type Database = {
           budget_max?: number
           deadline?: string | null
           requirements?: string | null
+          proposal_message?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           max_ambassadors?: number
           created_at?: string
