@@ -112,6 +112,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
   const [sending, setSending] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -490,10 +491,8 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           chat_room_id: selectedChatId,
           content: messageInput.trim(),
         });
-
       if (error) {
         console.error("Error sending message:", error);
-        alert(`Failed to send message: ${error.message || 'Unknown error'}`);
         return;
       }
 
@@ -515,15 +514,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
   const handleDeleteChat = async () => {
     if (!selectedChatId) return;
-    
-    // Confirm deletion
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this chat? This action cannot be undone and will delete all messages in this conversation."
-    );
-    
-    if (!confirmed) return;
 
     setDeleting(true);
+    setShowDeleteConfirm(false);
     setShowOptionsMenu(false);
 
     try {
@@ -531,7 +524,6 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
       
       if (result.error) {
         console.error('Failed to delete chat:', result.error);
-        alert('Failed to delete chat: ' + (result.error instanceof Error ? result.error.message : 'Unknown error'));
         return;
       }
 
@@ -546,7 +538,6 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
       
     } catch (error) {
       console.error('Error deleting chat:', error);
-      alert('An error occurred while deleting the chat');
     } finally {
       setDeleting(false);
     }
@@ -651,7 +642,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             {showOptionsMenu && (
               <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[150px]">
                 <button
-                  onClick={handleDeleteChat}
+                  onClick={() => setShowDeleteConfirm(true)}
                   disabled={deleting}
                   className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -801,6 +792,45 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           </Button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => setShowDeleteConfirm(false)}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-gray-900 mb-3">Delete Chat</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this chat? This action cannot be undone and will delete all messages in this conversation.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteChat}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Delete Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

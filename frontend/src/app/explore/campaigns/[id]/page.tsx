@@ -22,6 +22,8 @@ export default function AmbassadorCampaignDetails() {
   const [campaign, setCampaign] = useState<CampaignWithClient | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
   const [applicationMessage, setApplicationMessage] = useState("");
   const router = useRouter();
   const params = useParams();
@@ -99,17 +101,21 @@ export default function AmbassadorCampaignDetails() {
 
     setIsApplying(true);
     try {
-      // TODO: Implement application logic
-      // This would create a bid or application record
       console.log("Applying to campaign:", campaign.id, "with message:", applicationMessage);
       
       // For now, just show success
-      alert("Application submitted successfully!");
       setShowApplyModal(false);
-      router.push("/explore");
+      setShowSuccessModal(true);
+      
+      // Navigate after a delay
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        router.push("/explore");
+      }, 2000);
     } catch (error) {
       console.error("Error applying to campaign:", error);
-      alert("Failed to submit application");
+      setShowApplyModal(false);
+      setShowErrorModal(true);
     } finally {
       setIsApplying(false);
     }
@@ -268,8 +274,20 @@ export default function AmbassadorCampaignDetails() {
 
       {/* Apply Modal */}
       {showApplyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => setShowApplyModal(false)}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-lg w-full">
             <h3 className="text-2xl font-bold text-gray-900 mb-3">
               Apply to {campaign.title}
             </h3>
@@ -300,6 +318,69 @@ export default function AmbassadorCampaignDetails() {
                 {isApplying ? "Submitting..." : "Submit Application"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Application Submitted!</h3>
+            <p className="text-gray-600">
+              Your application has been sent to the client. They'll review it and get back to you soon.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => setShowErrorModal(false)}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Application Failed</h3>
+            <p className="text-gray-600 mb-6">
+              There was an error submitting your application. Please try again.
+            </p>
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className="px-6 py-2 bg-[#f5d82e] text-black rounded-lg font-medium hover:bg-[#e5c820] transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

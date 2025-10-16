@@ -47,6 +47,8 @@ export function ExploreInterface() {
   const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([])
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
   const [inviteMessage, setInviteMessage] = useState('')
+  const [showErrorModal, setShowErrorModal] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const router = useRouter()
   const { user, profile } = useAuth()
 
@@ -263,7 +265,8 @@ export function ExploreInterface() {
 
       if (profileError || !ambassadorProfile) {
         console.error('Ambassador profile not found:', profileError)
-        alert('This ambassador profile is not properly set up. Please contact support.')
+        setErrorMessage('This ambassador profile is not properly set up. Please contact support.')
+        setShowErrorModal(true)
         return
       }
 
@@ -684,6 +687,41 @@ export function ExploreInterface() {
                 {invitingId !== null ? 'Sending...' : 'Send Invitation'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => setShowErrorModal(false)}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
+            <p className="text-gray-600 mb-6">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className="px-6 py-2 bg-[#f5d82e] text-black rounded-lg font-medium hover:bg-[#e5c820] transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

@@ -221,8 +221,19 @@ export function CreateCampaignForm({ onSuccess, onCancel }: CampaignFormProps) {
 
       {/* Success Modal */}
       {showSuccessModal && createdCampaign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl transform transition-all">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl transform transition-all">
             {/* Success Icon */}
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">

@@ -433,8 +433,20 @@ export default function CampaignDetails() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => setShowDeleteConfirm(false)}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-gray-900 mb-3">Delete Campaign?</h3>
             <p className="text-gray-600 mb-6">
               Are you sure you want to delete "{campaign.title}"? This action cannot be undone.
