@@ -432,10 +432,11 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   if (userRole === "client" && otherParticipant?.role === "ambassador") {
     return (
       <div className="h-full overflow-y-auto bg-white rounded-xl border border-gray-200">
-        <div className="p-6 space-y-6">
-          {/* Ambassador Profile */}
+        <div className="p-6">
+          {/* Single Card: Ambassador Profile + Activity Timeline */}
           <Card>
             <CardContent className="p-4">
+              {/* Ambassador Profile */}
               <div className="text-center mb-4">
                 {otherParticipant.profilePhoto ? (
                   <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3">
@@ -536,84 +537,80 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
                 View Campaign Details
               </Button>
 
-              <Button variant="outline" className="w-full">
-                Browse Ambassadors
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Activity Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ClockIcon className="w-5 h-5" />
-                Activity Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockMilestones.map((milestone, index) => (
-                  <div key={milestone.id} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          milestone.status === "completed"
-                            ? "bg-green-500 border-green-500 text-white"
-                            : milestone.status === "active"
-                            ? "bg-[#f5d82e] border-[#f5d82e] text-gray-900 animate-pulse"
-                            : "bg-white border-gray-300 text-gray-400"
-                        }`}
-                      >
-                        {milestone.status === "completed" ? (
-                          <CheckCircleIcon className="w-3 h-3" />
-                        ) : milestone.status === "active" ? (
-                          <ExclamationCircleIcon className="w-3 h-3" />
-                        ) : (
-                          <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                        )}
-                      </div>
-                      {index < mockMilestones.length - 1 && (
-                        <div className="w-0.5 h-8 bg-gray-200 mt-1"></div>
-                      )}
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <h4
-                          className={`text-sm font-medium ${
-                            milestone.status === "completed"
-                              ? "text-gray-900"
-                              : milestone.status === "active"
-                              ? "text-gray-900"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {milestone.name}
-                        </h4>
-                        <span className="text-xs text-gray-500">
-                          {milestone.date}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        {milestone.description}
-                      </p>
-                      {milestone.status === "active" && (
-                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                          Awaiting submission
+              {/* Activity Timeline */}
+              <div className="mt-6">
+                <CardHeader className="p-0 mb-4">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ClockIcon className="w-5 h-5" />
+                    Activity Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="space-y-4">
+                    {mockMilestones.map((milestone, index) => (
+                      <div key={milestone.id} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div
+                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                              milestone.status === "completed"
+                                ? "bg-green-500 border-green-500 text-white"
+                                : milestone.status === "active"
+                                ? "bg-[#f5d82e] border-[#f5d82e] text-gray-900 animate-pulse"
+                                : "bg-white border-gray-300 text-gray-400"
+                            }`}
+                          >
+                            {milestone.status === "completed" ? (
+                              <CheckCircleIcon className="w-3 h-3" />
+                            ) : milestone.status === "active" ? (
+                              <ExclamationCircleIcon className="w-3 h-3" />
+                            ) : (
+                              <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+                            )}
+                          </div>
+                          {index < mockMilestones.length - 1 && (
+                            <div className="w-0.5 h-8 bg-gray-200 mt-1"></div>
+                          )}
                         </div>
-                      )}
+                        <div className="flex-1 pb-4">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4
+                              className={`text-sm font-medium ${
+                                milestone.status === "completed"
+                                  ? "text-gray-900"
+                                  : milestone.status === "active"
+                                  ? "text-gray-900"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {milestone.name}
+                            </h4>
+                            <span className="text-xs text-gray-500">
+                              {milestone.date}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            {milestone.description}
+                          </p>
+                          {milestone.status === "active" && (
+                            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                              Awaiting submission
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <Button variant="outline" className="w-full mb-3">
+                      Propose More Work
+                    </Button>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Campaign ends in</p>
+                      <p className="text-sm font-semibold text-gray-900">12 days</p>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <Button variant="outline" className="w-full mb-3">
-                  Propose More Work
-                </Button>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Campaign ends in</p>
-                  <p className="text-sm font-semibold text-gray-900">12 days</p>
-                </div>
+                </CardContent>
               </div>
             </CardContent>
           </Card>

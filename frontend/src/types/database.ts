@@ -366,7 +366,7 @@ export type Database = {
           ambassador_id: string
           selected_at: string
           agreed_budget: number | null
-          status: string
+          status: CampaignAmbassadorStatus | null
           created_at: string
         }
         Insert: {
@@ -375,7 +375,7 @@ export type Database = {
           ambassador_id: string
           selected_at?: string
           agreed_budget?: number | null
-          status?: string
+          status?: CampaignAmbassadorStatus | null
           created_at?: string
         }
         Update: {
@@ -384,7 +384,7 @@ export type Database = {
           ambassador_id?: string
           selected_at?: string
           agreed_budget?: number | null
-          status?: string
+          status?: CampaignAmbassadorStatus | null
           created_at?: string
         }
         Relationships: [
@@ -432,6 +432,7 @@ export type Database = {
     }
     Enums: {
       campaign_status: "draft" | "active" | "completed" | "cancelled"
+      campaign_ambassador_status: "proposal_received" | "accepted" | "active" | "completed" | "terminated"
       user_role: "ambassador" | "client"
     }
     CompositeTypes: {
@@ -443,6 +444,7 @@ export type Database = {
 // Helper types for easier usage
 export type UserRole = Database["public"]["Enums"]["user_role"]
 export type CampaignStatus = Database["public"]["Enums"]["campaign_status"]
+export type CampaignAmbassadorStatus = Database["public"]["Enums"]["campaign_ambassador_status"]
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type AmbassadorProfile = Database["public"]["Tables"]["ambassador_profiles"]["Row"]

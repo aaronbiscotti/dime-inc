@@ -36,10 +36,10 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
       <div className="h-[calc(100vh-145px)] flex gap-6">
         {/* Left Sidebar - Chat List */}
-        <div className={`w-80 flex-shrink-0 ${
+        <div className={`w-72 flex-shrink-0 ${
           isMobileMenuOpen ? 'block' : 'hidden'
         } lg:block`}>
           <ChatSidebar
@@ -59,7 +59,7 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
         </div>
 
         {/* Right Sidebar - Context Panel */}
-        <div className={`w-96 flex-shrink-0 ${
+        <div className={`w-80 flex-shrink-0 ${
           selectedChatId ? 'block' : 'hidden'
         } lg:block`}>
           <ContextPanel
