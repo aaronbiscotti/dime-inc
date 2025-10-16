@@ -690,46 +690,63 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             No messages yet. Start the conversation!
           </div>
         ) : (
-          messages.map((message) => (
-            <div key={message.id}>
-              <div
-                className={`flex ${
-                  message.sender_id === user?.id ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div className="max-w-xs lg:max-w-md xl:max-w-lg">
-                  {message.sender_id !== user?.id && chatRoom?.is_group && (
-                    <p className="text-xs text-gray-600 mb-1 pl-3 font-medium">
-                      {getSenderName(message)}
-                    </p>
+          messages.map((message) => {
+            const isCurrentUser = message.sender_id === user?.id;
+            const senderName = getSenderName(message);
+            
+            return (
+              <div key={message.id}>
+                <div
+                  className={`flex ${
+                    isCurrentUser ? "justify-end" : "justify-start"
+                  } items-end gap-2`}
+                >
+                  {/* Avatar for other person's messages */}
+                  {!isCurrentUser && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 overflow-hidden">
+                      {senderName.charAt(0).toUpperCase()}
+                    </div>
                   )}
-                  <div
-                    className={`px-4 py-2 rounded-2xl ${
-                      message.sender_id === user?.id
-                        ? "bg-[#1a1a1a] text-white"
-                        : "bg-gray-100 text-gray-900"
-                    }`}
-                  >
-                    <p className="text-sm">{message.content}</p>
+
+                  <div className={isCurrentUser ? "max-w-[70%]" : "max-w-[45%]"}>
+                    {!isCurrentUser && chatRoom?.is_group && (
+                      <p className="text-xs text-gray-600 mb-1 pl-3 font-medium">
+                        {senderName}
+                      </p>
+                    )}
+                    <div
+                      className={`px-4 py-2.5 rounded-2xl ${
+                        isCurrentUser
+                          ? "bg-[#1a1a1a] text-white rounded-br-md"
+                          : "bg-gray-100 text-gray-900 rounded-bl-md"
+                      }`}
+                    >
+                      <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                    <p className={`text-xs mt-1 ${
+                      isCurrentUser 
+                        ? "text-gray-400 text-right pr-3" 
+                        : "text-gray-500 pl-3"
+                    }`}>
+                      {formatTimestamp(message.created_at)}
+                    </p>
                   </div>
-                  <p className={`text-xs mt-1 ${
-                    message.sender_id === user?.id 
-                      ? "text-gray-300 text-right pr-3" 
-                      : "text-gray-500 text-left pl-3"
-                  }`}>
-                    {formatTimestamp(message.created_at)}
-                  </p>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
 
         {/* Typing indicator */}
         {typingUsers.size > 0 && (
-          <div className="flex justify-start">
-            <div className="max-w-xs lg:max-w-md xl:max-w-lg">
-              <div className="bg-gray-100 px-4 py-2 rounded-2xl">
+          <div className="flex justify-start items-end gap-2">
+            {/* Avatar for typing indicator */}
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
+              ?
+            </div>
+            
+            <div className="max-w-[45%]">
+              <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-md">
                 <div className="flex items-center space-x-1">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -738,9 +755,6 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-600 mt-1 pl-3 font-medium text-left">
-                Someone is typing...
-              </p>
             </div>
           </div>
         )}
@@ -749,9 +763,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-gray-200 p-4 rounded-b-xl">
-        <div className="flex items-end gap-3">
-          <Button variant="ghost" size="sm" className="flex-shrink-0">
+      <div className="border-t border-gray-200 p-4 bg-white rounded-b-xl">
+        <div className="flex items-end gap-2">
+          <Button variant="ghost" size="sm" className="flex-shrink-0 text-gray-400 hover:text-gray-600">
             <PaperClipIcon className="w-5 h-5" />
           </Button>
 
@@ -761,12 +775,12 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
               onBlur={handleTypingStop}
-              placeholder="Type a message..."
+              placeholder="Write something..."
               rows={1}
               disabled={sending}
-              className="w-full resize-none border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent max-h-24 disabled:opacity-50"
+              className="w-full resize-none border-0 bg-gray-50 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:bg-white max-h-24 disabled:opacity-50 text-sm"
               style={{
-                minHeight: "40px",
+                minHeight: "42px",
                 height: "auto",
               }}
               onInput={(e) => {
@@ -780,7 +794,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           <Button
             onClick={handleSendMessage}
             disabled={!messageInput.trim() || sending}
-            className="flex-shrink-0 bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 disabled:bg-gray-200 disabled:text-gray-400"
+            className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-300 rounded-lg h-[42px] w-[42px] p-0"
             size="sm"
           >
             <PaperAirplaneIcon className={`w-5 h-5 ${sending ? 'opacity-50' : ''}`} />
