@@ -142,23 +142,22 @@ export const chatService = {
         return { data: null, error: chatError };
       }
 
-      // Add current user as participant (this should work)
-      const { error: currentUserError } = await supabase
+      // Add both current user and the other participant as participants
+      const participantRecords = [
+        { chat_room_id: chatRoom.id, user_id: user.id },
+        { chat_room_id: chatRoom.id, user_id: params.participantId },
+      ];
+      const { error: participantsError } = await supabase
         .from('chat_participants')
-        .insert({
-          chat_room_id: chatRoom.id,
-          user_id: user.id
-        });
+        .insert(participantRecords);
 
-      if (currentUserError) {
-        console.error('❌ Could not add current user as participant:', currentUserError);
+      if (participantsError) {
+        console.error('❌ Could not add both participants:', participantsError);
         await supabase.from('chat_rooms').delete().eq('id', chatRoom.id);
-        return { data: null, error: currentUserError };
+        return { data: null, error: participantsError };
       }
 
-      console.log('⚠️ FALLBACK: Chat created with only current user due to RLS restrictions');
-      console.log('⚠️ The other participant will need to be added via a different method');
-      
+      console.log('✅ FALLBACK: Chat room and participants created successfully:', chatRoom.id);
       return { data: chatRoom, error: null };
 
     } catch (error) {
@@ -349,9 +348,17 @@ export const chatService = {
         return { data: null, error: userError || new Error('User not authenticated') };
       }
 
+      // First, delete campaign_ambassadors row(s) linked to this chat_room_id
+      try {
+        const { campaignService } = await import("./campaignService");
+        await campaignService.deleteCampaignAmbassadorByChatRoomId(chatRoomId);
+      } catch (err) {
+        console.error('Error deleting campaign_ambassador before chat deletion:', err);
+      }
+
       console.log('🗑️ Deleting chat room:', chatRoomId);
 
-      // Use the RPC function to delete the chat room
+      // Now use the RPC function to delete the chat room
       const { data: deleteResult, error: rpcError } = await supabase
         .rpc('delete_chat_room' as any, {
           chat_room_id: chatRoomId,
@@ -929,7 +936,7 @@ export const chatService = {
         .select();
 
       if (error) {
-        console.error('❌ Error adding participant:', error);
+        console.error('Error adding participant:', error);
         return { data: null, error };
       }
 
@@ -937,8 +944,38 @@ export const chatService = {
       return { data, error: null };
 
     } catch (error) {
-      console.error('❌ Unexpected error adding participant:', error);
+      console.error('Unexpected error adding participant to chat:', error);
       return { data: null, error };
     }
-  }
+  },
+
+  /**
+   * Get contract details by chat room ID
+   * This fetches the contract status for a chat room via campaign_ambassadors relationship
+   */
+  async getContractByChatId(chatRoomId: string) {
+    try {
+      // Step 1: Find campaign_ambassadors row for this chat_room_id
+      const { data: ca, error: caError } = await supabase
+        .from('campaign_ambassadors')
+        .select('id')
+        .eq('chat_room_id', chatRoomId)
+        .single();
+      if (caError || !ca) {
+        return { data: null, error: caError || new Error('No campaign_ambassador for this chat') };
+      }
+      // Step 2: Find contract for this campaign_ambassador
+      const { data: contract, error: contractError } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', ca.id)
+        .single();
+      if (contractError || !contract) {
+        return { data: null, error: contractError || new Error('No contract for this chat') };
+      }
+      return { data: contract, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
 };

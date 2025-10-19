@@ -190,15 +190,57 @@ export const campaignService = {
 
   /**
    * Add an ambassador to a campaign (campaign_ambassadors row)
+   * Now also creates/finds a chat room and links it.
    */
   async addAmbassadorToCampaign({ campaignId, ambassadorId }: { campaignId: string; ambassadorId: string }) {
     const supabase = createClient();
+
+    // Get current user (client)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    // Get ambassador's user_id from ambassador_profiles
+    const { data: ambassadorProfile, error: ambassadorProfileError } = await supabase
+      .from("ambassador_profiles")
+      .select("user_id, full_name")
+      .eq("id", ambassadorId)
+      .single();
+    if (ambassadorProfileError || !ambassadorProfile) {
+      throw new Error("Ambassador profile not found");
+    }
+
+    // Get client profile for name
+    const { data: clientProfile, error: clientProfileError } = await supabase
+      .from("client_profiles")
+      .select("company_name")
+      .eq("user_id", user.id)
+      .single();
+    if (clientProfileError || !clientProfile) {
+      throw new Error("Client profile not found");
+    }
+
+    // Create or find private chat between client and ambassador
+    // Import chatService at the top: import { chatService } from "./chatService";
+    const { data: chat, error: chatError } = await (await import("./chatService")).chatService.createChat({
+      participantId: ambassadorProfile.user_id,
+      participantName: ambassadorProfile.full_name,
+      participantRole: "ambassador",
+      subject: clientProfile.company_name,
+    });
+    if (chatError || !chat) {
+      throw new Error("Failed to create/find chat room: " + (typeof chatError === 'object' && chatError && 'message' in chatError ? (chatError as any).message : JSON.stringify(chatError) || "Unknown error"));
+    }
+
+    // Insert campaign_ambassadors row with chat_room_id
     const { data, error } = await supabase
       .from("campaign_ambassadors")
       .insert({
         campaign_id: campaignId,
         ambassador_id: ambassadorId,
         status: "proposal_received",
+        chat_room_id: chat.id,
       })
       .select()
       .single();
@@ -207,5 +249,21 @@ export const campaignService = {
       throw new Error("Failed to add ambassador to campaign: " + (error?.message || "Unknown error"));
     }
     return data;
+  },
+
+  /**
+   * Delete campaign_ambassadors row(s) by chat_room_id
+   * Call this after deleting a chat room to keep data in sync.
+   */
+  async deleteCampaignAmbassadorByChatRoomId(chatRoomId: string): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("campaign_ambassadors")
+      .delete()
+      .eq("chat_room_id", chatRoomId);
+    if (error) {
+      console.error("Error deleting campaign_ambassador by chat_room_id:", error);
+      throw new Error(error.message);
+    }
   },
 };
