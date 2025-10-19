@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { UserRole } from "@/types/database";
 import { chatService, OtherParticipant } from "@/services/chatService";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface ContextPanelProps {
   selectedChatId: string | null;
@@ -29,6 +30,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [contract, setContract] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   // Load other participant data and contract when chat is selected
   useEffect(() => {
@@ -52,7 +54,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         } else {
           setOtherParticipant(data);
         }
-        // Fetch contract details
+        // Fetch contract details (now returns doc info if exists)
         const contractResponse = await chatService.getContractByChatId(selectedChatId);
         if (contractResponse.error) {
           setContract(null);
@@ -60,16 +62,13 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           setContract(contractResponse.data);
         }
       } catch (err) {
-        setError('Failed to load participant information');
+        setError('Failed to load context panel data');
         setOtherParticipant(null);
         setContract(null);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
-
     loadOtherParticipantAndContract();
-    (window as any).debugChat = () => chatService.debugChatParticipants(selectedChatId);
   }, [selectedChatId]);
 
   const handleDraftContract = async () => {
@@ -94,6 +93,27 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoToDraftContract = () => {
+    if (!otherParticipant) return;
+    // If the other participant is an ambassador, pass their id
+    let ambassadorId = "";
+    let campaignId = "";
+    if (otherParticipant.role === "ambassador") {
+      ambassadorId = (otherParticipant as any).id;
+      // Try to get campaignId from contract or context if available
+      if (contract && contract.campaign_id) {
+        campaignId = contract.campaign_id;
+      }
+    }
+    // If you have a campaignId, pass it; otherwise, just ambassador
+    let url = "/contracts/new";
+    const params = [];
+    if (campaignId) params.push(`campaign=${campaignId}`);
+    if (ambassadorId) params.push(`ambassador=${ambassadorId}`);
+    if (params.length > 0) url += `?${params.join("&")}`;
+    router.push(url);
   };
 
   if (!selectedChatId) {
@@ -201,7 +221,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           <Button
             variant="primary"
             className="w-full bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full"
-            onClick={handleDraftContract}
+            onClick={handleGoToDraftContract}
             disabled={isLoading}
           >
             {isLoading ? "Drafting..." : "Draft a Contract"}
@@ -280,6 +300,17 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           </div>
         </div>
       </div>
+      {contract && (
+        <div className="mt-4">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push(`/contracts/${contract.id}`)}
+          >
+            View Contract
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

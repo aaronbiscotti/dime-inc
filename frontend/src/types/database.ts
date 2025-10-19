@@ -296,6 +296,8 @@ export type Database = {
       contracts: {
         Row: {
           ambassador_signed_at: string | null
+          campaign_ambassador_id: string | null
+          client_id: string | null
           client_signed_at: string | null
           contract_file_url: string | null
           contract_text: string | null
@@ -312,6 +314,8 @@ export type Database = {
         }
         Insert: {
           ambassador_signed_at?: string | null
+          campaign_ambassador_id?: string | null
+          client_id?: string | null
           client_signed_at?: string | null
           contract_file_url?: string | null
           contract_text?: string | null
@@ -328,6 +332,8 @@ export type Database = {
         }
         Update: {
           ambassador_signed_at?: string | null
+          campaign_ambassador_id?: string | null
+          client_id?: string | null
           client_signed_at?: string | null
           contract_file_url?: string | null
           contract_text?: string | null
@@ -344,10 +350,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "contracts_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
+            foreignKeyName: "contracts_campaign_ambassador_id_fkey"
+            columns: ["campaign_ambassador_id"]
+            isOneToOne: false
             referencedRelation: "campaign_ambassadors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
             referencedColumns: ["id"]
           },
         ]
