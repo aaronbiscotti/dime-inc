@@ -978,4 +978,69 @@ export const chatService = {
       return { data: null, error };
     }
   },
+
+  /**
+   * Fetch all contracts for a given client (by client_profile.id)
+   * Joins campaign_ambassadors, campaigns, ambassador_profiles
+   */
+  async getContractsForClient(clientProfileId: string) {
+    try {
+      // 1. Find all campaign_ambassadors for campaigns owned by this client
+      // Workaround: fetch campaign_ambassadors, then fetch campaigns separately
+      const { data: caRows, error: caError } = await supabase
+        .from('campaign_ambassadors')
+        .select('id, campaign_id, ambassador_id, chat_room_id')
+      if (caError || !caRows) {
+        console.log('[getContractsForClient] caRows:', caRows, 'caError:', caError);
+        return { data: [], error: caError || new Error('No campaign_ambassadors found') };
+      }
+      // Fetch campaigns for this client (use 'title' not 'name')
+      const { data: campaigns, error: campaignsError } = await supabase
+        .from('campaigns')
+        .select('id, title, client_id')
+        .eq('client_id', clientProfileId);
+      if (campaignsError || !campaigns) {
+        console.log('[getContractsForClient] campaigns:', campaigns, 'campaignsError:', campaignsError);
+        return { data: [], error: campaignsError || new Error('No campaigns found') };
+      }
+      // Only keep campaign_ambassadors for this client's campaigns
+      const clientCampaignIds = new Set(campaigns.map((c: any) => c.id));
+      const filteredCAs = caRows.filter((ca: any) => clientCampaignIds.has(ca.campaign_id));
+      // Fetch ambassador profiles
+      const ambassadorIds = Array.from(new Set(filteredCAs.map((ca: any) => ca.ambassador_id)));
+      let ambassadorProfiles: any[] = [];
+      if (ambassadorIds.length > 0) {
+        const { data: ambs, error: ambsError } = await supabase
+          .from('ambassador_profiles')
+          .select('id, full_name')
+          .in('id', ambassadorIds);
+        ambassadorProfiles = ambs || [];
+      }
+      // Fetch contracts
+      const contractIds = filteredCAs.map((ca: any) => ca.id);
+      const { data: contracts, error: contractsError } = await supabase
+        .from('contracts')
+        .select('*')
+        .in('id', contractIds);
+      if (contractsError || !contracts) {
+        console.log('[getContractsForClient] contracts:', contracts, 'contractsError:', contractsError);
+        return { data: [], error: contractsError || new Error('No contracts found') };
+      }
+      // Merge info for table display
+      const merged = contracts.map(contract => {
+        const ca = filteredCAs.find((ca: any) => ca.id === contract.id);
+        const campaign = campaigns.find((c: any) => c.id === ca?.campaign_id);
+        const ambassador = ambassadorProfiles.find((a: any) => a.id === ca?.ambassador_id);
+        return {
+          ...contract,
+          campaign_name: campaign?.title || '-',
+          ambassador_name: ambassador?.full_name || '-',
+        };
+      });
+      console.log('[getContractsForClient] merged:', merged);
+      return { data: merged, error: null };
+    } catch (error) {
+      return { data: [], error };
+    }
+  },
 };
