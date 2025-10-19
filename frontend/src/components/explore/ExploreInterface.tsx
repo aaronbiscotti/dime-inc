@@ -43,7 +43,7 @@ export function ExploreInterface() {
   const [invitingId, setInvitingId] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<Set<string>>(new Set()) // Track favorited ambassadors
   const [showInviteModal, setShowInviteModal] = useState(false)
-  const [selectedAmbassador, setSelectedAmbassador] = useState<{ userId: string; name: string } | null>(null)
+  const [selectedAmbassador, setSelectedAmbassador] = useState<{ id: string; userId: string; name: string } | null>(null)
   const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([])
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
   const [inviteMessage, setInviteMessage] = useState('')
@@ -203,14 +203,14 @@ export function ExploreInterface() {
     })
   }
 
-  const handleInvite = async (ambassadorUserId: string, ambassadorName: string) => {
+  const handleInvite = async (ambassadorUserId: string, ambassadorName: string, ambassadorProfileId: string) => {
     if (!user) {
       console.error('User not authenticated')
       return
     }
 
     // Set the selected ambassador and open the modal
-    setSelectedAmbassador({ userId: ambassadorUserId, name: ambassadorName })
+    setSelectedAmbassador({ id: ambassadorProfileId, userId: ambassadorUserId, name: ambassadorName })
     
     // Fetch active campaigns for the dropdown
     try {
@@ -249,7 +249,8 @@ export function ExploreInterface() {
     console.log('Starting invite process:', {
       currentUser: user.id,
       ambassadorUserId: selectedAmbassador.userId,
-      ambassadorName: selectedAmbassador.name
+      ambassadorName: selectedAmbassador.name,
+      selectedCampaignId,
     })
 
     setInvitingId(selectedAmbassador.userId)
@@ -298,6 +299,25 @@ export function ExploreInterface() {
       }
 
       console.log('Message sent successfully:', message)
+
+      // Add ambassador to campaign_ambassadors table
+      if (selectedCampaignId && selectedAmbassador?.id) {
+        try {
+          console.log('Adding ambassador to campaign_ambassadors:', {
+            campaignId: selectedCampaignId,
+            ambassadorId: selectedAmbassador.id,
+          })
+          const result = await campaignService.addAmbassadorToCampaign({
+            campaignId: selectedCampaignId,
+            ambassadorId: selectedAmbassador.id,
+          })
+          console.log('Ambassador added to campaign_ambassadors:', result)
+        } catch (err) {
+          console.error('Error adding ambassador to campaign_ambassadors:', err)
+        }
+      } else {
+        console.warn('No campaign selected or ambassador ID missing, skipping campaign_ambassadors insert.')
+      }
 
       // Close modal and redirect to the specific chat
       setShowInviteModal(false)
@@ -571,7 +591,7 @@ export function ExploreInterface() {
                             />
                           </button>
                           <button 
-                            onClick={() => handleInvite(influencer.userId, influencer.name)}
+                            onClick={() => handleInvite(influencer.userId, influencer.name, influencer.id)}
                             disabled={invitingId === influencer.userId}
                             className="bg-[#f5d82e] hover:bg-[#e5c820] text-black font-medium px-6 py-2.5 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                           >
