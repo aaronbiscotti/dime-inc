@@ -488,7 +488,7 @@ export const chatService = {
       }
 
       const participantRole = profileInfo?.role;
-      console.log('👤 Other participant role:', participantRole);
+      // console.log('👤 Other participant role:', participantRole);
 
       // Fetch detailed profile information based on role
       let profileData = null;
@@ -514,7 +514,7 @@ export const chatService = {
           return { data: null, error: ambassadorError };
         }
 
-        console.log('✅ Ambassador profile loaded:', ambassadorProfile);
+        // console.log('✅ Ambassador profile loaded:', ambassadorProfile);
 
         profileData = {
           userId: participantUserId,
@@ -548,7 +548,7 @@ export const chatService = {
           return { data: null, error: clientError };
         }
 
-        console.log('✅ Client profile loaded:', clientProfile);
+        // console.log('✅ Client profile loaded:', clientProfile);
 
         profileData = {
           userId: participantUserId,
@@ -562,7 +562,7 @@ export const chatService = {
         };
       }
 
-      console.log('✅ Other participant profile loaded:', profileData);
+      // console.log('✅ Other participant profile loaded:', profileData);
       return { data: profileData, error: null };
 
     } catch (error) {
@@ -582,7 +582,7 @@ export const chatService = {
         return { data: null, error: userError || new Error('User not authenticated') };
       }
 
-      console.log('🔍 Finding other participant via neutral chat name for chat:', chatRoomId);
+      // console.log('🔍 Finding other participant via neutral chat name for chat:', chatRoomId);
 
       // Get chat room info
       const { data: chatRoom, error: chatError } = await supabase
@@ -596,11 +596,11 @@ export const chatService = {
         return { data: null, error: chatError };
       }
 
-      console.log('🔍 Chat room name:', chatRoom.name);
+      // console.log('🔍 Chat room name:', chatRoom.name);
 
       // Parse the chat name to extract the other user ID
       const chatName = chatRoom.name || '';
-      console.log('🔍 Attempting to parse chat name:', chatName);
+      // console.log('🔍 Attempting to parse chat name:', chatName);
       
       let otherUserId = null;
       
@@ -609,29 +609,29 @@ export const chatService = {
       if (neutralMatch) {
         const [, userId1, userId2] = neutralMatch;
         otherUserId = userId1 === user.id ? userId2 : userId1;
-        console.log('🎯 Neutral format matched - other user ID:', otherUserId);
+        // console.log('🎯 Neutral format matched - other user ID:', otherUserId);
       } else {
         // Fallback: try old "Chat with username" format
-        console.log('🔍 Trying old format fallback...');
+        // console.log('🔍 Trying old format fallback...');
         const oldMatch = chatName.match(/Chat with (.+)/);
         if (oldMatch) {
           const extractedUsername = oldMatch[1];
-          console.log('🔍 Old format matched - extracted username:', extractedUsername);
+          // console.log('🔍 Old format matched - extracted username:', extractedUsername);
           
           // Search for this user in profiles to get their ID
           return await this.searchUserByName(extractedUsername);
         } else {
-          console.log('❌ Could not parse chat name in any known format:', chatName);
+          // console.log('❌ Could not parse chat name in any known format:', chatName);
           return { data: null, error: new Error('Could not parse chat name') };
         }
       }
       
       if (!otherUserId) {
-        console.log('❌ Could not determine other user ID from chat name:', chatName);
+        // console.log('❌ Could not determine other user ID from chat name:', chatName);
         return { data: null, error: new Error('Could not determine other user ID') };
       }
 
-      console.log('👤 Other user ID:', otherUserId);
+      // console.log('👤 Other user ID:', otherUserId);
 
       // Get the user's role and profile
       return await this.getProfileByUserId(otherUserId);
@@ -660,7 +660,7 @@ export const chatService = {
       }
 
       const participantRole = profileInfo?.role;
-      console.log('👤 Other participant role:', participantRole);
+      // console.log('👤 Other participant role:', participantRole);
 
       // Fetch detailed profile information based on role
       let profileData = null;
@@ -686,7 +686,7 @@ export const chatService = {
           return { data: null, error: ambassadorError };
         }
 
-        console.log('✅ Ambassador profile loaded:', ambassadorProfile);
+        // console.log('✅ Ambassador profile loaded:', ambassadorProfile);
 
         profileData = {
           userId: userId,
@@ -720,7 +720,7 @@ export const chatService = {
           return { data: null, error: clientError };
         }
 
-        console.log('✅ Client profile loaded:', clientProfile);
+        // console.log('✅ Client profile loaded:', clientProfile);
 
         profileData = {
           userId: userId,
@@ -734,7 +734,7 @@ export const chatService = {
         };
       }
 
-      console.log('✅ Other participant profile loaded:', profileData);
+      // console.log('✅ Other participant profile loaded:', profileData);
       return { data: profileData, error: null };
 
     } catch (error) {
@@ -851,8 +851,8 @@ export const chatService = {
         return;
       }
 
-      console.log('🐛 DEBUG: Chat Room ID:', chatRoomId);
-      console.log('🐛 DEBUG: Current User ID:', user.id);
+      // console.log('🐛 DEBUG: Chat Room ID:', chatRoomId);
+      // console.log('🐛 DEBUG: Current User ID:', user.id);
 
       // Check if chat room exists
       const { data: chatRoom, error: chatRoomError } = await supabase
@@ -861,8 +861,8 @@ export const chatService = {
         .eq('id', chatRoomId)
         .single();
 
-      console.log('🐛 DEBUG: Chat Room:', chatRoom);
-      if (chatRoomError) console.log('🐛 DEBUG: Chat Room Error:', chatRoomError);
+      // console.log('🐛 DEBUG: Chat Room:', chatRoom);
+      // if (chatRoomError) console.log('🐛 DEBUG: Chat Room Error:', chatRoomError);
 
       // Get all participants
       const { data: allParticipants, error: participantsError } = await supabase
@@ -870,27 +870,27 @@ export const chatService = {
         .select('*')
         .eq('chat_room_id', chatRoomId);
 
-      console.log('🐛 DEBUG: All Participants:', allParticipants);
-      if (participantsError) console.log('🐛 DEBUG: Participants Error:', participantsError);
+      // console.log('🐛 DEBUG: All Participants:', allParticipants);
+      // if (participantsError) console.log('🐛 DEBUG: Participants Error:', participantsError);
 
       // Get profiles for each participant
       if (allParticipants) {
-        console.log('🐛 DEBUG: Number of participants:', allParticipants.length);
-        for (const participant of allParticipants) {
-          console.log('🐛 DEBUG: Participant object:', participant);
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', participant.user_id)
-            .single();
+        // console.log('🐛 DEBUG: Number of participants:', allParticipants.length);
+        // for (const participant of allParticipants) {
+          // console.log('🐛 DEBUG: Participant object:', participant);
+          // const { data: profile, error: profileError } = await supabase
+          //   .from('profiles')
+          //   .select('*')
+          //   .eq('id', participant.user_id)
+          //   .single();
 
-          console.log(`🐛 DEBUG: Profile for ${participant.user_id}:`, profile);
-          if (profileError) console.log(`🐛 DEBUG: Profile Error for ${participant.user_id}:`, profileError);
-        }
+          // console.log(`🐛 DEBUG: Profile for ${participant.user_id}:`, profile);
+          // if (profileError) console.log(`🐛 DEBUG: Profile Error for ${participant.user_id}:`, profileError);
+        // }
       }
 
       // Let's check if this is an RLS issue by trying to find any user named "bobo_fishsoccer"
-      console.log('🐛 DEBUG: Searching for "bobo_fishsoccer" user...');
+      // console.log('🐛 DEBUG: Searching for "bobo_fishsoccer" user...');
       
       // Check ambassador profiles
       const { data: ambassadorSearch, error: ambassadorError } = await supabase
@@ -898,7 +898,7 @@ export const chatService = {
         .select('user_id, full_name')
         .ilike('full_name', '%bobo_fishsoccer%');
       
-      console.log('🐛 DEBUG: Ambassador search for bobo_fishsoccer:', ambassadorSearch, ambassadorError);
+      // console.log('🐛 DEBUG: Ambassador search for bobo_fishsoccer:', ambassadorSearch, ambassadorError);
       
       // Check client profiles  
       const { data: clientSearch, error: clientError } = await supabase
@@ -906,7 +906,7 @@ export const chatService = {
         .select('user_id, company_name')
         .ilike('company_name', '%bobo_fishsoccer%');
         
-      console.log('🐛 DEBUG: Client search for bobo_fishsoccer:', clientSearch, clientError);
+      // console.log('🐛 DEBUG: Client search for bobo_fishsoccer:', clientSearch, clientError);
 
     } catch (error) {
       console.error('🐛 DEBUG: Unexpected error:', error);

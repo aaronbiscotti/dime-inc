@@ -12,28 +12,36 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ userRole }: ChatInterfaceProps) {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Initialize state from URL immediately (before first render)
-  const chatIdFromUrl = searchParams.get('chat')
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(chatIdFromUrl)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const chatIdFromUrl = searchParams.get('chat');
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(chatIdFromUrl);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [chatsChanged, setChatsChanged] = useState(0); // NEW: track chat list changes
 
   // Sync with URL changes
   useEffect(() => {
-    const chatId = searchParams.get('chat')
+    const chatId = searchParams.get('chat');
     if (chatId && chatId !== selectedChatId) {
-      setSelectedChatId(chatId)
-      setIsMobileMenuOpen(false) // Close sidebar on mobile to show chat
+      setSelectedChatId(chatId);
+      setIsMobileMenuOpen(false); // Close sidebar on mobile to show chat
     }
-  }, [searchParams, selectedChatId])
+  }, [searchParams, selectedChatId]);
 
   // Handle chat selection - update URL
   const handleSelectChat = (chatId: string) => {
-    setSelectedChatId(chatId)
-    router.push(`/chats?chat=${chatId}`)
-  }
+    setSelectedChatId(chatId);
+    router.push(`/chats?chat=${chatId}`);
+  };
+
+  // NEW: handle chat deleted
+  const handleChatDeleted = () => {
+    setSelectedChatId(null);
+    setChatsChanged((v) => v + 1); // trigger sidebar refresh
+    window.location.replace('/chats'); // Force full page reload to /chats only
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -46,6 +54,7 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
             selectedChatId={selectedChatId}
             onSelectChat={handleSelectChat}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
+            chatsChanged={chatsChanged} // NEW
           />
         </div>
 
@@ -54,7 +63,7 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
           <ChatArea
             selectedChatId={selectedChatId}
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
-            onChatDeleted={() => setSelectedChatId(null)}
+            onChatDeleted={handleChatDeleted}
           />
         </div>
 
@@ -69,5 +78,5 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

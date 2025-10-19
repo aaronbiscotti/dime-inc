@@ -11,12 +11,14 @@ interface ChatSidebarProps {
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
   onCloseMobile: () => void;
+  chatsChanged?: number; // NEW: trigger refresh
 }
 
 export function ChatSidebar({
   selectedChatId,
   onSelectChat,
   onCloseMobile,
+  chatsChanged, // NEW
 }: ChatSidebarProps) {
   const [activeTab, setActiveTab] = useState<"private" | "group">("private");
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,7 +29,7 @@ export function ChatSidebar({
   // Helper function to get participant name from user ID
   const getParticipantNameFromUserId = async (userId: string): Promise<string | null> => {
     try {
-      console.log('Sidebar - looking up user ID:', userId);
+      // console.log('Sidebar - looking up user ID:', userId);
       
       // Get the user's role first
       const { data: profile } = await supabase
@@ -37,11 +39,11 @@ export function ChatSidebar({
         .single();
 
       if (!profile) {
-        console.log('Sidebar - no profile found for user ID:', userId);
+        // console.log('Sidebar - no profile found for user ID:', userId);
         return null;
       }
 
-      console.log('Sidebar - found profile role:', profile.role);
+      // console.log('Sidebar - found profile role:', profile.role);
 
       // Get detailed profile based on role
       if (profile.role === 'ambassador') {
@@ -52,7 +54,7 @@ export function ChatSidebar({
           .single();
 
         if (ambassadorProfile) {
-          console.log('Sidebar - found ambassador name:', ambassadorProfile.full_name);
+          // console.log('Sidebar - found ambassador name:', ambassadorProfile.full_name);
           return ambassadorProfile.full_name;
         }
       } else if (profile.role === 'client') {
@@ -63,14 +65,14 @@ export function ChatSidebar({
           .single();
 
         if (clientProfile) {
-          console.log('Sidebar - found client name:', clientProfile.company_name);
+          // console.log('Sidebar - found client name:', clientProfile.company_name);
           return clientProfile.company_name;
         }
       }
 
       return null;
     } catch (error) {
-      console.error('Sidebar - error looking up user:', error);
+      // console.error('Sidebar - error looking up user:', error);
       return null;
     }
   };
@@ -143,7 +145,7 @@ export function ChatSidebar({
               `)
               .in("id", participantIds.map(p => p.user_id));
 
-            console.log('Sidebar - raw profiles data:', profiles);
+            // console.log('Sidebar - raw profiles data:', profiles);
             if (profiles) {
               otherParticipants = profiles;
             }
@@ -155,7 +157,7 @@ export function ChatSidebar({
           
           if (!chatRoom.is_group && otherParticipants && otherParticipants.length > 0) {
             const otherParticipant = otherParticipants[0] as any;
-            console.log('Sidebar - formatting name for participant:', otherParticipant);
+            // console.log('Sidebar - formatting name for participant:', otherParticipant);
             
             if (
               otherParticipant.role === "ambassador" &&
@@ -171,14 +173,14 @@ export function ChatSidebar({
               participantName = otherParticipant.client_profiles[0].company_name;
             }
             
-            console.log('Sidebar - extracted participant name:', participantName);
+            // console.log('Sidebar - extracted participant name:', participantName);
             
             // Format as "Chat with {name}" for display
             chatName = `Chat with ${participantName}`;
           } else if (!chatRoom.is_group) {
             // Fallback: try to parse neutral chat name format
-            console.log('Sidebar - no participants found, trying to parse chat name:', chatRoom.name);
-            console.log('Sidebar - current user ID:', user?.id);
+            // console.log('Sidebar - no participants found, trying to parse chat name:', chatRoom.name);
+            // console.log('Sidebar - current user ID:', user?.id);
             
             if (chatRoom.name && chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/)) {
               // This is a neutral format chat name, try to get the other user ID
@@ -186,16 +188,16 @@ export function ChatSidebar({
               if (neutralMatch && user) {
                 const [, userId1, userId2] = neutralMatch;
                 const otherUserId = userId1 === user.id ? userId2 : userId1;
-                console.log('Sidebar - found other user ID from neutral name:', otherUserId);
+                // console.log('Sidebar - found other user ID from neutral name:', otherUserId);
                 
                 // Try to get their profile
                 const foundName = await getParticipantNameFromUserId(otherUserId);
                 if (foundName) {
                   chatName = `Chat with ${foundName}`;
-                  console.log('Sidebar - successfully resolved name:', chatName);
+                  // console.log('Sidebar - successfully resolved name:', chatName);
                 } else {
                   chatName = "Private Chat";
-                  console.log('Sidebar - could not resolve name, using fallback');
+                  // console.log('Sidebar - could not resolve name, using fallback');
                 }
               } else {
                 chatName = "Private Chat";
@@ -236,7 +238,7 @@ export function ChatSidebar({
     };
 
     fetchChats();
-  }, [user]);
+  }, [user, chatsChanged]); // Add chatsChanged to deps
 
   const filteredChats = chats.filter(
     (chat) =>
