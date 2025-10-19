@@ -72,6 +72,7 @@ export type Database = {
           agreed_budget: number | null
           ambassador_id: string
           campaign_id: string
+          chat_room_id: string | null
           created_at: string | null
           id: string
           selected_at: string | null
@@ -81,6 +82,7 @@ export type Database = {
           agreed_budget?: number | null
           ambassador_id: string
           campaign_id: string
+          chat_room_id?: string | null
           created_at?: string | null
           id?: string
           selected_at?: string | null
@@ -90,6 +92,7 @@ export type Database = {
           agreed_budget?: number | null
           ambassador_id?: string
           campaign_id?: string
+          chat_room_id?: string | null
           created_at?: string | null
           id?: string
           selected_at?: string | null
@@ -108,6 +111,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_ambassadors_chat_room_id_fkey"
+            columns: ["chat_room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
             referencedColumns: ["id"]
           },
         ]

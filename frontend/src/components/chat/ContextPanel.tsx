@@ -6,15 +6,11 @@ import {
   ClockIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
-  DocumentTextIcon,
-  LinkIcon,
-  TagIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserRole } from "@/types/database";
 import { chatService, OtherParticipant } from "@/services/chatService";
 import Image from "next/image";
@@ -30,13 +26,15 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [activeTab, setActiveTab] = useState("timeline");
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(true);
   const [otherParticipant, setOtherParticipant] = useState<OtherParticipant | null>(null);
+  const [contract, setContract] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load other participant data when chat is selected
+  // Load other participant data and contract when chat is selected
   useEffect(() => {
     if (!selectedChatId) {
       setOtherParticipant(null);
+      setContract(null);
       setError(null);
       return;
     }
@@ -44,9 +42,8 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     setIsLoading(true);
     setError(null);
 
-    const loadOtherParticipant = async () => {
+    const loadOtherParticipantAndContract = async () => {
       try {
-        // Debug: inspect the chat participants first
         await chatService.debugChatParticipants(selectedChatId);
         const { data, error } = await chatService.getOtherParticipant(selectedChatId);
         if (error) {
@@ -55,20 +52,49 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         } else {
           setOtherParticipant(data);
         }
+        // Fetch contract details
+        const contractResponse = await chatService.getContractByChatId(selectedChatId);
+        if (contractResponse.error) {
+          setContract(null);
+        } else {
+          setContract(contractResponse.data);
+        }
       } catch (err) {
         setError('Failed to load participant information');
         setOtherParticipant(null);
+        setContract(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadOtherParticipant();
-
-    // Make debug function available in console
+    loadOtherParticipantAndContract();
     (window as any).debugChat = () => chatService.debugChatParticipants(selectedChatId);
-    
   }, [selectedChatId]);
+
+  const handleDraftContract = async () => {
+    if (!selectedChatId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      // You need to implement chatService.createContract for actual contract creation
+      const { error } = await chatService.createContract(selectedChatId);
+      if (error) {
+        setError('Failed to draft contract');
+      } else {
+        setError(null);
+        // Refetch contract
+        const contractResponse = await chatService.getContractByChatId(selectedChatId);
+        if (!contractResponse.error) {
+          setContract(contractResponse.data);
+        }
+      }
+    } catch (err) {
+      setError('Failed to draft contract');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!selectedChatId) {
     return (
@@ -112,8 +138,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     );
   }
 
-  // --- Redesigned UI ---
-  // Use only available fields from otherParticipant
+  // --- Simple UI: Only participant info and timeline ---
   let avatar: string | null = null;
   if (otherParticipant.role === 'ambassador') {
     avatar = (otherParticipant as any).profilePhoto || null;
@@ -159,11 +184,40 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           </div>
         )}
       </div>
-      {/* View contract */}
-      <Button variant="ghost" className="mb-4 flex items-center gap-2 mx-auto">
-        <EyeIcon className="w-5 h-5" /> View contract
-      </Button>
       <hr className="w-full border-gray-200 mb-4" />
+      {/* Contract status UI */}
+      <div className="mb-4 w-full">
+        {contract ? (
+          <Button variant="ghost" className="mb-2 flex items-center gap-2 w-full">
+            <EyeIcon className="w-5 h-5" /> View contract
+          </Button>
+        ) : (
+          <div className="text-center text-gray-500 mb-2">
+            <p className="text-sm">No contract yet</p>
+          </div>
+        )}
+        {/* Only show Draft a Contract button for client users and if no contract exists */}
+        {userRole === 'client' && !contract && (
+          <Button
+            variant="primary"
+            className="w-full bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full"
+            onClick={handleDraftContract}
+            disabled={isLoading}
+          >
+            {isLoading ? "Drafting..." : "Draft a Contract"}
+          </Button>
+        )}
+        {/* If contract exists, show status for all users */}
+        {contract && (
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled
+          >
+            Contract Exists
+          </Button>
+        )}
+      </div>
       {/* Activity Timeline */}
       <div className="w-full">
         <div className="flex items-center justify-between mb-2">
@@ -206,12 +260,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           <label className="block text-sm text-gray-700 mb-1">Post submission</label>
           <div className="flex items-center gap-2 mb-4">
             <input type="text" placeholder="Upload here..." className="flex-1 border border-gray-200 rounded-full px-4 py-2 text-sm focus:outline-none" />
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 relative">
-              <span className="text-green-700 font-bold">A</span>
-              <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center">
-                <img src="/avatar-placeholder.png" alt="avatar" className="w-4 h-4 rounded-full" />
-              </span>
-            </div>
+            <Button variant="outline" className="px-4 py-2 text-sm">Submit</Button>
           </div>
           {/* Ad Codes */}
           <label className="block text-sm text-gray-700 mb-1">Ad Codes (optional)</label>
@@ -231,7 +280,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           </div>
         </div>
       </div>
-      
     </div>
   );
 }
