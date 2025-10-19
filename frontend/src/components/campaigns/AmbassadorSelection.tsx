@@ -6,18 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  X,
-  Search,
-  MapPin,
-  Users,
-  Star,
-  Send,
-  CheckCircle
-} from "lucide-react";
+import { X, Search, MapPin, Users, Star } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { chatService } from "@/services/chatService";
 
 interface Ambassador {
   id: string;
@@ -53,7 +44,6 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAmbassadors, setSelectedAmbassadors] = useState<Set<string>>(new Set());
   const [invitationMessage, setInvitationMessage] = useState("");
-  const [sendingInvitations, setSendingInvitations] = useState(false);
   const [sentInvitations, setSentInvitations] = useState<Set<string>>(new Set());
   const [targetNiches, setTargetNiches] = useState<string[]>([]);
 
@@ -148,52 +138,6 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
     setSelectedAmbassadors(newSelection);
   };
 
-  const sendInvitations = async () => {
-    if (!clientProfile || selectedAmbassadors.size === 0) return;
-
-    setSendingInvitations(true);
-    const newSentInvitations = new Set(sentInvitations);
-
-    try {
-      for (const ambassadorId of selectedAmbassadors) {
-        const ambassador = ambassadors.find(a => a.id === ambassadorId);
-        if (!ambassador) continue;
-
-        // Create chat for each selected ambassador
-        const { data: chat, error } = await chatService.createChat({
-          participantId: ambassador.user_id, // Use user_id field
-          participantName: ambassador.full_name,
-          participantRole: 'ambassador',
-          subject: `Campaign Invitation: ${campaign.campaign_title}`
-        });
-
-        if (!error && chat) {
-          // Send the invitation message
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            await supabase
-              .from('messages')
-              .insert({
-                chat_room_id: chat.id,
-                sender_id: user.id,
-                content: invitationMessage,
-                created_at: new Date().toISOString()
-              });
-          }
-
-          newSentInvitations.add(ambassadorId);
-        }
-      }
-
-      setSentInvitations(newSentInvitations);
-      setSelectedAmbassadors(new Set());
-    } catch (error) {
-      console.error('Error sending invitations:', error);
-    } finally {
-      setSendingInvitations(false);
-    }
-  };
-
   const hasNicheMatch = (ambassador: Ambassador) => {
     return ambassador.niche?.some(n => targetNiches.includes(n)) || false;
   };
@@ -258,20 +202,12 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
             />
           </div>
 
-          {/* Selected Count & Send Button */}
+          {/* Selected Count */}
           {selectedAmbassadors.size > 0 && (
             <div className="flex items-center justify-between p-3 bg-[#f5d82e]/10 rounded-lg border border-[#f5d82e]/20">
               <span className="text-sm font-medium text-gray-900">
                 {selectedAmbassadors.size} ambassador{selectedAmbassadors.size > 1 ? 's' : ''} selected
               </span>
-              <Button
-                onClick={sendInvitations}
-                disabled={sendingInvitations}
-                className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-0"
-              >
-                <Send className="w-4 h-4 mr-2" />
-                {sendingInvitations ? 'Sending...' : 'Send Invitations'}
-              </Button>
             </div>
           )}
 

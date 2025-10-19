@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { ChatSidebar } from './ChatSidebar'
 import { ChatArea } from './ChatArea'
 import { ContextPanel } from './ContextPanel'
@@ -12,33 +12,49 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ userRole }: ChatInterfaceProps) {
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Initialize state from URL immediately (before first render)
-  const chatIdFromUrl = searchParams.get('chat')
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(chatIdFromUrl)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const chatIdFromUrl = searchParams.get('chat');
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(chatIdFromUrl);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [chatsChanged, setChatsChanged] = useState(0); // NEW: track chat list changes
 
   // Sync with URL changes
   useEffect(() => {
-    const chatId = searchParams.get('chat')
+    const chatId = searchParams.get('chat');
     if (chatId && chatId !== selectedChatId) {
-      setSelectedChatId(chatId)
-      setIsMobileMenuOpen(false) // Close sidebar on mobile to show chat
+      setSelectedChatId(chatId);
+      setIsMobileMenuOpen(false); // Close sidebar on mobile to show chat
     }
-  }, [searchParams, selectedChatId])
+  }, [searchParams, selectedChatId]);
+
+  // Handle chat selection - update URL
+  const handleSelectChat = (chatId: string) => {
+    setSelectedChatId(chatId);
+    router.push(`/chats?chat=${chatId}`);
+  };
+
+  // NEW: handle chat deleted
+  const handleChatDeleted = () => {
+    setSelectedChatId(null);
+    setChatsChanged((v) => v + 1); // trigger sidebar refresh
+    window.location.replace('/chats'); // Force full page reload to /chats only
+  };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
       <div className="h-[calc(100vh-145px)] flex gap-6">
         {/* Left Sidebar - Chat List */}
-        <div className={`w-80 flex-shrink-0 ${
+        <div className={`w-72 flex-shrink-0 ${
           isMobileMenuOpen ? 'block' : 'hidden'
         } lg:block`}>
           <ChatSidebar
             selectedChatId={selectedChatId}
-            onSelectChat={setSelectedChatId}
+            onSelectChat={handleSelectChat}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
+            chatsChanged={chatsChanged} // NEW
           />
         </div>
 
@@ -47,11 +63,12 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
           <ChatArea
             selectedChatId={selectedChatId}
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+            onChatDeleted={handleChatDeleted}
           />
         </div>
 
         {/* Right Sidebar - Context Panel */}
-        <div className={`w-96 flex-shrink-0 ${
+        <div className={`w-80 flex-shrink-0 ${
           selectedChatId ? 'block' : 'hidden'
         } lg:block`}>
           <ContextPanel
@@ -61,5 +78,5 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

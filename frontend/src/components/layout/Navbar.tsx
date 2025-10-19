@@ -103,6 +103,18 @@ export function Navbar() {
                   >
                     Profile
                   </Link>
+
+                  {/* Contracts (Client only) */}
+                  <Link
+                    href="/contracts"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname.startsWith("/contracts")
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600"
+                    }`}
+                  >
+                    Contracts
+                  </Link>
                 </>
               ) : (
                 <>

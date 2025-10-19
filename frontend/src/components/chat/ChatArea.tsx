@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   EllipsisVerticalIcon,
   Bars3Icon,
   PaperClipIcon,
   PaperAirplaneIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { chatService } from "@/services/chatService";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 interface Message {
   id: string;
@@ -42,20 +45,93 @@ interface ChatRoom {
 interface ChatAreaProps {
   selectedChatId: string | null;
   onOpenMobileMenu: () => void;
+  onParticipantsUpdate?: () => void;
+  onChatDeleted?: () => void;
 }
 
-export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
+export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdate, onChatDeleted }: ChatAreaProps) {
+  const router = useRouter();
   const { user } = useAuth();
+  
+  // Helper function to get participant name from user ID (same as ChatSidebar)
+  const getParticipantNameFromUserId = useCallback(async (userId: string): Promise<string | null> => {
+    try {
+      // console.log('ChatArea - looking up user ID:', userId);
+      
+      // Get the user's role first
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (!profile) {
+        // console.log('ChatArea - no profile found for user ID:', userId);
+        return null;
+      }
+
+      // console.log('ChatArea - found profile role:', profile.role);
+
+      // Get detailed profile based on role
+      if (profile.role === 'ambassador') {
+        const { data: ambassadorProfile } = await supabase
+          .from('ambassador_profiles')
+          .select('full_name')
+          .eq('user_id', userId)
+          .single();
+
+        if (ambassadorProfile) {
+          // console.log('ChatArea - found ambassador name:', ambassadorProfile.full_name);
+          return ambassadorProfile.full_name;
+        }
+      } else if (profile.role === 'client') {
+        const { data: clientProfile } = await supabase
+          .from('client_profiles')
+          .select('company_name')
+          .eq('user_id', userId)
+          .single();
+
+        if (clientProfile) {
+          // console.log('ChatArea - found client name:', clientProfile.company_name);
+          return clientProfile.company_name;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      // console.error('ChatArea - error looking up user:', error);
+      return null;
+    }
+  }, []);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
+  const [chatDisplayName, setChatDisplayName] = useState<string>("Unknown Chat");
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [sending, setSending] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update chat display name when chat room changes
+  useEffect(() => {
+    const updateDisplayName = async () => {
+      if (!chatRoom) {
+        setChatDisplayName("Unknown Chat");
+        return;
+      }
+
+      const displayName = await getChatDisplayName();
+      setChatDisplayName(displayName);
+    };
+
+    updateDisplayName();
+  }, [chatRoom, user]); // Re-run when chatRoom or user changes
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch chat room data and set up real-time messaging
@@ -100,8 +176,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
         let participants: any[] = [];
         if (participantsData && participantsData.length > 0) {
           const otherUserIds = participantsData.map(p => p.user_id);
+          console.log('Fetching profiles for other users:', otherUserIds);
 
-          const { data: profilesData } = await supabase
+          const { data: profilesData, error: profilesError } = await supabase
             .from("profiles")
             .select(`
               id, role,
@@ -110,12 +187,29 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
             `)
             .in("id", otherUserIds);
 
+          console.log('Profiles data:', profilesData, 'Error:', profilesError);
+
           if (profilesData) {
-            participants = profilesData;
+            participants = profilesData.map(profile => ({
+              user_id: profile.id,
+              profiles: { role: profile.role },
+              ambassador_profiles: profile.ambassador_profiles || null,
+              client_profiles: profile.client_profiles || null
+            }));
+            console.log('Mapped participants:', participants);
           }
         }
 
-        setChatRoom({ ...chatRoomData, participants });
+        setChatRoom({ 
+          ...chatRoomData, 
+          participants,
+          is_group: chatRoomData.is_group || false
+        });
+
+        // Pass participants to parent component
+        if (onParticipantsUpdate) {
+          onParticipantsUpdate?.();
+        }
 
         // Fetch existing messages
         const { data: messagesData, error: messagesError } = await supabase
@@ -208,10 +302,10 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
         setTypingUsers(users);
       })
       .on("presence", { event: "join" }, ({ key, newPresences }) => {
-        console.log("User joined:", key, newPresences);
+        // console.log("User joined:", key, newPresences);
       })
       .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-        console.log("User left:", key, leftPresences);
+        // console.log("User left:", key, leftPresences);
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
@@ -239,6 +333,23 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Close options menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showOptionsMenu) {
+        setShowOptionsMenu(false);
+      }
+    };
+
+    if (showOptionsMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showOptionsMenu]);
 
   // Handle typing indicators
   const handleTypingStart = async () => {
@@ -285,22 +396,60 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
   };
 
   // Get chat display name
-  const getChatDisplayName = () => {
+  const getChatDisplayName = useCallback(async () => {
     if (!chatRoom) return "Unknown Chat";
 
-    if (chatRoom.name) return chatRoom.name;
+    // For group chats, use the chat name
+    if (chatRoom.is_group && chatRoom.name) {
+      return chatRoom.name;
+    }
 
+    // For private chats, construct "Chat with {participant name}"
     if (chatRoom.participants && chatRoom.participants.length > 0) {
       const participant = chatRoom.participants[0];
+      // console.log('ChatArea - Getting name for participant:', participant);
+      
+      let participantName = "Unknown User";
       if (participant.profiles?.role === "ambassador" && participant.ambassador_profiles) {
-        return participant.ambassador_profiles.full_name;
+        participantName = participant.ambassador_profiles.full_name;
       } else if (participant.profiles?.role === "client" && participant.client_profiles) {
-        return participant.client_profiles.company_name;
+        participantName = participant.client_profiles.company_name;
+      }
+      
+      return `Chat with ${participantName}`;
+    }
+
+    // Fallback: try to parse neutral chat name format
+    if (chatRoom.name && user) {
+      // console.log('ChatArea - no participants found, trying to parse chat name:', chatRoom.name);
+      // console.log('ChatArea - current user ID:', user.id);
+      
+      if (chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/)) {
+        // This is a neutral format chat name, try to get the other user ID
+        const neutralMatch = chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/);
+        if (neutralMatch) {
+          const [, userId1, userId2] = neutralMatch;
+          const otherUserId = userId1 === user.id ? userId2 : userId1;
+          // console.log('ChatArea - found other user ID from neutral name:', otherUserId);
+          
+          // Try to get their profile
+          const foundName = await getParticipantNameFromUserId(otherUserId);
+          if (foundName) {
+            // console.log('ChatArea - successfully resolved name:', foundName);
+            return `Chat with ${foundName}`;
+          } else {
+            // console.log('ChatArea - could not resolve name, using fallback');
+          }
+        }
+      } else if (chatRoom.name.match(/Chat with (.+)/)) {
+        // Old format, keep as is
+        return chatRoom.name;
       }
     }
 
-    return "Unknown User";
-  };
+    // Final fallback for private chats without participant info
+    return "Private Chat";
+  }, [chatRoom, user, getParticipantNameFromUserId]);
 
   // Format message timestamp
   const formatTimestamp = (timestamp: string) => {
@@ -344,10 +493,8 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
           chat_room_id: selectedChatId,
           content: messageInput.trim(),
         });
-
       if (error) {
         console.error("Error sending message:", error);
-        alert(`Failed to send message: ${error.message || 'Unknown error'}`);
         return;
       }
 
@@ -367,11 +514,44 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
     }
   };
 
+  const handleDeleteChat = async () => {
+    if (!selectedChatId) return;
+
+    setDeleting(true);
+    setShowDeleteConfirm(false);
+    setShowOptionsMenu(false);
+
+    try {
+      const result = await chatService.deleteChat(selectedChatId);
+      
+      if (result.error) {
+        console.error('Failed to delete chat:', result.error);
+        return;
+      }
+
+      console.log('Chat deleted successfully');
+      
+      // Notify parent component with deleted chat ID
+      onChatDeleted?.(selectedChatId);
+      
+      // Clear local state
+      setMessages([]);
+      setChatRoom(null);
+      
+      // No redirect here; parent will handle navigation
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessageInput(e.target.value);
     handleTypingStart();
   };
 
+  // Prevent fetchChatData from running if selectedChatId is null
   if (!selectedChatId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
@@ -416,35 +596,35 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
               ) : (
                 <div
                   className={`w-10 h-10 bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-semibold ${
-                    getChatDisplayName().includes("Team") ||
-                    getChatDisplayName().includes("Nike") ||
-                    getChatDisplayName().includes("Corp") ||
-                    getChatDisplayName().includes("Inc") ||
-                    getChatDisplayName().includes("LLC") ||
-                    getChatDisplayName().includes("Ltd") ||
-                    getChatDisplayName().includes("Company") ||
-                    getChatDisplayName().includes("Brand") ||
-                    getChatDisplayName().includes("Marketing")
+                    chatDisplayName.includes("Team") ||
+                    chatDisplayName.includes("Nike") ||
+                    chatDisplayName.includes("Corp") ||
+                    chatDisplayName.includes("Inc") ||
+                    chatDisplayName.includes("LLC") ||
+                    chatDisplayName.includes("Ltd") ||
+                    chatDisplayName.includes("Company") ||
+                    chatDisplayName.includes("Brand") ||
+                    chatDisplayName.includes("Marketing")
                       ? "rounded-lg"
                       : "rounded-full"
                   }`}
                 >
-                  {getChatDisplayName().charAt(0)}
+                  {chatDisplayName.charAt(0)}
                 </div>
               )}
             </div>
 
             {/* Chat Info */}
             <div>
-              <h2 className="font-semibold text-gray-900">{getChatDisplayName()}</h2>
+              <h2 className="font-semibold text-gray-900">{chatDisplayName}</h2>
               {chatRoom?.is_group ? (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-600">
                   {(chatRoom.participants?.length || 0) + 1} members
                 </p>
               ) : (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-600">
                   {typingUsers.size > 0 ? (
-                    <span className="text-green-600">Typing...</span>
+                    <span className="text-green-600 font-medium">Typing...</span>
                   ) : (
                     "Last seen recently"
                   )}
@@ -454,9 +634,28 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
           </div>
 
           {/* Options Menu */}
-          <Button variant="ghost" size="sm">
-            <EllipsisVerticalIcon className="w-5 h-5" />
-          </Button>
+          <div className="relative">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+            >
+              <EllipsisVerticalIcon className="w-5 h-5" />
+            </Button>
+            
+            {showOptionsMenu && (
+              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[150px]">
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleting}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  {deleting ? 'Deleting...' : 'Delete Chat'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -482,61 +681,75 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-600">
             No messages yet. Start the conversation!
           </div>
         ) : (
-          messages.map((message) => (
-            <div key={message.id}>
-              <div
-                className={`flex ${
-                  message.sender_id === user?.id ? "justify-end" : "justify-start"
-                }`}
-              >
+          messages.map((message) => {
+            const isCurrentUser = message.sender_id === user?.id;
+            const senderName = getSenderName(message);
+            
+            return (
+              <div key={message.id}>
                 <div
-                  className={`max-w-xs lg:max-w-md xl:max-w-lg ${
-                    message.sender_id === user?.id ? "order-2" : "order-1"
-                  }`}
+                  className={`flex ${
+                    isCurrentUser ? "justify-end" : "justify-start"
+                  } items-end gap-2`}
                 >
-                  {message.sender_id !== user?.id && chatRoom?.is_group && (
-                    <p className="text-xs text-gray-500 mb-1 px-3">
-                      {getSenderName(message)}
-                    </p>
+                  {/* Avatar for other person's messages */}
+                  {!isCurrentUser && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 overflow-hidden">
+                      {senderName.charAt(0).toUpperCase()}
+                    </div>
                   )}
-                  <div
-                    className={`px-4 py-2 rounded-2xl ${
-                      message.sender_id === user?.id
-                        ? "bg-[#FEE65D] text-gray-900"
-                        : "bg-white border border-gray-200 text-gray-900"
-                    }`}
-                  >
-                    <p className="text-sm">{message.content}</p>
+
+                  <div className="max-w-[60%]">
+                    {!isCurrentUser && chatRoom?.is_group && (
+                      <p className="text-xs text-gray-600 mb-1 pl-3 font-medium">
+                        {senderName}
+                      </p>
+                    )}
+                    <div
+                      className={`px-4 py-2.5 rounded-2xl ${
+                        isCurrentUser
+                          ? "bg-[#1a1a1a] text-white rounded-br-md"
+                          : "bg-gray-100 text-gray-900 rounded-bl-md"
+                      }`}
+                    >
+                      <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                    <p className={`text-xs mt-1 ${
+                      isCurrentUser 
+                        ? "text-gray-400 text-right pr-3" 
+                        : "text-gray-500 pl-3"
+                    }`}>
+                      {formatTimestamp(message.created_at)}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1 px-3">
-                    {formatTimestamp(message.created_at)}
-                  </p>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
 
         {/* Typing indicator */}
         {typingUsers.size > 0 && (
-          <div className="flex justify-start">
-            <div className="max-w-xs lg:max-w-md xl:max-w-lg">
-              <div className="bg-gray-100 px-4 py-2 rounded-2xl">
+          <div className="flex justify-start items-end gap-2">
+            {/* Avatar for typing indicator */}
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
+              ?
+            </div>
+            
+            <div className="max-w-[45%]">
+              <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-md">
                 <div className="flex items-center space-x-1">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1 px-3">
-                Someone is typing...
-              </p>
             </div>
           </div>
         )}
@@ -545,9 +758,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-gray-200 p-4 rounded-b-xl">
-        <div className="flex items-end gap-3">
-          <Button variant="ghost" size="sm" className="flex-shrink-0">
+      <div className="border-t border-gray-200 p-4 bg-white rounded-b-xl">
+        <div className="flex items-end gap-2">
+          <Button variant="ghost" size="sm" className="flex-shrink-0 text-gray-400 hover:text-gray-600">
             <PaperClipIcon className="w-5 h-5" />
           </Button>
 
@@ -557,12 +770,12 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
               onBlur={handleTypingStop}
-              placeholder="Type a message..."
+              placeholder="Write something..."
               rows={1}
               disabled={sending}
-              className="w-full resize-none border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent max-h-24 disabled:opacity-50"
+              className="w-full resize-none border-0 bg-gray-50 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:bg-white max-h-24 disabled:opacity-50 text-sm"
               style={{
-                minHeight: "40px",
+                minHeight: "42px",
                 height: "auto",
               }}
               onInput={(e) => {
@@ -576,13 +789,52 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu }: ChatAreaProps) {
           <Button
             onClick={handleSendMessage}
             disabled={!messageInput.trim() || sending}
-            className="flex-shrink-0 bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 disabled:bg-gray-200 disabled:text-gray-400"
+            className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-300 rounded-lg h-[42px] w-[42px] p-0"
             size="sm"
           >
             <PaperAirplaneIcon className={`w-5 h-5 ${sending ? 'opacity-50' : ''}`} />
           </Button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with blur effect */}
+          <div
+            className="fixed inset-0"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => setShowDeleteConfirm(false)}
+          />
+          
+          {/* Modal content */}
+          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-gray-900 mb-3">Delete Chat</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this chat? This action cannot be undone and will delete all messages in this conversation.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteChat}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Delete Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

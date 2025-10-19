@@ -11,18 +11,71 @@ interface ChatSidebarProps {
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
   onCloseMobile: () => void;
+  chatsChanged?: number; // NEW: trigger refresh
 }
 
 export function ChatSidebar({
   selectedChatId,
   onSelectChat,
   onCloseMobile,
+  chatsChanged, // NEW
 }: ChatSidebarProps) {
   const [activeTab, setActiveTab] = useState<"private" | "group">("private");
   const [searchQuery, setSearchQuery] = useState("");
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+
+  // Helper function to get participant name from user ID
+  const getParticipantNameFromUserId = async (userId: string): Promise<string | null> => {
+    try {
+      // console.log('Sidebar - looking up user ID:', userId);
+      
+      // Get the user's role first
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (!profile) {
+        // console.log('Sidebar - no profile found for user ID:', userId);
+        return null;
+      }
+
+      // console.log('Sidebar - found profile role:', profile.role);
+
+      // Get detailed profile based on role
+      if (profile.role === 'ambassador') {
+        const { data: ambassadorProfile } = await supabase
+          .from('ambassador_profiles')
+          .select('full_name')
+          .eq('user_id', userId)
+          .single();
+
+        if (ambassadorProfile) {
+          // console.log('Sidebar - found ambassador name:', ambassadorProfile.full_name);
+          return ambassadorProfile.full_name;
+        }
+      } else if (profile.role === 'client') {
+        const { data: clientProfile } = await supabase
+          .from('client_profiles')
+          .select('company_name')
+          .eq('user_id', userId)
+          .single();
+
+        if (clientProfile) {
+          // console.log('Sidebar - found client name:', clientProfile.company_name);
+          return clientProfile.company_name;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      // console.error('Sidebar - error looking up user:', error);
+      return null;
+    }
+  };
 
   // Fetch real chat data from database
   useEffect(() => {
@@ -92,27 +145,68 @@ export function ChatSidebar({
               `)
               .in("id", participantIds.map(p => p.user_id));
 
+            // console.log('Sidebar - raw profiles data:', profiles);
             if (profiles) {
               otherParticipants = profiles;
             }
           }
 
-          // Format chat name
+          // Format chat name - show "Chat with {other person's name}" for private chats
           let chatName = chatRoom.name;
-          if (!chatName && otherParticipants && otherParticipants.length > 0) {
+          let participantName = "Unknown User";
+          
+          if (!chatRoom.is_group && otherParticipants && otherParticipants.length > 0) {
             const otherParticipant = otherParticipants[0] as any;
+            // console.log('Sidebar - formatting name for participant:', otherParticipant);
+            
             if (
               otherParticipant.role === "ambassador" &&
-              otherParticipant.ambassador_profiles?.[0]
+              otherParticipant.ambassador_profiles &&
+              otherParticipant.ambassador_profiles.length > 0
             ) {
-              chatName = otherParticipant.ambassador_profiles[0].full_name;
+              participantName = otherParticipant.ambassador_profiles[0].full_name;
             } else if (
               otherParticipant.role === "client" &&
-              otherParticipant.client_profiles?.[0]
+              otherParticipant.client_profiles &&
+              otherParticipant.client_profiles.length > 0
             ) {
-              chatName = otherParticipant.client_profiles[0].company_name;
+              participantName = otherParticipant.client_profiles[0].company_name;
+            }
+            
+            // console.log('Sidebar - extracted participant name:', participantName);
+            
+            // Format as "Chat with {name}" for display
+            chatName = `Chat with ${participantName}`;
+          } else if (!chatRoom.is_group) {
+            // Fallback: try to parse neutral chat name format
+            // console.log('Sidebar - no participants found, trying to parse chat name:', chatRoom.name);
+            // console.log('Sidebar - current user ID:', user?.id);
+            
+            if (chatRoom.name && chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/)) {
+              // This is a neutral format chat name, try to get the other user ID
+              const neutralMatch = chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/);
+              if (neutralMatch && user) {
+                const [, userId1, userId2] = neutralMatch;
+                const otherUserId = userId1 === user.id ? userId2 : userId1;
+                // console.log('Sidebar - found other user ID from neutral name:', otherUserId);
+                
+                // Try to get their profile
+                const foundName = await getParticipantNameFromUserId(otherUserId);
+                if (foundName) {
+                  chatName = `Chat with ${foundName}`;
+                  // console.log('Sidebar - successfully resolved name:', chatName);
+                } else {
+                  chatName = "Private Chat";
+                  // console.log('Sidebar - could not resolve name, using fallback');
+                }
+              } else {
+                chatName = "Private Chat";
+              }
+            } else if (chatRoom.name && chatRoom.name.match(/Chat with (.+)/)) {
+              // Old format, keep as is
+              chatName = chatRoom.name;
             } else {
-              chatName = "Unknown User";
+              chatName = "Private Chat";
             }
           }
 
@@ -120,7 +214,7 @@ export function ChatSidebar({
             id: chatRoom.id,
             name: chatName || "Unnamed Chat",
             lastMessage: latestMessage?.content || "No messages yet",
-            timestamp: latestMessage
+            timestamp: latestMessage && latestMessage.created_at
               ? new Date(latestMessage.created_at).toLocaleDateString()
               : new Date(chatRoom.created_at).toLocaleDateString(),
             unreadCount: 0, // TODO: Implement unread count tracking
@@ -144,7 +238,7 @@ export function ChatSidebar({
     };
 
     fetchChats();
-  }, [user]);
+  }, [user, chatsChanged]); // Add chatsChanged to deps
 
   const filteredChats = chats.filter(
     (chat) =>
@@ -254,20 +348,28 @@ export function ChatSidebar({
                     ) : (
                       <div
                         className={`w-10 h-10 bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-semibold ${
-                          chat.name.includes("Team") ||
-                          chat.name.includes("Nike") ||
-                          chat.name.includes("Corp") ||
-                          chat.name.includes("Inc") ||
-                          chat.name.includes("LLC") ||
-                          chat.name.includes("Ltd") ||
-                          chat.name.includes("Company") ||
-                          chat.name.includes("Brand") ||
-                          chat.name.includes("Marketing")
-                            ? "rounded-lg"
-                            : "rounded-full"
+                          // Use square avatars for companies/clients (check if name contains company-like words)
+                          chat.name.includes("Chat with") && (
+                            chat.name.includes("Team") ||
+                            chat.name.includes("Corp") ||
+                            chat.name.includes("Inc") ||
+                            chat.name.includes("LLC") ||
+                            chat.name.includes("Ltd") ||
+                            chat.name.includes("Company") ||
+                            chat.name.includes("Brand") ||
+                            chat.name.includes("Marketing") ||
+                            chat.name.includes("Nike") ||
+                            chat.name.includes("Adidas") ||
+                            chat.name.includes("Apple") ||
+                            chat.name.includes("Google")
+                          ) ? "rounded-lg" : "rounded-full"
                         }`}
                       >
-                        {chat.name.charAt(0)}
+                        {/* Get first character from the participant name, not "Chat with" */}
+                        {chat.name.startsWith("Chat with ") 
+                          ? chat.name.replace("Chat with ", "").charAt(0) 
+                          : chat.name.charAt(0)
+                        }
                       </div>
                     )}
                     {chat.isOnline && !chat.isGroup && (

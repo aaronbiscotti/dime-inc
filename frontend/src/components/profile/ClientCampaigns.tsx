@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Campaign } from "@/types/database";
+import { CampaignDisplay } from "@/types/database";
 import {
   Plus,
   Calendar,
@@ -13,7 +13,7 @@ import {
 import Image from "next/image";
 
 interface ClientCampaignsProps {
-  campaigns: Campaign[];
+  campaigns: CampaignDisplay[];
   loading: boolean;
   onCreateCampaign: () => void;
 }
@@ -164,7 +164,7 @@ export function ClientCampaigns({ campaigns, loading, onCreateCampaign }: Client
           </div>
         ) : (
           /* Filled Cards - Client Campaigns */
-          campaigns.map((campaign: Campaign) => (
+          campaigns.map((campaign: CampaignDisplay) => (
             <Card
               key={campaign.id}
               className="group cursor-pointer hover:scale-105 hover:shadow-lg transition-all duration-200"
@@ -195,12 +195,14 @@ export function ClientCampaigns({ campaigns, loading, onCreateCampaign }: Client
                         className={`px-2 py-1 text-xs font-semibold rounded-full ${
                           campaign.status === "active"
                             ? "bg-green-100 text-green-800 border border-green-200"
-                            : "bg-gray-100 text-gray-800 border border-gray-200"
+                            : campaign.status === "draft"
+                            ? "bg-gray-100 text-gray-800 border border-gray-200"
+                            : campaign.status === "completed"
+                            ? "bg-blue-100 text-blue-800 border border-blue-200"
+                            : "bg-red-100 text-red-800 border border-red-200"
                         }`}
                       >
-                        {campaign.status === "active"
-                          ? "Active"
-                          : "Completed"}
+                        {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                       </span>
                     </div>
                   </div>

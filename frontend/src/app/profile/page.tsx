@@ -2,35 +2,25 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { ProfileGuard } from "@/components/auth/ProfileGuard";
-import { CampaignForm } from "@/components/campaigns/CampaignForm";
-import { AmbassadorSelection } from "@/components/campaigns/AmbassadorSelection";
 import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileSidebar } from "@/components/profile/ProfileSidebar";
 import { AmbassadorPortfolio } from "@/components/profile/AmbassadorPortfolio";
 import { ClientCampaigns } from "@/components/profile/ClientCampaigns";
 import { AddContentModal } from "@/components/portfolio/AddContentModal";
-import { PortfolioItem, Campaign } from "@/types/database";
+import { PortfolioItem, CampaignDisplay } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { campaignService } from "@/services/campaignService";
 import { instagramService, InstagramMedia } from "@/services/instagramService";
 
 export default function Profile() {
+  const router = useRouter();
   const { profile, ambassadorProfile, clientProfile } = useAuth();
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignDisplay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCampaignForm, setShowCampaignForm] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState<{
-    id: string;
-    campaign_title: string;
-    campaign_description: string | null;
-    budget: number | null;
-    timeline: string | null;
-    requirements: string | null;
-  } | null>(null);
-  const [showAmbassadorSelection, setShowAmbassadorSelection] = useState(false);
   const [showProfileEditModal, setShowProfileEditModal] = useState(false);
   const [showAddContentModal, setShowAddContentModal] = useState(false);
 
@@ -73,20 +63,22 @@ export default function Profile() {
           }
         } else if (profile.role === "client" && clientProfile) {
           // Fetch campaigns for client using campaign service
-          const { data: campaignBids, error } = await campaignService.getCampaignsForClient(clientProfile.id);
-
-          if (!error && campaignBids) {
-            // Convert database bids to Campaign format
-            const clientCampaigns: Campaign[] = campaignBids.map((bid) => ({
-              id: bid.id,
-              title: bid.campaign_title,
-              status: bid.status === "accepted" ? "completed" : "active",
-              budgetRange: bid.budget ? `$${bid.budget}` : "TBD",
-              ambassadorCount: 0, // Open campaigns don't have ambassadors yet
-              timeline: bid.timeline || "TBD",
+          try {
+            const campaignData = await campaignService.getClientCampaigns();
+            
+            // Convert database campaigns to UI Campaign format
+            const clientCampaigns: CampaignDisplay[] = campaignData.map((campaign) => ({
+              id: campaign.id,
+              title: campaign.title,
+              status: campaign.status as "draft" | "active" | "completed" | "cancelled",
+              budgetRange: `$${campaign.budget_min.toFixed(2)} - $${campaign.budget_max.toFixed(2)}`,
+              ambassadorCount: 0,
+              timeline: campaign.deadline ? new Date(campaign.deadline).toLocaleDateString() : "TBD",
               coverImage: undefined,
             }));
             setCampaigns(clientCampaigns);
+          } catch (error) {
+            console.error("Error fetching campaigns:", error);
           }
         }
       } catch (error) {
@@ -184,7 +176,7 @@ export default function Profile() {
                 <ClientCampaigns
                   campaigns={campaigns}
                   loading={loading}
-                  onCreateCampaign={() => setShowCampaignForm(true)}
+                  onCreateCampaign={() => router.push('/campaigns')}
                 />
               )}
             </div>
@@ -198,31 +190,6 @@ export default function Profile() {
             onClose={() => setShowProfileEditModal(false)}
             onSave={(data) => {
               console.log('Profile updated successfully:', data);
-            }}
-          />
-        )}
-
-        {/* Campaign Form Modal */}
-        {showCampaignForm && (
-          <CampaignForm
-            onClose={() => setShowCampaignForm(false)}
-            onCampaignCreated={(newCampaign) => {
-              setCampaigns(prev => [newCampaign, ...prev]);
-            }}
-            onOpenAmbassadorSelection={(campaign) => {
-              setSelectedCampaign(campaign);
-              setShowAmbassadorSelection(true);
-            }}
-          />
-        )}
-
-        {/* Ambassador Selection Modal */}
-        {showAmbassadorSelection && selectedCampaign && (
-          <AmbassadorSelection
-            campaign={selectedCampaign}
-            onClose={() => {
-              setShowAmbassadorSelection(false);
-              setSelectedCampaign(null);
             }}
           />
         )}
