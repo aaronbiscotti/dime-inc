@@ -30,6 +30,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [contract, setContract] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showContractModal, setShowContractModal] = useState(false);
   const router = useRouter();
 
   // Load other participant data and contract when chat is selected
@@ -208,8 +209,12 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
       {/* Contract status UI */}
       <div className="mb-4 w-full">
         {contract ? (
-          <Button variant="ghost" className="mb-2 flex items-center gap-2 w-full">
-            <EyeIcon className="w-5 h-5" /> View contract
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setShowContractModal(true)}
+          >
+            <EyeIcon className="w-5 h-5 mr-2" /> View contract
           </Button>
         ) : (
           <div className="text-center text-gray-500 mb-2">
@@ -219,7 +224,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         {/* Only show Draft a Contract button for client users and if no contract exists */}
         {userRole === 'client' && !contract && (
           <Button
-            variant="primary"
+            variant="default"
             className="w-full bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full"
             onClick={handleGoToDraftContract}
             disabled={isLoading}
@@ -231,13 +236,90 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         {contract && (
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full mt-2"
             disabled
           >
             Contract Exists
           </Button>
         )}
       </div>
+      {/* Contract Modal */}
+      {showContractModal && contract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-8 relative overflow-y-auto max-h-[90vh]">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl"
+              onClick={() => setShowContractModal(false)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-2 text-center">Contract Agreement</h2>
+            <div className="mb-6 text-center text-gray-500 text-sm">
+              Contract ID: <span className="font-mono">{contract.id}</span>
+            </div>
+            <div className="mb-4 flex flex-col md:flex-row md:justify-between gap-4">
+              <div>
+                <div className="font-semibold text-gray-700">Campaign</div>
+                <div className="text-gray-900">{contract.campaign_ambassadors?.campaigns?.title || contract.campaign_name || contract.campaign_id}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Ambassador</div>
+                <div className="text-gray-900">{contract.campaign_ambassadors?.ambassador_profiles?.full_name || contract.ambassador_name || contract.ambassador_id}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Status</div>
+                <div className={contract.terms_accepted ? "text-green-700 font-semibold" : "text-yellow-700 font-semibold"}>
+                  {contract.terms_accepted ? 'Active' : 'Draft'}
+                </div>
+              </div>
+            </div>
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="font-semibold text-gray-700">Created</div>
+                <div className="text-gray-900">{contract.created_at ? new Date(contract.created_at).toLocaleString() : '-'}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Start Date</div>
+                <div className="text-gray-900">{contract.start_date ? new Date(contract.start_date).toLocaleDateString() : '-'}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Payment Type</div>
+                <div className="text-gray-900">{contract.payment_type || '-'}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Target Impressions</div>
+                <div className="text-gray-900">{contract.target_impressions || '-'}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Cost per CPM</div>
+                <div className="text-gray-900">{contract.cost_per_cpm ? `$${contract.cost_per_cpm}` : '-'}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Usage Rights Duration</div>
+                <div className="text-gray-900">{contract.usage_rights_duration || '-'}</div>
+              </div>
+            </div>
+            {contract.contract_text && (
+              <div className="mb-6">
+                <div className="font-semibold text-gray-700 mb-1">Contract Body</div>
+                <div className="bg-gray-50 border border-gray-100 rounded p-4 text-gray-800 whitespace-pre-line text-base leading-relaxed">
+                  {contract.contract_text}
+                </div>
+              </div>
+            )}
+            {contract.pdf_url && (
+              <div className="mb-4">
+                <a href={contract.pdf_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View PDF Version</a>
+              </div>
+            )}
+            <div className="mt-8 text-xs text-gray-400 text-center">
+              This contract is a digital agreement between the client and ambassador.<br />
+              For questions, contact support.
+            </div>
+          </div>
+        </div>
+      )}
       {/* Activity Timeline */}
       <div className="w-full">
         <div className="flex items-center justify-between mb-2">
@@ -300,17 +382,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           </div>
         </div>
       </div>
-      {contract && (
-        <div className="mt-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => router.push(`/contracts/${contract.id}`)}
-          >
-            View Contract
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
