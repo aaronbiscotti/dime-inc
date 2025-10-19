@@ -35,6 +35,19 @@ async function getCampaignAmbassadors(campaignId: string) {
   }));
 }
 
+/**
+ * Fetch campaign_ambassadors join table rows for a campaign (with id and ambassador_id)
+ */
+async function getCampaignAmbassadorRows(campaignId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('campaign_ambassadors')
+    .select('id, ambassador_id')
+    .eq('campaign_id', campaignId);
+  if (error) throw error;
+  return data || [];
+}
+
 export const campaignService = {
   /**
    * Create a new campaign
@@ -294,4 +307,9 @@ export const campaignService = {
    * Placeholder: Fetch ambassadors for a campaign by campaignId
    */
   getCampaignAmbassadors,
+
+  /**
+   * Fetch campaign_ambassadors join table rows for a campaign (with id and ambassador_id)
+   */
+  getCampaignAmbassadorRows,
 };

@@ -4,7 +4,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { chatService } from "@/services/chatService";
+import { contractService } from "@/services/contractService";
 import { useEffect, useState } from "react";
 
 export default function ContractsPage() {
@@ -19,10 +19,13 @@ export default function ContractsPage() {
       if (!clientProfile) return;
       setLoading(true);
       setError(null);
-      // Fetch all contracts for this client
-      const { data, error } = await chatService.getContractsForClient(clientProfile.id);
-      if (error) setError("Failed to load contracts");
-      setContracts(data || []);
+      try {
+        // Fetch all contracts for this client by client_id FK
+        const data = await contractService.getContractsForClient(clientProfile.id);
+        setContracts(data || []);
+      } catch (error) {
+        setError("Failed to load contracts");
+      }
       setLoading(false);
     };
     fetchContracts();

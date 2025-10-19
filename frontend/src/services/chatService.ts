@@ -951,7 +951,7 @@ export const chatService = {
 
   /**
    * Get contract details by chat room ID
-   * This fetches the contract status for a chat room via campaign_ambassadors relationship
+   * This fetches the contract for a chat room via campaign_ambassadors relationship
    */
   async getContractByChatId(chatRoomId: string) {
     try {
@@ -964,11 +964,17 @@ export const chatService = {
       if (caError || !ca) {
         return { data: null, error: caError || new Error('No campaign_ambassador for this chat') };
       }
-      // Step 2: Find contract for this campaign_ambassador
+      // Step 2: Find contract for this campaign_ambassador (by campaign_ambassador_id FK)
       const { data: contract, error: contractError } = await supabase
         .from('contracts')
-        .select('*')
-        .eq('id', ca.id)
+        .select(`
+          id, contract_text, terms_accepted, created_at, client_id, campaign_ambassador_id,
+          campaign_ambassadors (
+            campaigns (title),
+            ambassador_profiles:ambassador_id (id, full_name)
+          )
+        `)
+        .eq('campaign_ambassador_id', ca.id)
         .single();
       if (contractError || !contract) {
         return { data: null, error: contractError || new Error('No contract for this chat') };
