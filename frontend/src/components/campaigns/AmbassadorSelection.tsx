@@ -167,7 +167,20 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
           subject: `Campaign Invitation: ${campaign.campaign_title}`
         });
 
+        console.log("try to add to db");
         if (!error && chat) {
+          // Add ambassador to campaign_ambassadors table
+          try {
+            console.log("[AmbassadorSelection] Attempting to add ambassador to campaign:", { campaignId: campaign.id, ambassadorId: ambassador.id });
+            const result = await import("@/services/campaignService").then(m => m.campaignService.addAmbassadorToCampaign({
+              campaignId: campaign.id,
+              ambassadorId: ambassador.id,
+            }));
+            console.log("[AmbassadorSelection] addAmbassadorToCampaign result:", result);
+          } catch (err) {
+            console.error("[AmbassadorSelection] Error adding ambassador to campaign:", err);
+          }
+
           // Send the invitation message
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {

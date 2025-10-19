@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { chatService } from "@/services/chatService";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 interface Message {
   id: string;
@@ -49,12 +50,13 @@ interface ChatAreaProps {
 }
 
 export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdate, onChatDeleted }: ChatAreaProps) {
+  const router = useRouter();
   const { user } = useAuth();
   
   // Helper function to get participant name from user ID (same as ChatSidebar)
   const getParticipantNameFromUserId = useCallback(async (userId: string): Promise<string | null> => {
     try {
-      console.log('ChatArea - looking up user ID:', userId);
+      // console.log('ChatArea - looking up user ID:', userId);
       
       // Get the user's role first
       const { data: profile } = await supabase
@@ -64,11 +66,11 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
         .single();
 
       if (!profile) {
-        console.log('ChatArea - no profile found for user ID:', userId);
+        // console.log('ChatArea - no profile found for user ID:', userId);
         return null;
       }
 
-      console.log('ChatArea - found profile role:', profile.role);
+      // console.log('ChatArea - found profile role:', profile.role);
 
       // Get detailed profile based on role
       if (profile.role === 'ambassador') {
@@ -79,7 +81,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           .single();
 
         if (ambassadorProfile) {
-          console.log('ChatArea - found ambassador name:', ambassadorProfile.full_name);
+          // console.log('ChatArea - found ambassador name:', ambassadorProfile.full_name);
           return ambassadorProfile.full_name;
         }
       } else if (profile.role === 'client') {
@@ -90,14 +92,14 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           .single();
 
         if (clientProfile) {
-          console.log('ChatArea - found client name:', clientProfile.company_name);
+          // console.log('ChatArea - found client name:', clientProfile.company_name);
           return clientProfile.company_name;
         }
       }
 
       return null;
     } catch (error) {
-      console.error('ChatArea - error looking up user:', error);
+      // console.error('ChatArea - error looking up user:', error);
       return null;
     }
   }, []);
@@ -300,10 +302,10 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
         setTypingUsers(users);
       })
       .on("presence", { event: "join" }, ({ key, newPresences }) => {
-        console.log("User joined:", key, newPresences);
+        // console.log("User joined:", key, newPresences);
       })
       .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-        console.log("User left:", key, leftPresences);
+        // console.log("User left:", key, leftPresences);
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
@@ -405,7 +407,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     // For private chats, construct "Chat with {participant name}"
     if (chatRoom.participants && chatRoom.participants.length > 0) {
       const participant = chatRoom.participants[0];
-      console.log('ChatArea - Getting name for participant:', participant);
+      // console.log('ChatArea - Getting name for participant:', participant);
       
       let participantName = "Unknown User";
       if (participant.profiles?.role === "ambassador" && participant.ambassador_profiles) {
@@ -419,8 +421,8 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
     // Fallback: try to parse neutral chat name format
     if (chatRoom.name && user) {
-      console.log('ChatArea - no participants found, trying to parse chat name:', chatRoom.name);
-      console.log('ChatArea - current user ID:', user.id);
+      // console.log('ChatArea - no participants found, trying to parse chat name:', chatRoom.name);
+      // console.log('ChatArea - current user ID:', user.id);
       
       if (chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/)) {
         // This is a neutral format chat name, try to get the other user ID
@@ -428,15 +430,15 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
         if (neutralMatch) {
           const [, userId1, userId2] = neutralMatch;
           const otherUserId = userId1 === user.id ? userId2 : userId1;
-          console.log('ChatArea - found other user ID from neutral name:', otherUserId);
+          // console.log('ChatArea - found other user ID from neutral name:', otherUserId);
           
           // Try to get their profile
           const foundName = await getParticipantNameFromUserId(otherUserId);
           if (foundName) {
-            console.log('ChatArea - successfully resolved name:', foundName);
+            // console.log('ChatArea - successfully resolved name:', foundName);
             return `Chat with ${foundName}`;
           } else {
-            console.log('ChatArea - could not resolve name, using fallback');
+            // console.log('ChatArea - could not resolve name, using fallback');
           }
         }
       } else if (chatRoom.name.match(/Chat with (.+)/)) {
@@ -529,13 +531,14 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
       console.log('Chat deleted successfully');
       
-      // Notify parent component
-      onChatDeleted?.();
+      // Notify parent component with deleted chat ID
+      onChatDeleted?.(selectedChatId);
       
       // Clear local state
       setMessages([]);
       setChatRoom(null);
       
+      // No redirect here; parent will handle navigation
     } catch (error) {
       console.error('Error deleting chat:', error);
     } finally {
@@ -548,6 +551,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     handleTypingStart();
   };
 
+  // Prevent fetchChatData from running if selectedChatId is null
   if (!selectedChatId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">

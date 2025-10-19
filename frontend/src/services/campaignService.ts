@@ -22,6 +22,7 @@ export const campaignService = {
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
+      console.error("[createCampaign] No authenticated user.");
       throw new Error("User not authenticated");
     }
 
@@ -31,8 +32,8 @@ export const campaignService = {
       .select("id")
       .eq("user_id", user.id)
       .single();
-
     if (profileError || !clientProfile) {
+      console.error("[createCampaign] Client profile not found.");
       throw new Error("Client profile not found");
     }
 
@@ -185,5 +186,26 @@ export const campaignService = {
     }
 
     return campaign;
+  },
+
+  /**
+   * Add an ambassador to a campaign (campaign_ambassadors row)
+   */
+  async addAmbassadorToCampaign({ campaignId, ambassadorId }: { campaignId: string; ambassadorId: string }) {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("campaign_ambassadors")
+      .insert({
+        campaign_id: campaignId,
+        ambassador_id: ambassadorId,
+        status: "proposal_received",
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      console.error("[addAmbassadorToCampaign] Failed to add row:", error);
+      throw new Error("Failed to add ambassador to campaign: " + (error?.message || "Unknown error"));
+    }
+    return data;
   },
 };

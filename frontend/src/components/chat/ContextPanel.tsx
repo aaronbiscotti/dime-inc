@@ -32,9 +32,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debug logging
-  console.log('🎯 ContextPanel mounted with:', { selectedChatId, userRole });
-
   // Load other participant data when chat is selected
   useEffect(() => {
     if (!selectedChatId) {
@@ -48,23 +45,16 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
 
     const loadOtherParticipant = async () => {
       try {
-        console.log('🔄 Loading other participant for chat:', selectedChatId);
-        
         // Debug: inspect the chat participants first
         await chatService.debugChatParticipants(selectedChatId);
-        
         const { data, error } = await chatService.getOtherParticipant(selectedChatId);
-        
         if (error) {
-          console.error('❌ Error loading other participant:', error);
           setError('Failed to load participant information');
           setOtherParticipant(null);
         } else {
-          console.log('✅ Other participant loaded:', data);
           setOtherParticipant(data);
         }
       } catch (err) {
-        console.error('❌ Unexpected error loading participant:', err);
         setError('Failed to load participant information');
         setOtherParticipant(null);
       } finally {
@@ -173,7 +163,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const handleLinkSubmit = () => {
     if (linkSubmission.trim()) {
       // Handle link submission logic
-      console.log("Link submitted:", linkSubmission);
       setLinkSubmission("");
     }
   };
@@ -181,7 +170,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const handleCodesSubmit = () => {
     if (adCodes.trim()) {
       // Handle codes submission logic
-      console.log("Codes submitted:", adCodes);
       setAdCodes("");
     }
   };
