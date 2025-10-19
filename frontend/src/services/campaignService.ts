@@ -12,6 +12,29 @@ export interface CreateCampaignData {
   max_ambassadors?: number;
 }
 
+async function getCampaignAmbassadors(campaignId: string) {
+  const supabase = createClient();
+  // Query campaign_ambassadors and join ambassador_profiles (select handles and avatar)
+  const { data, error } = await supabase
+    .from("campaign_ambassadors")
+    .select(`id, ambassador_id, status, ambassador_profiles:ambassador_id (id, full_name, profile_photo_url, instagram_handle, tiktok_handle, twitter_handle)`)
+    .eq("campaign_id", campaignId);
+  if (error) {
+    console.error("Error fetching campaign ambassadors:", error);
+    return [];
+  }
+  // Map to flatten ambassador_profiles
+  return (data || []).map((row: any) => ({
+    id: row.ambassador_profiles?.id || row.ambassador_id,
+    name: row.ambassador_profiles?.full_name,
+    avatar_url: row.ambassador_profiles?.profile_photo_url,
+    instagram_handle: row.ambassador_profiles?.instagram_handle,
+    tiktok_handle: row.ambassador_profiles?.tiktok_handle,
+    twitter_handle: row.ambassador_profiles?.twitter_handle,
+    status: row.status,
+  }));
+}
+
 export const campaignService = {
   /**
    * Create a new campaign
@@ -266,4 +289,9 @@ export const campaignService = {
       throw new Error(error.message);
     }
   },
+
+  /**
+   * Placeholder: Fetch ambassadors for a campaign by campaignId
+   */
+  getCampaignAmbassadors,
 };
