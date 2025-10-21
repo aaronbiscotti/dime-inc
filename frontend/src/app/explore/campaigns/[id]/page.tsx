@@ -283,7 +283,7 @@ export default function AmbassadorCampaignDetails() {
             style={{
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
-              background: "rgba(0, 0, 0, 0.5)",
+              background: "rgba(107, 114, 128, 0.5)",
             }}
             onClick={() => setShowApplyModal(false)}
           />
@@ -333,7 +333,7 @@ export default function AmbassadorCampaignDetails() {
             style={{
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
-              background: "rgba(0, 0, 0, 0.5)",
+              background: "rgba(107, 114, 128, 0.5)",
             }}
           />
 
@@ -374,7 +374,7 @@ export default function AmbassadorCampaignDetails() {
             style={{
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
-              background: "rgba(0, 0, 0, 0.5)",
+              background: "rgba(107, 114, 128, 0.5)",
             }}
             onClick={() => setShowErrorModal(false)}
           />

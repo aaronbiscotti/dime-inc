@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  UserGroupIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { chatService, type ChatRoom } from "@/services/chatService";
 import { useAuth } from "@/contexts/AuthContext";
+import { GroupChatModal } from "./GroupChatModal";
+import { API_URL } from "@/config/api";
 
 // UI-specific chat type for sidebar display
 interface Chat {
@@ -35,15 +41,20 @@ export function ChatSidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<
+    Array<{ id: string; name: string; email: string }>
+  >([]);
   const { user } = useAuth();
 
-  // Fetch chats from API
+  // Fetch chats from API (optimized single call)
   useEffect(() => {
     const fetchChats = async () => {
       if (!user) return;
 
       setLoading(true);
       try {
+        // Single API call to get all chat data with messages and participants
         const result = await chatService.getUserChats();
 
         if (result.error) {
@@ -52,61 +63,29 @@ export function ChatSidebar({
         }
 
         const chatRooms = result.data || [];
-        const validChats: Chat[] = [];
 
-        // For each chat room, get additional details and filter out orphaned ones
-        for (const chatRoom of chatRooms as ChatRoom[]) {
-          // Get latest messages for this chat
-          const messagesResult = await chatService.getMessages(chatRoom.id, 1);
-          const latestMessage = messagesResult.data?.[0];
-
-          // Get chat display name
-          let chatName = chatRoom.name || "Unnamed Chat";
-
-          if (!chatRoom.is_group) {
-            // For private chats, get the other participant's info
-            const participantResult = await chatService.getOtherParticipant(
-              chatRoom.id
-            );
-
-            if ((participantResult as any).error?.shouldRemove) {
-              // Skip orphaned chat
-              continue;
-            }
-
-            if (participantResult.data) {
-              chatName = `Chat with ${participantResult.data.name}`;
-            } else {
-              chatName = "Private Chat";
-            }
-          }
+        // Transform backend data to frontend format
+        const formattedChats: Chat[] = chatRooms.map((chatRoom: any) => {
+          const latestMessage = chatRoom.latest_message;
 
           // Format timestamp
-          const timestamp = latestMessage
+          const timestamp = latestMessage?.created_at
             ? new Date(latestMessage.created_at).toLocaleDateString()
             : new Date(chatRoom.created_at).toLocaleDateString();
 
-          const chat: Chat = {
+          return {
             id: chatRoom.id,
-            name: chatName,
+            name: chatRoom.display_name || "Unknown Chat",
             lastMessage: latestMessage?.content || "No messages yet",
             timestamp,
             unreadCount: 0, // TODO: Implement unread count tracking
             isOnline: false, // TODO: Implement online status
             isGroup: chatRoom.is_group,
-            participants: [], // Will be populated if needed
+            participants: [],
           };
-          validChats.push(chat);
-        }
-
-        // Sort by most recent first (based on timestamp)
-        validChats.sort((a, b) => {
-          const dateA = new Date(a.timestamp);
-          const dateB = new Date(b.timestamp);
-          return dateB.getTime() - dateA.getTime();
         });
 
-        setChats(validChats);
+        setChats(formattedChats);
       } catch (error) {
         console.error("Error fetching chats:", error);
       } finally {
@@ -116,6 +95,46 @@ export function ChatSidebar({
 
     fetchChats();
   }, [user, chatsChanged]);
+
+  // Fetch available users for group creation
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // Fetch from explore endpoint
+        const response = await fetch(`${API_URL}/api/explore/ambassadors`, {
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            const allUsers = data.data.map((profile: any) => ({
+              id: profile.id, // FIX: Was profile.userId, which is incorrect. API returns user_id as 'id'.
+              name: profile.name,
+              email:
+                profile.email || `user-temp-${profile.id.slice(-4)}@dime.com`,
+            }));
+
+            // FIX: Filter out the current user and remove duplicates to prevent issues in the modal
+            const uniqueUsers = allUsers.filter(
+              (u: { id: string | undefined }, index: any, self: any[]) =>
+                u.id &&
+                u.id !== user?.id &&
+                index === self.findIndex((t) => t.id === u.id)
+            );
+
+            setAvailableUsers(uniqueUsers);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    if (showGroupModal) {
+      fetchUsers();
+    }
+  }, [showGroupModal, user?.id]);
 
   const filteredChats = chats.filter(
     (chat) =>
@@ -135,8 +154,8 @@ export function ChatSidebar({
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="p-4 border-b border-gray-300">
+      {/* Search Bar and Group Creation Button */}
+      <div className="p-4 border-b border-gray-300 space-y-3">
         <div className="relative">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -147,6 +166,16 @@ export function ChatSidebar({
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
           />
         </div>
+
+        {/* Create Group Chat Button */}
+        <Button
+          onClick={() => setShowGroupModal(true)}
+          className="w-full bg-[#f5d82e] hover:bg-[#ffe066] text-black font-medium"
+          size="sm"
+        >
+          <UserGroupIcon className="w-4 h-4 mr-2" />
+          Create Group Chat
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -287,6 +316,19 @@ export function ChatSidebar({
           </div>
         )}
       </div>
+
+      {/* Group Chat Modal */}
+      <GroupChatModal
+        isOpen={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
+        availableUsers={availableUsers}
+        onGroupCreated={(chatId) => {
+          onSelectChat(chatId);
+          onCloseMobile();
+          // Trigger chats refresh by notifying parent
+          // Parent should increment chatsChanged prop
+        }}
+      />
     </div>
   );
 }

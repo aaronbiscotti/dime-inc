@@ -35,12 +35,19 @@ interface AmbassadorSelectionProps {
   onClose: () => void;
 }
 
-export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionProps) {
+export function AmbassadorSelection({
+  campaign,
+  onClose,
+}: AmbassadorSelectionProps) {
   const [ambassadors, setAmbassadors] = useState<Ambassador[]>([]);
-  const [filteredAmbassadors, setFilteredAmbassadors] = useState<Ambassador[]>([]);
+  const [filteredAmbassadors, setFilteredAmbassadors] = useState<Ambassador[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedAmbassadors, setSelectedAmbassadors] = useState<Set<string>>(new Set());
+  const [selectedAmbassadors, setSelectedAmbassadors] = useState<Set<string>>(
+    new Set()
+  );
   const [invitationMessage, setInvitationMessage] = useState("");
   const [sentInvitations] = useState<Set<string>>(new Set());
   const [targetNiches, setTargetNiches] = useState<string[]>([]);
@@ -58,7 +65,7 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
       }
     } catch {
       // If parsing fails, requirements is probably a string
-      console.log('Campaign requirements is not JSON metadata');
+      console.log("Campaign requirements is not JSON metadata");
     }
   }, [campaign.requirements]);
 
@@ -69,8 +76,8 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
 
     setInvitationMessage(
       `Hi! I'd like to invite you to participate in our "${campaign.campaign_title}" campaign. ` +
-      `Budget: ${budgetText}, Timeline: ${timelineText}. ` +
-      `This opportunity aligns with your content style and we'd love to collaborate with you!`
+        `Budget: ${budgetText}, Timeline: ${timelineText}. ` +
+        `This opportunity aligns with your content style and we'd love to collaborate with you!`
     );
   }, [campaign]);
 
@@ -79,18 +86,23 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
     let filtered = ambassadors;
 
     if (searchTerm) {
-      filtered = filtered.filter(ambassador =>
-        ambassador.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ambassador.bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ambassador.location?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (ambassador) =>
+          ambassador.full_name
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          ambassador.bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          ambassador.location?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Prioritize ambassadors whose niches match campaign target niches
     if (targetNiches.length > 0) {
       filtered = filtered.sort((a, b) => {
-        const aMatches = a.niche?.filter(n => targetNiches.includes(n)).length || 0;
-        const bMatches = b.niche?.filter(n => targetNiches.includes(n)).length || 0;
+        const aMatches =
+          a.niche?.filter((n) => targetNiches.includes(n)).length || 0;
+        const bMatches =
+          b.niche?.filter((n) => targetNiches.includes(n)).length || 0;
         return bMatches - aMatches;
       });
     }
@@ -101,11 +113,11 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
   const fetchAmbassadors = async () => {
     try {
       const response = await fetch(`${API_URL}/api/explore/ambassadors`, {
-        credentials: 'include'
+        credentials: "include",
       });
 
       if (!response.ok) {
-        console.error('Error fetching ambassadors:', response.statusText);
+        console.error("Error fetching ambassadors:", response.statusText);
         return;
       }
 
@@ -113,16 +125,18 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
       const data = result.data || [];
 
       // Add mock data for demonstration
-      const ambassadorsWithMockData = data.map((ambassador: Record<string, unknown>) => ({
-        ...ambassador,
-        followers: `${Math.floor(Math.random() * 100)}K`,
-        rating: 4.2 + Math.random() * 0.8,
-        completedCampaigns: Math.floor(Math.random() * 20) + 1
-      }));
+      const ambassadorsWithMockData = data.map(
+        (ambassador: Record<string, unknown>) => ({
+          ...ambassador,
+          followers: `${Math.floor(Math.random() * 100)}K`,
+          rating: 4.2 + Math.random() * 0.8,
+          completedCampaigns: Math.floor(Math.random() * 20) + 1,
+        })
+      );
 
       setAmbassadors(ambassadorsWithMockData);
     } catch (error) {
-      console.error('Error fetching ambassadors:', error);
+      console.error("Error fetching ambassadors:", error);
     } finally {
       setLoading(false);
     }
@@ -139,21 +153,13 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
   };
 
   const hasNicheMatch = (ambassador: Ambassador) => {
-    return ambassador.niche?.some(n => targetNiches.includes(n)) || false;
+    return ambassador.niche?.some((n) => targetNiches.includes(n)) || false;
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop with blur effect */}
-      <div
-        className="fixed inset-0"
-        style={{
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          background: 'rgba(0, 0, 0, 0.5)',
-        }}
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-gray-900/50" onClick={onClose} />
 
       {/* Modal with bounce animation */}
       <Card className="relative z-10 w-full max-w-4xl max-h-[90vh] overflow-hidden animate-bounce-in">
@@ -206,7 +212,8 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
           {selectedAmbassadors.size > 0 && (
             <div className="flex items-center justify-between p-3 bg-[#f5d82e]/10 rounded-lg border border-[#f5d82e]/20">
               <span className="text-sm font-medium text-gray-900">
-                {selectedAmbassadors.size} ambassador{selectedAmbassadors.size > 1 ? 's' : ''} selected
+                {selectedAmbassadors.size} ambassador
+                {selectedAmbassadors.size > 1 ? "s" : ""} selected
               </span>
             </div>
           )}
@@ -233,10 +240,12 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
                       key={ambassador.id}
                       className={`cursor-pointer transition-all duration-200 ${
                         isSelected
-                          ? 'ring-2 ring-[#f5d82e] bg-[#f5d82e]/5'
-                          : 'hover:shadow-md'
-                      } ${nicheMatch ? 'border-[#f5d82e]/50' : ''}`}
-                      onClick={() => !isInvited && toggleAmbassadorSelection(ambassador.id)}
+                          ? "ring-2 ring-[#f5d82e] bg-[#f5d82e]/5"
+                          : "hover:shadow-md"
+                      } ${nicheMatch ? "border-[#f5d82e]/50" : ""}`}
+                      onClick={() =>
+                        !isInvited && toggleAmbassadorSelection(ambassador.id)
+                      }
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
@@ -295,22 +304,23 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
                               )}
                             </div>
 
-                            {ambassador.niche && ambassador.niche.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {ambassador.niche.slice(0, 3).map((niche) => (
-                                  <span
-                                    key={niche}
-                                    className={`px-1.5 py-0.5 text-xs rounded-full ${
-                                      targetNiches.includes(niche)
-                                        ? 'bg-[#f5d82e]/20 text-gray-900 border border-[#f5d82e]/30'
-                                        : 'bg-gray-100 text-gray-600'
-                                    }`}
-                                  >
-                                    {niche}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            {ambassador.niche &&
+                              ambassador.niche.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {ambassador.niche.slice(0, 3).map((niche) => (
+                                    <span
+                                      key={niche}
+                                      className={`px-1.5 py-0.5 text-xs rounded-full ${
+                                        targetNiches.includes(niche)
+                                          ? "bg-[#f5d82e]/20 text-gray-900 border border-[#f5d82e]/30"
+                                          : "bg-gray-100 text-gray-600"
+                                      }`}
+                                    >
+                                      {niche}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                           </div>
                         </div>
                       </CardContent>
@@ -326,10 +336,12 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
             <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
               <CheckCircle className="w-6 h-6 text-green-500 mx-auto mb-2" />
               <p className="text-sm font-medium text-green-800">
-                {sentInvitations.size} invitation{sentInvitations.size > 1 ? 's' : ''} sent successfully!
+                {sentInvitations.size} invitation
+                {sentInvitations.size > 1 ? "s" : ""} sent successfully!
               </p>
               <p className="text-xs text-green-600 mt-1">
-                Check your chats to continue conversations with interested ambassadors.
+                Check your chats to continue conversations with interested
+                ambassadors.
               </p>
             </div>
           )}

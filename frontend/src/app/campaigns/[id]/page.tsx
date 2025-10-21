@@ -516,7 +516,7 @@ export default function CampaignDetails() {
             style={{
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
-              background: "rgba(0, 0, 0, 0.5)",
+              background: "rgba(107, 114, 128, 0.5)",
             }}
             onClick={() => setShowDeleteConfirm(false)}
           />

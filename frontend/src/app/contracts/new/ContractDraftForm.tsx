@@ -383,8 +383,8 @@ export default function ContractDraftForm({
           </div>
         </div>
         {/* Ambassador Card (Right) */}
-        <div className="flex-shrink-0 w-[340px]">
-          <div className="mb-6">
+        <div className="flex-shrink-0 w-[320px]">
+          <div className="mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
               Select Ambassadors
             </h2>
@@ -394,28 +394,27 @@ export default function ContractDraftForm({
               Loading ambassadors...
             </div>
           ) : ambassadors.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50 rounded-2xl border border-gray-300 p-12">
-              <span className="text-base font-medium mb-2">
+            <div className="flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-xl border border-gray-300 p-6">
+              <span className="text-sm font-medium mb-1">
                 No ambassadors found for this campaign.
               </span>
-              <span className="text-sm text-gray-400">
+              <span className="text-xs text-gray-400">
                 Try selecting a different campaign or invite ambassadors to
                 join.
               </span>
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-3">
               {ambassadors.map((amb, idx) => {
                 const isSelected = selectedAmbassadorIds.includes(amb.id);
                 return (
                   <div
                     key={amb.id || idx}
-                    className={`flex-1 flex flex-col items-center justify-center border rounded-2xl p-12 w-full cursor-pointer transition text-gray-700 
-                      ${
-                        isSelected
-                          ? "border-[#f5d82e] bg-[#f5d82e]/10"
-                          : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-[#f5d82e]/60"
-                      }`}
+                    className={`flex items-center gap-3 border rounded-xl p-4 w-full cursor-pointer transition text-gray-700 ${
+                      isSelected
+                        ? "border-[#f5d82e] bg-[#f5d82e]/10"
+                        : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-[#f5d82e]/60"
+                    }`}
                     onClick={() => {
                       setSelectedAmbassadorIds((prev) =>
                         prev.includes(amb.id)
@@ -425,7 +424,7 @@ export default function ContractDraftForm({
                     }}
                   >
                     <div
-                      className={`w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden mb-3 ${
+                      className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ${
                         isSelected ? "bg-white" : "bg-gray-200"
                       }`}
                     >
@@ -433,39 +432,42 @@ export default function ContractDraftForm({
                         <Image
                           src={amb.avatar_url}
                           alt={amb.name || "Ambassador"}
-                          width={80}
-                          height={80}
+                          width={48}
+                          height={48}
                           className="w-full h-full object-cover rounded-full"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-gray-600">
+                        <div className="w-full h-full flex items-center justify-center text-lg font-semibold text-gray-600">
                           {(amb.name || "A").charAt(0)}
                         </div>
                       )}
                     </div>
-                    <div className={`font-semibold text-lg mb-1`}>
-                      {amb.name || "Ambassador"}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm text-gray-900 truncate">
+                        {amb.name || "Ambassador"}
+                      </div>
+                      <div className="text-xs text-gray-500 space-y-0.5">
+                        {amb.instagram_handle && (
+                          <div>Instagram {amb.instagram_handle}</div>
+                        )}
+                        {amb.tiktok_handle && (
+                          <div>TikTok {amb.tiktok_handle}</div>
+                        )}
+                        {amb.twitter_handle && (
+                          <div>Twitter {amb.twitter_handle}</div>
+                        )}
+                      </div>
                     </div>
-                    <div className={`text-sm mb-1 flex flex-col items-center`}>
-                      {amb.instagram_handle && (
-                        <span>• Instagram {amb.instagram_handle}</span>
-                      )}
-                      {amb.tiktok_handle && (
-                        <span>• TikTok {amb.tiktok_handle}</span>
-                      )}
-                      {amb.twitter_handle && (
-                        <span>• Twitter {amb.twitter_handle}</span>
-                      )}
-                    </div>
-                    <div className="mt-4">
+                    <div className="flex-shrink-0">
                       <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full font-semibold text-xs ${
+                        className={`inline-flex items-center px-2 py-1 rounded-full font-semibold text-xs ${
                           isSelected
                             ? "bg-white text-[#f5d82e]"
                             : "bg-[#f5d82e]/20 text-[#f5d82e]"
                         }`}
                       >
-                        Associated with <CheckCircle className="w-4 h-4 ml-1" />
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Associated
                       </span>
                     </div>
                   </div>

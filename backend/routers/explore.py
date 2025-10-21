@@ -18,6 +18,7 @@ async def get_ambassadors(
     """
     Get all ambassadors for exploration/discovery.
     Supports filtering by search query, niches, and location.
+    Includes user emails for proper identification.
     """
     try:
         # Start with base query
@@ -25,25 +26,46 @@ async def get_ambassadors(
         
         # Apply filters if provided
         if niches and len(niches) > 0:
-            # Filter by niche (assumes niche is an array column)
             query = query.contains("niche", niches)
         
         if location:
             query = query.ilike("location", f"%{location}%")
         
         if search:
-            # Search in full_name and bio
             query = query.or_(f"full_name.ilike.%{search}%,bio.ilike.%{search}%")
         
         result = query.order("created_at", desc=True).execute()
+
+        if not result.data:
+            return {"data": []}
+
+        # Get user IDs from the profiles to fetch their emails
+        user_ids = [ambassador["user_id"] for ambassador in result.data]
+
+        # Fetch corresponding users from auth.users to get their emails.
+        # Note: admin.list_users() can be inefficient for a large number of users.
+        # For production at scale, a database view or function that joins
+        # ambassador_profiles with auth.users would be more performant.
+        email_map = {}
+        try:
+            auth_users_response = admin_client.auth.admin.list_users()
+            all_auth_users = auth_users_response if isinstance(auth_users_response, list) else []
+            
+            # Create a map of user_id -> email for quick lookup
+            email_map = {str(user.id): user.email for user in all_auth_users if str(user.id) in user_ids}
+        except Exception as e:
+            print(f"Warning: Could not fetch user emails from Auth: {e}")
+
         
-        # Format ambassadors for frontend
+        # Format ambassadors for frontend, now including the email
         ambassadors = []
         for ambassador in result.data or []:
+            user_id = ambassador["user_id"]
             ambassadors.append({
-                "id": ambassador["user_id"],
-                "profileId": ambassador["id"],
+                "id": user_id, # This is the user_id
+                "profileId": ambassador["id"], # This is the ambassador_profiles primary key
                 "name": ambassador.get("full_name", "Unknown"),
+                "email": email_map.get(user_id), # Include the actual email
                 "username": ambassador.get("full_name", "unknown").lower().replace(" ", ""),
                 "bio": ambassador.get("bio", "Ambassador on Dime"),
                 "location": ambassador.get("location", "Location not specified"),
@@ -191,4 +213,3 @@ async def get_client_details(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching client: {str(e)}"
         )
-

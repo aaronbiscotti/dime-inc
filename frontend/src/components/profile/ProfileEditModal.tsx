@@ -165,15 +165,7 @@ export function ProfileEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
       {/* Blurred Background Overlay */}
-      <div
-        className="fixed inset-0"
-        style={{
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          background: "rgba(0, 0, 0, 0.5)",
-        }}
-        onClick={handleClose}
-      />
+      <div className="fixed inset-0 bg-gray-900/50" onClick={handleClose} />
 
       {/* Modal Content with bounce animation */}
       <div className="relative z-10 w-full max-w-2xl my-8 animate-bounce-in">

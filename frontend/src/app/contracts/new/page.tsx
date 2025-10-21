@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -16,26 +16,24 @@ export default function NewContractPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div className="w-full max-w-7xl mx-auto flex flex-col">
-        <div className="flex items-center mb-6 mt-4">
+      <main className="max-w-7xl mx-auto px-6 py-6">
+        <div className="flex items-center gap-4 mb-6">
           <Link
             href="/contracts"
-            className="flex items-center text-gray-500 hover:text-gray-800 transition mr-4"
+            className="flex items-center text-gray-600 hover:text-gray-900 transition"
           >
             <ArrowLeft className="w-5 h-5 mr-1" />
-            <span className="text-base font-medium">Back</span>
+            <span className="text-sm font-medium">Back to Contracts</span>
           </Link>
-          <h1 className="text-2xl font-bold mx-auto">Send an contract</h1>
         </div>
-        <main className="max-w-9xl mx-auto p-8 bg-white rounded-xl shadow border mt-10">
-          <ContractDraftForm
-            initialCampaignId={campaignId}
-            initialAmbassadorIds={
-              ambassadorId ? [ambassadorId] : []
-            }
-          />
-        </main>
-      </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">
+          Draft New Contract
+        </h1>
+        <ContractDraftForm
+          initialCampaignId={campaignId}
+          initialAmbassadorIds={ambassadorId ? [ambassadorId] : []}
+        />
+      </main>
     </div>
   );
 }

@@ -34,13 +34,13 @@ export default function ContractDetailPage() {
       try {
         // Fetch contract by ID using backend API
         const response = await fetch(`${API_URL}/api/contracts/${contractId}`, {
-          credentials: 'include'
+          credentials: "include",
         });
-        
+
         if (!response.ok) {
-          throw new Error('Failed to fetch contract');
+          throw new Error("Failed to fetch contract");
         }
-        
+
         const result = await response.json();
         setContract(result.data as ContractView);
       } catch {
@@ -55,7 +55,7 @@ export default function ContractDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <main className="max-w-3xl mx-auto p-8 bg-white rounded-xl shadow border mt-10 text-center text-gray-500">
+        <main className="max-w-7xl mx-auto px-6 py-6 text-center text-gray-500">
           Loading contract...
         </main>
       </div>
@@ -66,7 +66,7 @@ export default function ContractDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <main className="max-w-3xl mx-auto p-8 bg-white rounded-xl shadow border mt-10 text-center text-red-500">
+        <main className="max-w-7xl mx-auto px-6 py-6 text-center text-red-500">
           {error || "Contract not found."}
         </main>
       </div>
@@ -75,12 +75,15 @@ export default function ContractDetailPage() {
 
   // Only allow viewing if user is signed in and is the client or ambassador for this contract
   const isClient = clientProfile && contract.client_id === clientProfile.id;
-  const isAmbassador = ambassadorProfile && contract.campaign_ambassadors?.ambassador_profiles?.id === ambassadorProfile.id;
+  const isAmbassador =
+    ambassadorProfile &&
+    contract.campaign_ambassadors?.ambassador_profiles?.id ===
+      ambassadorProfile.id;
   if (!user || (!isClient && !isAmbassador)) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <main className="max-w-3xl mx-auto p-8 bg-white rounded-xl shadow border mt-10 text-center text-red-500">
+        <main className="max-w-7xl mx-auto px-6 py-6 text-center text-red-500">
           You do not have permission to view this contract.
         </main>
       </div>
@@ -90,20 +93,47 @@ export default function ContractDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <main className="max-w-3xl mx-auto p-8 bg-white rounded-xl shadow border mt-10">
+      <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Contract Document</h1>
-          <Button variant="outline" onClick={() => router.push("/contracts")}>Back to Contracts</Button>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Contract Document
+          </h1>
+          <Button variant="outline" onClick={() => router.push("/contracts")}>
+            Back to Contracts
+          </Button>
         </div>
-        <div className="mb-4 text-gray-700">
-          <div className="mb-1 font-semibold">Campaign:</div>
-          <div className="mb-2">{contract.campaign_ambassadors?.campaigns?.title || "-"}</div>
-          <div className="mb-1 font-semibold">Ambassador:</div>
-          <div className="mb-2">{contract.campaign_ambassadors?.ambassador_profiles?.full_name || "-"}</div>
-          <div className="mb-1 font-semibold">Created:</div>
-          <div className="mb-2">{contract.created_at ? new Date(contract.created_at).toLocaleDateString() : "-"}</div>
+        <div className="bg-white rounded-xl border border-gray-300 p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-700">
+            <div>
+              <div className="text-sm font-semibold text-gray-500 mb-1">
+                Campaign
+              </div>
+              <div>
+                {contract.campaign_ambassadors?.campaigns?.title || "-"}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-500 mb-1">
+                Ambassador
+              </div>
+              <div>
+                {contract.campaign_ambassadors?.ambassador_profiles
+                  ?.full_name || "-"}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-500 mb-1">
+                Created
+              </div>
+              <div>
+                {contract.created_at
+                  ? new Date(contract.created_at).toLocaleDateString()
+                  : "-"}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="border rounded-xl bg-gray-50 p-8 whitespace-pre-wrap font-mono text-base leading-relaxed shadow-inner min-h-[400px]">
+        <div className="bg-white rounded-xl border border-gray-300 p-8 whitespace-pre-wrap font-mono text-sm leading-relaxed min-h-[400px]">
           {contract.contract_text}
         </div>
       </main>

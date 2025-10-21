@@ -7,6 +7,8 @@ import {
   PaperClipIcon,
   PaperAirplaneIcon,
   TrashIcon,
+  XMarkIcon,
+  ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,9 +17,18 @@ import {
   type Message as ChatMessage,
   type ChatParticipant,
 } from "@/services/chatService";
+import { supabase } from "@/lib/supabase-realtime";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useOnlinePresence } from "@/hooks/useOnlinePresence";
+import { MessageStatus } from "./MessageStatus";
+import { Modal } from "@/components/ui/modal";
+import { uuidv4 } from "@/lib/uuid";
 
 interface Message extends ChatMessage {
   sender_name?: string;
+  status?: "sending" | "sent" | "delivered" | "read" | "error";
+  read_by?: Record<string, string>;
+  reply_to_message_id?: string;
 }
 
 interface ChatAreaProps {
@@ -48,9 +59,17 @@ export function ChatArea({
   const [otherParticipant, setOtherParticipant] =
     useState<ChatParticipant | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Real-time hooks
+  const { typingUsers, startTyping, stopTyping, isTyping } = useTypingIndicator(
+    selectedChatId,
+    user?.id || "",
+    user?.email || "You" // Use email as fallback for name
+  );
+  const { onlineUsers } = useOnlinePresence(selectedChatId, user?.id || "");
 
   // Fetch chat data and messages
   useEffect(() => {
@@ -60,12 +79,7 @@ export function ChatArea({
       setOtherParticipant(null);
       setIsGroupChat(false);
       setErrorMessage(null);
-
-      // Clear polling when no chat selected
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+      setReplyingTo(null);
       return;
     }
 
@@ -117,21 +131,72 @@ export function ChatArea({
     };
 
     fetchChatData();
-
-    // Set up polling for new messages every 3 seconds
-    pollingIntervalRef.current = setInterval(async () => {
-      await fetchMessages(true); // Silent fetch, don't show loading
-    }, 3000);
-
-    // Cleanup polling on unmount or chat change
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChatId, user, onParticipantsUpdate]);
+
+  // Real-time message subscription
+  useEffect(() => {
+    if (!selectedChatId || !user) return;
+
+    const channel = supabase
+      .channel(`chat-${selectedChatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `chat_room_id=eq.${selectedChatId}`,
+        },
+        async (payload) => {
+          const newMessage = payload.new as Message;
+
+          // FIX: Ignore messages from the current user, as they are handled optimistically
+          if (newMessage.sender_id === user?.id) {
+            return;
+          }
+
+          // Enrich with sender name
+          let senderName = "Unknown";
+          if (otherParticipant && newMessage.sender_id !== user?.id) {
+            senderName = otherParticipant.name;
+          }
+
+          const enrichedMessage = {
+            ...newMessage,
+            sender_name: senderName,
+          };
+
+          setMessages((prev) => {
+            // Check if message already exists to avoid duplicates
+            if (prev.find((m) => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, enrichedMessage];
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "chat_rooms",
+          filter: `id=eq.${selectedChatId}`,
+        },
+        () => {
+          // Chat was deleted
+          if (onChatDeleted) {
+            onChatDeleted(selectedChatId);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedChatId, user?.id, otherParticipant, onChatDeleted]);
 
   // Fetch messages function
   const fetchMessages = async (silent: boolean = false) => {
@@ -159,6 +224,7 @@ export function ChatArea({
             return {
               ...msg,
               sender_name: otherParticipant.name,
+              reply_to_message_id: msg.reply_to_message_id || undefined,
             };
           }
 
@@ -167,6 +233,7 @@ export function ChatArea({
             return {
               ...msg,
               sender_name: "You",
+              reply_to_message_id: msg.reply_to_message_id || undefined,
             };
           }
 
@@ -175,6 +242,7 @@ export function ChatArea({
           return {
             ...msg,
             sender_name: "Unknown",
+            reply_to_message_id: msg.reply_to_message_id || undefined,
           };
         })
       );
@@ -235,27 +303,54 @@ export function ChatArea({
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedChatId || !user || sending) return;
 
+    stopTyping();
+
+    const optimisticId = uuidv4();
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      chat_room_id: selectedChatId,
+      sender_id: user.id,
+      sender_name: "You",
+      content: messageInput.trim(),
+      created_at: new Date().toISOString(),
+      status: "sending",
+      reply_to_message_id: replyingTo?.id,
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessageInput("");
+    setReplyingTo(null);
     setSending(true);
     setErrorMessage(null);
 
     try {
       const result = await chatService.sendMessage(selectedChatId, {
-        content: messageInput.trim(),
+        content: optimisticMessage.content!,
+        file_url: optimisticMessage.file_url,
+        reply_to_message_id: optimisticMessage.reply_to_message_id,
       });
 
-      if (result.error) {
-        setErrorMessage(`Failed to send message: ${result.error.message}`);
-        return;
+      if (result.error || !result.data) {
+        throw new Error(result.error?.message || "Failed to send message");
       }
 
-      // Clear input on success
-      setMessageInput("");
+      const sentMessage = {
+        ...result.data,
+        sender_name: "You",
+        status: "sent",
+      } as Message;
 
-      // Immediately fetch messages to show the new one
-      await fetchMessages(true);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticId ? sentMessage : m))
+      );
     } catch (error) {
       console.error("Error sending message:", error);
-      setErrorMessage("Failed to send message. Please try again.");
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticId ? { ...m, status: "error" } : m))
+      );
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to send message."
+      );
     } finally {
       setSending(false);
     }
@@ -304,6 +399,54 @@ export function ChatArea({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessageInput(e.target.value);
+
+    // Typing indicator logic
+    if (e.target.value.trim() && !isTyping) {
+      startTyping();
+    } else if (!e.target.value.trim() && isTyping) {
+      stopTyping();
+    }
+  };
+
+  // Render typing indicator
+  const renderTypingIndicator = () => {
+    if (typingUsers.length === 0) return null;
+
+    const names = typingUsers.map((u) => u.user_name).join(", ");
+    return (
+      <div className="px-4 py-2 text-sm text-gray-500 italic">
+        {names} {typingUsers.length === 1 ? "is" : "are"} typing...
+      </div>
+    );
+  };
+
+  // Render reply preview
+  const renderReplyPreview = () => {
+    if (!replyingTo) return null;
+
+    return (
+      <div className="px-4 py-2 bg-gray-50 border-l-4 border-[#f5d82e] flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="text-xs text-gray-500 font-medium">
+            Replying to {replyingTo.sender_name}
+          </div>
+          <div className="text-sm text-gray-700 truncate">
+            {replyingTo.content}
+          </div>
+        </div>
+        <button
+          onClick={() => setReplyingTo(null)}
+          className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
+        >
+          <XMarkIcon className="w-5 h-5" />
+        </button>
+      </div>
+    );
+  };
+
+  // Handle reply action
+  const handleReply = (message: Message) => {
+    setReplyingTo(message);
   };
 
   // No chat selected state
@@ -450,13 +593,16 @@ export function ChatArea({
           messages.map((message) => {
             const isCurrentUser = message.sender_id === user?.id;
             const senderName = message.sender_name || "Unknown";
+            const repliedMessage = message.reply_to_message_id
+              ? messages.find((m) => m.id === message.reply_to_message_id)
+              : null;
 
             return (
               <div key={message.id}>
                 <div
                   className={`flex ${
                     isCurrentUser ? "justify-end" : "justify-start"
-                  } items-end gap-2`}
+                  } items-end gap-2 group`}
                 >
                   {/* Avatar for other person's messages */}
                   {!isCurrentUser && (
@@ -465,12 +611,13 @@ export function ChatArea({
                     </div>
                   )}
 
-                  <div className="max-w-[60%]">
+                  <div className="max-w-[60%] relative">
                     {!isCurrentUser && isGroupChat && (
                       <p className="text-xs text-gray-600 mb-1 pl-3 font-medium">
                         {senderName}
                       </p>
                     )}
+
                     <div
                       className={`px-4 py-2.5 rounded-2xl ${
                         isCurrentUser
@@ -478,19 +625,54 @@ export function ChatArea({
                           : "bg-gray-100 text-gray-900 rounded-bl-md"
                       }`}
                     >
-                      <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+                      {/* Replied message preview */}
+                      {repliedMessage && (
+                        <div
+                          className={`mb-2 pb-2 border-l-2 pl-2 text-xs opacity-70 ${
+                            isCurrentUser
+                              ? "border-gray-500"
+                              : "border-gray-400"
+                          }`}
+                        >
+                          <div className="font-medium">
+                            {repliedMessage.sender_name}
+                          </div>
+                          <div className="truncate">
+                            {repliedMessage.content}
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="text-sm leading-relaxed break-all whitespace-pre-wrap">
                         {message.content}
                       </p>
                     </div>
-                    <p
-                      className={`text-xs mt-1 ${
-                        isCurrentUser
-                          ? "text-gray-400 text-right pr-3"
-                          : "text-gray-500 pl-3"
+
+                    <div
+                      className={`flex items-center gap-2 mt-1 ${
+                        isCurrentUser ? "justify-end pr-3" : "pl-3"
                       }`}
                     >
-                      {formatTimestamp(message.created_at)}
-                    </p>
+                      <p className="text-xs text-gray-500">
+                        {formatTimestamp(message.created_at)}
+                      </p>
+                      {isCurrentUser && (
+                        <MessageStatus
+                          status={message.status || "sent"}
+                          isGroupChat={isGroupChat}
+                          readBy={message.read_by}
+                        />
+                      )}
+                    </div>
+
+                    {/* Reply button on hover */}
+                    <button
+                      onClick={() => handleReply(message)}
+                      className="absolute -right-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
+                      title="Reply"
+                    >
+                      <ArrowUturnLeftIcon className="w-4 h-4 text-gray-500" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -502,91 +684,88 @@ export function ChatArea({
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-gray-300 p-4 bg-white rounded-b-xl">
-        <div className="flex items-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex-shrink-0 text-gray-400 hover:text-gray-600"
-          >
-            <PaperClipIcon className="w-5 h-5" />
-          </Button>
+      <div className="border-t border-gray-300 bg-white rounded-b-xl">
+        {/* Typing indicator */}
+        {renderTypingIndicator()}
 
-          <div className="flex-1">
-            <textarea
-              value={messageInput}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-              placeholder="Write something..."
-              rows={1}
-              disabled={sending}
-              className="w-full resize-none border-0 bg-gray-50 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:bg-white max-h-24 disabled:opacity-50 text-sm"
-              style={{
-                minHeight: "42px",
-                height: "auto",
-              }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = "auto";
-                target.style.height = Math.min(target.scrollHeight, 96) + "px";
-              }}
-            />
+        {/* Reply preview */}
+        {renderReplyPreview()}
+
+        <div className="p-4">
+          <div className="flex items-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+            >
+              <PaperClipIcon className="w-5 h-5" />
+            </Button>
+
+            <div className="flex-1">
+              <textarea
+                value={messageInput}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+                placeholder="Write something..."
+                rows={1}
+                disabled={sending}
+                className="w-full resize-none border-0 bg-gray-50 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:bg-white max-h-24 disabled:opacity-50 text-sm"
+                style={{
+                  minHeight: "42px",
+                  height: "auto",
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = "auto";
+                  target.style.height =
+                    Math.min(target.scrollHeight, 96) + "px";
+                }}
+              />
+            </div>
+
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageInput.trim() || sending}
+              className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-300 rounded-lg h-[42px] w-[42px] p-0"
+              size="sm"
+            >
+              <PaperAirplaneIcon
+                className={`w-5 h-5 ${sending ? "opacity-50" : ""}`}
+              />
+            </Button>
           </div>
-
-          <Button
-            onClick={handleSendMessage}
-            disabled={!messageInput.trim() || sending}
-            className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-300 rounded-lg h-[42px] w-[42px] p-0"
-            size="sm"
-          >
-            <PaperAirplaneIcon
-              className={`w-5 h-5 ${sending ? "opacity-50" : ""}`}
-            />
-          </Button>
         </div>
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0"
-            style={{
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
-              background: "rgba(0, 0, 0, 0.5)",
-            }}
-            onClick={() => setShowDeleteConfirm(false)}
-          />
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Chat"
+      >
+        <div>
+          <p className="text-gray-600 mb-6">
+            Are you sure you want to delete this chat? This action cannot be
+            undone and will delete all messages in this conversation.
+          </p>
 
-          {/* Modal content */}
-          <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-gray-900 mb-3">
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteChat}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
               Delete Chat
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this chat? This action cannot be
-              undone and will delete all messages in this conversation.
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteChat}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-              >
-                Delete Chat
-              </button>
-            </div>
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

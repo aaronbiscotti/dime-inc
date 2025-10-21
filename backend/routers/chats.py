@@ -1,9 +1,10 @@
 """Chat endpoints for managing chat rooms, messages, and participants."""
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Literal
 from datetime import datetime, timezone
+from uuid import UUID
 from supabase_client import admin_client
 from core.security import get_current_user
 
@@ -25,14 +26,33 @@ class CreateChatRequest(BaseModel):
 
 class CreateGroupChatRequest(BaseModel):
     """Request model for creating a group chat."""
-    name: str
-    participant_ids: List[str]
+    name: str = Field(..., min_length=1, max_length=100)
+    participant_ids: List[str] = Field(..., min_items=1)
+
+    @validator("participant_ids")
+    def validate_participant_ids(cls, v):
+        """Validate that all participant IDs are valid UUIDs and are unique."""
+        if not v:
+            raise ValueError("Participant IDs cannot be empty.")
+        
+        unique_ids = set()
+        for user_id in v:
+            try:
+                # Check if it's a valid UUID
+                UUID(user_id)
+                unique_ids.add(user_id)
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid participant ID format: {user_id}")
+        
+        # Return a list of unique, validated UUID strings
+        return list(unique_ids)
 
 
 class SendMessageRequest(BaseModel):
     """Request model for sending a message."""
     content: str
     file_url: Optional[str] = None
+    reply_to_message_id: Optional[str] = None
 
 
 class ChatRoomResponse(BaseModel):
@@ -299,7 +319,8 @@ async def create_private_chat(
         )
 
 
-@router.post("/group")
+@router.post("/groups")
+@router.post("/group")  # Keep old endpoint for backwards compatibility
 async def create_group_chat(
     request: CreateGroupChatRequest,
     current_user: dict = Depends(get_current_user)
@@ -308,11 +329,21 @@ async def create_group_chat(
     try:
         user_id = current_user["id"]
         
-        if len(request.participant_ids) < 2:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Group chat requires at least 2 other participants"
-            )
+        # Combine creator and other participants, ensuring no duplicates
+        all_participant_ids = {user_id, *request.participant_ids}
+        
+        # Validate that all participant IDs exist in the 'profiles' table
+        for pid in all_participant_ids:
+            profile_check = admin_client.table("profiles") \
+                .select("id") \
+                .eq("id", pid) \
+                .maybe_single() \
+                .execute()
+            if not profile_check.data:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Participant with ID {pid} not found."
+                )
         
         # Create the chat room
         chat_room = admin_client.table("chat_rooms") \
@@ -333,19 +364,22 @@ async def create_group_chat(
         
         chat_room_id = chat_room.data[0]["id"]
         
-        # Add creator + all participants
-        participant_records = [{"chat_room_id": chat_room_id, "user_id": user_id, "joined_at": datetime.now(timezone.utc).isoformat()}]
-        participant_records.extend([
-            {"chat_room_id": chat_room_id, "user_id": pid, "joined_at": datetime.now(timezone.utc).isoformat()}
-            for pid in request.participant_ids
-        ])
+        # Prepare records for all participants
+        participant_records = [
+            {
+                "chat_room_id": chat_room_id,
+                "user_id": pid,
+                "joined_at": datetime.now(timezone.utc).isoformat()
+            }
+            for pid in all_participant_ids
+        ]
         
         participants = admin_client.table("chat_participants") \
             .insert(participant_records) \
             .execute()
         
         if not participants.data:
-            # Rollback
+            # Rollback: delete the created chat room if adding participants fails
             admin_client.table("chat_rooms").delete().eq("id", chat_room_id).execute()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -360,6 +394,7 @@ async def create_group_chat(
     except HTTPException:
         raise
     except Exception as e:
+        # Catch any other unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating group chat: {str(e)}"
@@ -424,13 +459,20 @@ async def send_message(
             )
         
         # Send message
+        message_data = {
+            "chat_room_id": chat_room_id,
+            "sender_id": user_id,
+            "content": request.content.strip() if request.content else None,
+        }
+        
+        if request.file_url:
+            message_data["file_url"] = request.file_url
+        
+        if request.reply_to_message_id:
+            message_data["reply_to_message_id"] = request.reply_to_message_id
+        
         message = admin_client.table("messages") \
-            .insert({
-                "chat_room_id": chat_room_id,
-                "sender_id": user_id,
-                "content": request.content.strip() if request.content else None,
-                "file_url": request.file_url
-            }) \
+            .insert(message_data) \
             .execute()
         
         if not message.data:
@@ -870,7 +912,7 @@ async def delete_chat(
 async def get_user_chats(
     current_user: dict = Depends(get_current_user)
 ):
-    """Get all chat rooms for the current user."""
+    """Get all chat rooms for the current user with latest messages and participant info."""
     try:
         user_id = current_user["id"]
         
@@ -892,7 +934,64 @@ async def get_user_chats(
             .order("updated_at", desc=True) \
             .execute()
         
-        return {"chats": chats.data or []}
+        enriched_chats = []
+        for chat in chats.data or []:
+            # Get latest message for this chat
+            latest_message = admin_client.table("messages") \
+                .select("id, content, created_at, sender_id") \
+                .eq("chat_room_id", chat["id"]) \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
+            
+            chat["latest_message"] = latest_message.data[0] if latest_message.data else None
+            
+            # For private chats, get display name from other participant
+            if not chat.get("is_group"):
+                other_participant = admin_client.table("chat_participants") \
+                    .select("user_id") \
+                    .eq("chat_room_id", chat["id"]) \
+                    .neq("user_id", user_id) \
+                    .maybe_single() \
+                    .execute()
+                
+                if other_participant.data:
+                    participant_id = other_participant.data["user_id"]
+                    
+                    # Get user role and profile
+                    profile = admin_client.table("profiles") \
+                        .select("role") \
+                        .eq("id", participant_id) \
+                        .maybe_single() \
+                        .execute()
+                    
+                    if profile.data:
+                        role = profile.data["role"]
+                        if role == "ambassador":
+                            ambassador = admin_client.table("ambassador_profiles") \
+                                .select("full_name") \
+                                .eq("user_id", participant_id) \
+                                .maybe_single() \
+                                .execute()
+                            if ambassador.data:
+                                chat["display_name"] = f"Chat with {ambassador.data['full_name']}"
+                        elif role == "client":
+                            client = admin_client.table("client_profiles") \
+                                .select("company_name") \
+                                .eq("user_id", participant_id) \
+                                .maybe_single() \
+                                .execute()
+                            if client.data:
+                                chat["display_name"] = f"Chat with {client.data['company_name']}"
+                
+                if "display_name" not in chat:
+                    chat["display_name"] = "Private Chat"
+            else:
+                chat["display_name"] = chat.get("name", "Group Chat")
+            
+            enriched_chats.append(chat)
+        
+        return {"chats": enriched_chats}
         
     except Exception as e:
         raise HTTPException(
@@ -1013,4 +1112,3 @@ async def get_chat_campaign_info(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching chat campaign info: {str(e)}"
         )
-

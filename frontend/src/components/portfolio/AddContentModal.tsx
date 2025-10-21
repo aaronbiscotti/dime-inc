@@ -53,7 +53,7 @@ export function AddContentModal({
       // TODO: Implement Instagram OAuth flow
       // This requires NextAuth or similar OAuth provider setup
       setError("Instagram connection not yet implemented");
-      
+
       /* Instagram OAuth not yet implemented
       await signIn("instagram", {
         callbackUrl: window.location.href,
@@ -76,7 +76,7 @@ export function AddContentModal({
       // setUsername(data.username);
       // await fetchMedia();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ export function AddContentModal({
 
       setMedia(data.data || []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -111,9 +111,7 @@ export function AddContentModal({
   };
 
   const handleAddSelected = () => {
-    const selectedItems = media.filter((item) =>
-      selectedMedia.has(item.id)
-    );
+    const selectedItems = media.filter((item) => selectedMedia.has(item.id));
     onContentSelected(selectedItems);
     onClose();
   };
@@ -123,15 +121,7 @@ export function AddContentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0"
-        style={{
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          background: "rgba(0, 0, 0, 0.5)",
-        }}
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-gray-900/50" onClick={onClose} />
 
       {/* Modal */}
       <Card className="relative z-10 w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-bounce-in">
@@ -187,7 +177,8 @@ export function AddContentModal({
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-gray-600">
-                  Connected as <span className="font-semibold">@{username}</span>
+                  Connected as{" "}
+                  <span className="font-semibold">@{username}</span>
                 </p>
                 <p className="text-sm text-gray-500">
                   {selectedMedia.size} selected

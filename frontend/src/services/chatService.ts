@@ -51,6 +51,7 @@ export interface Message {
   sender_id: string;
   content: string | null;
   file_url?: string | null;
+  reply_to_message_id?: string | null; // FIX: Allow null
   created_at: string;
 }
 
@@ -67,16 +68,30 @@ export interface CreateGroupChatParams {
 
 export interface SendMessageParams {
   content: string;
-  file_url?: string;
+  file_url?: string | null; // FIX: Allow null
+  reply_to_message_id?: string | null; // FIX: Allow null
 }
 
 export interface Contract {
   id: string;
+  ambassador_signed_at: string | null;
+  campaign_ambassador_id: string | null;
+  client_id: string | null;
+  client_signed_at: string | null;
+  contract_file_url: string | null;
   contract_text: string | null;
+  cost_per_cpm: number | null;
+  created_at: string | null;
+  payment_type: "pay_per_post" | "pay_per_cpm";
+  pdf_url: string | null;
+  start_date: string | null;
+  target_impressions: number | null;
   terms_accepted: boolean;
-  created_at: string;
-  client_id: string;
-  campaign_ambassador_id: string;
+  updated_at: string | null;
+  usage_rights_duration: string | null;
+  // Add campaign and ambassador names for UI display
+  campaign_name?: string;
+  ambassador_name?: string;
 }
 
 // ============================================================================
@@ -188,12 +203,15 @@ class ChatService {
    */
   async sendMessage(chatRoomId: string, params: SendMessageParams) {
     try {
+      const payload: SendMessageParams = {
+        content: params.content.trim(),
+        file_url: params.file_url || null,
+        reply_to_message_id: params.reply_to_message_id || null,
+      };
+
       const response = await authPost(
         `${API_BASE_URL}/api/chats/${chatRoomId}/messages`,
-        {
-          content: params.content.trim(),
-          file_url: params.file_url,
-        }
+        payload
       );
 
       const data = await handleApiResponse<{ message: Message }>(response);

@@ -21,7 +21,9 @@ export default function ContractsPage() {
       setError(null);
       try {
         // Fetch all contracts for this client by client_id FK
-        const data = await contractService.getContractsForClient(clientProfile.id);
+        const data = await contractService.getContractsForClient(
+          clientProfile.id
+        );
         setContracts(data || []);
       } catch {
         setError("Failed to load contracts");
@@ -34,7 +36,7 @@ export default function ContractsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <main className="max-w-5xl mx-auto p-8 bg-white rounded-xl shadow border mt-10">
+      <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Contracts</h1>
           <Button
@@ -45,14 +47,19 @@ export default function ContractsPage() {
           </Button>
         </div>
         {loading ? (
-          <div className="text-center text-gray-500 py-12">Loading contracts...</div>
+          <div className="text-center text-gray-500 py-12">
+            Loading contracts...
+          </div>
         ) : error ? (
           <div className="text-center text-red-500 py-12">{error}</div>
         ) : contracts.length === 0 ? (
           <div className="text-center text-gray-500 py-12">
             <div className="text-2xl mb-2">📄</div>
             <div className="text-lg font-semibold mb-1">No contracts yet</div>
-            <div className="text-sm text-gray-500 mb-4">You have not created any contracts. Click &quot;Draft Contract&quot; to get started.</div>
+            <div className="text-sm text-gray-500 mb-4">
+              You have not created any contracts. Click &quot;Draft
+              Contract&quot; to get started.
+            </div>
             <Button
               className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
               onClick={() => router.push("/contracts/new")}
@@ -61,32 +68,58 @@ export default function ContractsPage() {
             </Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-300 overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead>
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Campaign</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ambassador</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Campaign
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ambassador
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {contracts.map((c) => (
-                  <tr key={c.id}>
-                    <td className="px-4 py-2">{c.campaign_name}</td>
-                    <td className="px-4 py-2">{c.ambassador_name}</td>
-                    <td className="px-4 py-2">
+                  <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {c.campaign_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {c.ambassador_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {c.terms_accepted ? (
-                        <span className="text-green-700 font-semibold">Active</span>
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+                          Active
+                        </span>
                       ) : (
-                        <span className="text-yellow-700 font-semibold">Draft</span>
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
+                          Draft
+                        </span>
                       )}
                     </td>
-                    <td className="px-4 py-2">{c.created_at ? new Date(c.created_at).toLocaleDateString() : "-"}</td>
-                    <td className="px-4 py-2">
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/contracts/${c.id}`)}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {c.created_at
+                        ? new Date(c.created_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/contracts/${c.id}`)}
+                      >
                         View
                       </Button>
                     </td>

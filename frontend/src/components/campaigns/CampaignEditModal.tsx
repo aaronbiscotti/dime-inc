@@ -125,15 +125,7 @@ export function CampaignEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop with blur effect */}
-      <div
-        className="fixed inset-0"
-        style={{
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          background: "rgba(0, 0, 0, 0.5)",
-        }}
-        onClick={handleClose}
-      />
+      <div className="fixed inset-0 bg-gray-900/50" onClick={handleClose} />
 
       {/* Modal content */}
       <div className="relative z-10 bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">

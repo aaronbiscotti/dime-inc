@@ -28,7 +28,11 @@ interface CampaignFormData {
   deliverables: string[];
 }
 
-export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelection }: CampaignFormProps) {
+export function CampaignForm({
+  onClose,
+  onCampaignCreated,
+  onOpenAmbassadorSelection,
+}: CampaignFormProps) {
   const { clientProfile } = useAuth();
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<CampaignFormData>({
@@ -43,49 +47,61 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
   });
 
   const handleInputChange = (field: keyof CampaignFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleArrayFieldAdd = (field: 'requirements' | 'deliverables') => {
-    setFormData(prev => ({
+  const handleArrayFieldAdd = (field: "requirements" | "deliverables") => {
+    setFormData((prev) => ({
       ...prev,
-      [field]: [...prev[field], ""]
+      [field]: [...prev[field], ""],
     }));
   };
 
   const handleArrayFieldChange = (
-    field: 'requirements' | 'deliverables',
+    field: "requirements" | "deliverables",
     index: number,
     value: string
   ) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: prev[field].map((item, i) => i === index ? value : item)
+      [field]: prev[field].map((item, i) => (i === index ? value : item)),
     }));
   };
 
   const handleArrayFieldRemove = (
-    field: 'requirements' | 'deliverables',
+    field: "requirements" | "deliverables",
     index: number
   ) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: prev[field].filter((_, i) => i !== index)
+      [field]: prev[field].filter((_, i) => i !== index),
     }));
   };
 
   const handleNicheToggle = (niche: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       targetNiches: prev.targetNiches.includes(niche)
-        ? prev.targetNiches.filter(n => n !== niche)
-        : [...prev.targetNiches, niche]
+        ? prev.targetNiches.filter((n) => n !== niche)
+        : [...prev.targetNiches, niche],
     }));
   };
 
   const availableNiches = [
-    "Fashion", "Beauty", "Fitness", "Food", "Travel", "Tech", "Gaming",
-    "Music", "Art", "Lifestyle", "Business", "Education", "Health", "Sports"
+    "Fashion",
+    "Beauty",
+    "Fitness",
+    "Food",
+    "Travel",
+    "Tech",
+    "Gaming",
+    "Music",
+    "Art",
+    "Lifestyle",
+    "Business",
+    "Education",
+    "Health",
+    "Sports",
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,14 +120,16 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
         description: formData.description,
         budget: formData.budget,
         timeline: formData.timeline,
-        requirements: formData.requirements.filter(r => r.trim() !== "").join("\n"),
+        requirements: formData.requirements
+          .filter((r) => r.trim() !== "")
+          .join("\n"),
         targetNiches: formData.targetNiches,
         campaignType: formData.campaignType,
-        deliverables: formData.deliverables.filter(d => d.trim() !== "")
+        deliverables: formData.deliverables.filter((d) => d.trim() !== ""),
       });
 
       if (error) {
-        console.error('Error creating campaign:', error);
+        console.error("Error creating campaign:", error);
         return;
       }
 
@@ -121,7 +139,7 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
       // Open ambassador selection
       onOpenAmbassadorSelection?.(campaign);
     } catch (error) {
-      console.error('Error creating campaign:', error);
+      console.error("Error creating campaign:", error);
     } finally {
       setIsCreating(false);
     }
@@ -130,15 +148,7 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop with blur effect */}
-      <div
-        className="fixed inset-0"
-        style={{
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          background: 'rgba(0, 0, 0, 0.5)',
-        }}
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-gray-900/50" onClick={onClose} />
 
       {/* Modal with bounce animation */}
       <Card className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-bounce-in">
@@ -167,7 +177,7 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                 <Input
                   id="title"
                   value={formData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  onChange={(e) => handleInputChange("title", e.target.value)}
                   placeholder="Enter campaign title"
                   required
                 />
@@ -178,7 +188,9 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
                   placeholder="Describe your campaign goals and vision"
                   rows={3}
                   required
@@ -195,7 +207,9 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                   <Input
                     id="budget"
                     value={formData.budget}
-                    onChange={(e) => handleInputChange('budget', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("budget", e.target.value)
+                    }
                     placeholder="e.g., $1,000 - $5,000"
                     className="pl-9"
                     required
@@ -210,7 +224,9 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                   <Input
                     id="timeline"
                     value={formData.timeline}
-                    onChange={(e) => handleInputChange('timeline', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("timeline", e.target.value)
+                    }
                     placeholder="e.g., 2-4 weeks"
                     className="pl-9"
                     required
@@ -224,15 +240,21 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
               <Select
                 id="campaignType"
                 value={formData.campaignType}
-                onChange={(e) => handleInputChange('campaignType', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("campaignType", e.target.value)
+                }
                 required
               >
-                <option value="" disabled>Select campaign type</option>
+                <option value="" disabled>
+                  Select campaign type
+                </option>
                 <option value="product-launch">Product Launch</option>
                 <option value="brand-awareness">Brand Awareness</option>
                 <option value="event-promotion">Event Promotion</option>
                 <option value="content-creation">Content Creation</option>
-                <option value="user-generated-content">User Generated Content</option>
+                <option value="user-generated-content">
+                  User Generated Content
+                </option>
                 <option value="review-campaign">Review Campaign</option>
               </Select>
             </div>
@@ -248,8 +270,8 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                     onClick={() => handleNicheToggle(niche)}
                     className={`px-3 py-2 text-sm rounded-full border transition-colors ${
                       formData.targetNiches.includes(niche)
-                        ? 'bg-[#f5d82e] border-[#f5d82e] text-gray-900'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-[#f5d82e]'
+                        ? "bg-[#f5d82e] border-[#f5d82e] text-gray-900"
+                        : "bg-white border-gray-300 text-gray-700 hover:border-[#f5d82e]"
                     }`}
                   >
                     {niche}
@@ -266,7 +288,13 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                   <div key={index} className="flex gap-2">
                     <Input
                       value={requirement}
-                      onChange={(e) => handleArrayFieldChange('requirements', index, e.target.value)}
+                      onChange={(e) =>
+                        handleArrayFieldChange(
+                          "requirements",
+                          index,
+                          e.target.value
+                        )
+                      }
                       placeholder="Enter requirement"
                     />
                     {formData.requirements.length > 1 && (
@@ -274,7 +302,9 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => handleArrayFieldRemove('requirements', index)}
+                        onClick={() =>
+                          handleArrayFieldRemove("requirements", index)
+                        }
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -285,7 +315,7 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handleArrayFieldAdd('requirements')}
+                  onClick={() => handleArrayFieldAdd("requirements")}
                   className="w-full"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -302,7 +332,13 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                   <div key={index} className="flex gap-2">
                     <Input
                       value={deliverable}
-                      onChange={(e) => handleArrayFieldChange('deliverables', index, e.target.value)}
+                      onChange={(e) =>
+                        handleArrayFieldChange(
+                          "deliverables",
+                          index,
+                          e.target.value
+                        )
+                      }
                       placeholder="Enter deliverable"
                     />
                     {formData.deliverables.length > 1 && (
@@ -310,7 +346,9 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => handleArrayFieldRemove('deliverables', index)}
+                        onClick={() =>
+                          handleArrayFieldRemove("deliverables", index)
+                        }
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -321,7 +359,7 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handleArrayFieldAdd('deliverables')}
+                  onClick={() => handleArrayFieldAdd("deliverables")}
                   className="w-full"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -346,7 +384,7 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
                 className="flex-1 bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-0"
               >
                 <Users className="w-4 h-4 mr-2" />
-                {isCreating ? 'Creating...' : 'Create & Find Ambassadors'}
+                {isCreating ? "Creating..." : "Create & Find Ambassadors"}
               </Button>
             </div>
           </form>
