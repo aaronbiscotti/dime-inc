@@ -5,7 +5,6 @@ import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import ContractDraftForm from "./ContractDraftForm";
 import { useSearchParams } from "next/navigation";
-import styles from "./page.module.css";
 
 // Contract drafting page UI will be implemented here.
 // TODO: Implement modern contract drafting UI as per design.

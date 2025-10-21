@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function ContractPreviewPage({ params, searchParams }: any) {
+export default function ContractPreviewPage() {
   // We'll get the draft from localStorage or history state for now (for demo)
   let draft = null;
   if (typeof window !== "undefined") {

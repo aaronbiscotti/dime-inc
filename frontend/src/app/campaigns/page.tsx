@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
@@ -16,6 +16,19 @@ export default function Campaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const router = useRouter();
+
+  const loadCampaigns = useCallback(async () => {
+    setLoadingCampaigns(true);
+    try {
+      if (!profile?.id) return;
+      const { data } = await campaignService.getCampaignsForClient(profile.id);
+      setCampaigns(data || []);
+    } catch (error) {
+      console.error("Error loading campaigns:", error);
+    } finally {
+      setLoadingCampaigns(false);
+    }
+  }, [profile?.id]);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -38,19 +51,7 @@ export default function Campaigns() {
 
     // User is authenticated and is a client
     setLoading(false);
-  }, [user, profile, authLoading, router]);
-
-  const loadCampaigns = async () => {
-    setLoadingCampaigns(true);
-    try {
-      const data = await campaignService.getClientCampaigns();
-      setCampaigns(data);
-    } catch (error) {
-      console.error("Error loading campaigns:", error);
-    } finally {
-      setLoadingCampaigns(false);
-    }
-  };
+  }, [user, profile, authLoading, router, loadCampaigns]);
 
   const handleCampaignCreated = (campaign: Campaign) => {
     setCampaigns([campaign, ...campaigns]);

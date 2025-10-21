@@ -79,29 +79,28 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
 
       if (authError) {
         // Handle specific error types
-        if (authError.code === "ROLE_MISMATCH") {
+        if (authError.includes("role") || authError.includes("ROLE_MISMATCH")) {
           // Show toast for role mismatch with user's actual role info
-          showToast(authError.message, "error", 7000);
+          showToast(authError, "error", 7000);
           return;
-        } else if (authError.message?.includes("Invalid login credentials")) {
+        } else if (authError.includes("Invalid login credentials")) {
           setError({
             message: "Incorrect email or password. Please try again.",
             field: "password",
           });
-        } else if (authError.message?.includes("Email not confirmed")) {
+        } else if (authError.includes("Email not confirmed")) {
           setError({
             message:
               "Please check your email and click the confirmation link before signing in.",
           });
-        } else if (authError.message?.includes("Too many requests")) {
+        } else if (authError.includes("Too many requests")) {
           setError({
             message:
               "Too many login attempts. Please wait a moment and try again.",
           });
         } else {
           setError({
-            message:
-              authError.message || "Unable to sign in. Please try again.",
+            message: authError || "Unable to sign in. Please try again.",
           });
         }
         return;
@@ -109,7 +108,7 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
 
       // Success - redirect to dashboard
       router.push("/dashboard");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Login error:", err);
 
       if (!navigator.onLine) {
@@ -117,7 +116,7 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
           message:
             "No internet connection. Please check your network and try again.",
         });
-      } else if (err.message?.includes("fetch")) {
+      } else if (err instanceof Error && err.message?.includes("fetch")) {
         setError({
           message: "Unable to connect to our servers. Please try again later.",
         });
@@ -152,8 +151,7 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
     setError(null);
 
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +172,7 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
           field: "success",
         });
       }
-    } catch (err: any) {
+    } catch {
       setError({
         message: "Unable to send password reset email. Please try again.",
       });
@@ -338,7 +336,7 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
           {onSwitchToSignup && (
             <div className="text-center pt-4 border-t border-gray-200">
               <p className="text-sm text-gray-600">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <button
                   type="button"
                   onClick={onSwitchToSignup}

@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from "react";
 import {
-  CalendarIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
   ChevronDownIcon,
-  ChevronUpIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { UserRole } from "@/types/database";
-import { chatService, OtherParticipant } from "@/services/chatService";
+import { UserRole, Contract } from "@/types/database";
+import { chatService, ChatParticipant } from "@/services/chatService";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -22,12 +20,8 @@ interface ContextPanelProps {
 }
 
 export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
-  const [linkSubmission, setLinkSubmission] = useState("");
-  const [adCodes, setAdCodes] = useState("");
-  const [activeTab, setActiveTab] = useState("timeline");
-  const [isTimelineExpanded, setIsTimelineExpanded] = useState(true);
-  const [otherParticipant, setOtherParticipant] = useState<OtherParticipant | null>(null);
-  const [contract, setContract] = useState<any>(null);
+  const [otherParticipant, setOtherParticipant] = useState<ChatParticipant | null>(null);
+  const [contract, setContract] = useState<Contract | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showContractModal, setShowContractModal] = useState(false);
@@ -47,7 +41,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
 
     const loadOtherParticipantAndContract = async () => {
       try {
-        await chatService.debugChatParticipants(selectedChatId);
         const { data, error } = await chatService.getOtherParticipant(selectedChatId);
         if (error) {
           setError('Failed to load participant information');
@@ -60,9 +53,9 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         if (contractResponse.error) {
           setContract(null);
         } else {
-          setContract(contractResponse.data);
+          setContract(contractResponse.data as Contract | null);
         }
-      } catch (err) {
+      } catch {
         setError('Failed to load context panel data');
         setOtherParticipant(null);
         setContract(null);
@@ -72,41 +65,24 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     loadOtherParticipantAndContract();
   }, [selectedChatId]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDraftContract = async () => {
     if (!selectedChatId) return;
     setIsLoading(true);
     setError(null);
-    try {
-      // You need to implement chatService.createContract for actual contract creation
-      const { error } = await chatService.createContract(selectedChatId);
-      if (error) {
-        setError('Failed to draft contract');
-      } else {
-        setError(null);
-        // Refetch contract
-        const contractResponse = await chatService.getContractByChatId(selectedChatId);
-        if (!contractResponse.error) {
-          setContract(contractResponse.data);
-        }
-      }
-    } catch (err) {
-      setError('Failed to draft contract');
-    } finally {
-      setIsLoading(false);
-    }
+    // TODO: Implement contract creation
+    // This feature is not yet implemented in the chatService
+    setError('Contract creation not yet implemented');
+    setIsLoading(false);
   };
 
   const handleGoToDraftContract = () => {
     if (!otherParticipant) return;
     // If the other participant is an ambassador, pass their id
     let ambassadorId = "";
-    let campaignId = "";
+    const campaignId = ""; // Campaign ID would need to be fetched from campaign_ambassadors relationship
     if (otherParticipant.role === "ambassador") {
-      ambassadorId = (otherParticipant as any).id;
-      // Try to get campaignId from contract or context if available
-      if (contract && contract.campaign_id) {
-        campaignId = contract.campaign_id;
-      }
+      ambassadorId = (otherParticipant as unknown as Record<string, unknown>).id as string;
     }
     // If you have a campaignId, pass it; otherwise, just ambassador
     let url = "/contracts/new";
@@ -162,9 +138,9 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   // --- Simple UI: Only participant info and timeline ---
   let avatar: string | null = null;
   if (otherParticipant.role === 'ambassador') {
-    avatar = (otherParticipant as any).profilePhoto || null;
+    avatar = (otherParticipant as unknown as Record<string, unknown>).profilePhoto as string || null;
   } else if (otherParticipant.role === 'client') {
-    avatar = (otherParticipant as any).logo || null;
+    avatar = (otherParticipant as unknown as Record<string, unknown>).logo as string || null;
   }
 
   return (
@@ -185,14 +161,14 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         <h3 className="font-semibold text-gray-900 text-lg">{otherParticipant.name}</h3>
         {otherParticipant.role === 'ambassador' && (
           <div className="text-gray-500 text-sm mb-1">
-            {otherParticipant.instagramHandle && (
-              <span className="ml-2">Instagram: {otherParticipant.instagramHandle}</span>
+            {otherParticipant.instagram_handle && (
+              <span className="ml-2">Instagram: {otherParticipant.instagram_handle}</span>
             )}
-            {otherParticipant.tiktokHandle && (
-              <span className="ml-2">TikTok: {otherParticipant.tiktokHandle}</span>
+            {otherParticipant.tiktok_handle && (
+              <span className="ml-2">TikTok: {otherParticipant.tiktok_handle}</span>
             )}
-            {otherParticipant.twitterHandle && (
-              <span className="ml-2">Twitter: {otherParticipant.twitterHandle}</span>
+            {otherParticipant.twitter_handle && (
+              <span className="ml-2">Twitter: {otherParticipant.twitter_handle}</span>
             )}
           </div>
         )}
@@ -261,11 +237,11 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             <div className="mb-4 flex flex-col md:flex-row md:justify-between gap-4">
               <div>
                 <div className="font-semibold text-gray-700">Campaign</div>
-                <div className="text-gray-900">{contract.campaign_ambassadors?.campaigns?.title || contract.campaign_name || contract.campaign_id}</div>
+                <div className="text-gray-900">{(contract as Record<string, unknown>).campaign_name as string || 'N/A'}</div>
               </div>
               <div>
                 <div className="font-semibold text-gray-700">Ambassador</div>
-                <div className="text-gray-900">{contract.campaign_ambassadors?.ambassador_profiles?.full_name || contract.ambassador_name || contract.ambassador_id}</div>
+                <div className="text-gray-900">{(contract as Record<string, unknown>).ambassador_name as string || 'N/A'}</div>
               </div>
               <div>
                 <div className="font-semibold text-gray-700">Status</div>

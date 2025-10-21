@@ -4,6 +4,8 @@
  */
 
 import { API_URL } from '@/config/api';
+import { authFetch, authPost, authPut, authDelete, handleApiResponse } from '@/utils/fetch';
+import { Campaign as DatabaseCampaign } from '@/types/database';
 
 const API_BASE_URL = API_URL;
 
@@ -17,26 +19,25 @@ export interface CampaignData {
   description: string;
   budget: string;
   timeline: string;
-  requirements?: string[];
+  requirements?: string | null;
   targetNiches?: string[];
   campaignType?: string;
   deliverables?: string[];
 }
 
-export interface Campaign {
-  id: string;
+// Type used by the client-side creation form
+export interface CreateCampaignData {
   title: string;
   description: string;
-  budget: string;
-  timeline: string;
-  requirements?: string[];
-  target_niches?: string[];
-  campaign_type?: string;
-  deliverables?: string[];
-  status: string;
-  created_at: string;
-  updated_at: string;
+  budget_min: number;
+  budget_max: number;
+  deadline: string | null;
+  requirements: string | null;
+  max_ambassadors: number;
 }
+
+// Use the database Campaign type
+export type Campaign = DatabaseCampaign;
 
 export interface CampaignAmbassador {
   id: string;
@@ -53,17 +54,6 @@ export interface CampaignAmbassador {
 // ============================================================================
 
 /**
- * Get authentication token from localStorage
- */
-function getAuthToken(): string {
-  const token = localStorage.getItem('auth-token');
-  if (!token) {
-    throw new Error('Not authenticated');
-  }
-  return token;
-}
-
-/**
  * Standard error response format
  */
 interface ErrorResponse {
@@ -74,7 +64,7 @@ interface ErrorResponse {
 /**
  * Handle API errors consistently
  */
-function handleError(error: any, context: string): ErrorResponse {
+function handleError(error: unknown, context: string): ErrorResponse {
   console.error(`[CampaignService] ${context}:`, error);
   
   const message = error instanceof Error 
@@ -100,32 +90,18 @@ class CampaignService {
    */
   async createCampaign(campaignData: CampaignData) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title: campaignData.title,
-          description: campaignData.description,
-          budget: campaignData.budget,
-          timeline: campaignData.timeline,
-          requirements: campaignData.requirements,
-          target_niches: campaignData.targetNiches,
-          campaign_type: campaignData.campaignType,
-          deliverables: campaignData.deliverables
-        })
+      const response = await authPost(`${API_BASE_URL}/api/campaigns/create`, {
+        title: campaignData.title,
+        description: campaignData.description,
+        budget: campaignData.budget,
+        timeline: campaignData.timeline,
+        requirements: campaignData.requirements,
+        target_niches: campaignData.targetNiches,
+        campaign_type: campaignData.campaignType,
+        deliverables: campaignData.deliverables
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to create campaign');
-      }
-
+      const data = await handleApiResponse<{ campaign: Campaign }>(response);
       return { data: data.campaign, error: null };
     } catch (error) {
       return handleError(error, 'createCampaign');
@@ -137,20 +113,8 @@ class CampaignService {
    */
   async getCampaignsForClient(clientId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/client/${clientId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.detail || 'Failed to fetch campaigns');
-      }
-
+      const response = await authFetch(`${API_BASE_URL}/api/campaigns/client/${clientId}`);
+      const result = await handleApiResponse<{ data: Campaign[] }>(response);
       return { data: result.data || [], error: null };
     } catch (error) {
       return handleError(error, 'getCampaignsForClient');
@@ -162,20 +126,8 @@ class CampaignService {
    */
   async getAllOpenCampaigns() {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/all`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.detail || 'Failed to fetch open campaigns');
-      }
-
+      const response = await authFetch(`${API_BASE_URL}/api/campaigns/all`);
+      const result = await handleApiResponse<{ data: Campaign[] }>(response);
       return { data: result.data || [], error: null };
     } catch (error) {
       return handleError(error, 'getAllOpenCampaigns');
@@ -187,20 +139,8 @@ class CampaignService {
    */
   async getCampaign(campaignId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to fetch campaign');
-      }
-
+      const response = await authFetch(`${API_BASE_URL}/api/campaigns/${campaignId}`);
+      const data = await handleApiResponse<Campaign>(response);
       return { data, error: null };
     } catch (error) {
       return handleError(error, 'getCampaign');
@@ -212,23 +152,8 @@ class CampaignService {
    */
   async updateCampaign(campaignId: string, updates: Partial<CampaignData>) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updates)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to update campaign');
-      }
-
+      const response = await authPut(`${API_BASE_URL}/api/campaigns/${campaignId}`, updates);
+      const data = await handleApiResponse<{ campaign: Campaign }>(response);
       return { data: data.campaign, error: null };
     } catch (error) {
       return handleError(error, 'updateCampaign');
@@ -240,21 +165,8 @@ class CampaignService {
    */
   async deleteCampaign(campaignId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to delete campaign');
-      }
-
+      const response = await authDelete(`${API_BASE_URL}/api/campaigns/${campaignId}`);
+      await handleApiResponse(response);
       return { data: { success: true }, error: null };
     } catch (error) {
       return handleError(error, 'deleteCampaign');
@@ -266,21 +178,8 @@ class CampaignService {
    */
   async publishCampaign(campaignId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}/publish`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to publish campaign');
-      }
-
+      const response = await authPost(`${API_BASE_URL}/api/campaigns/${campaignId}/publish`, {});
+      await handleApiResponse(response);
       return { data: { success: true }, error: null };
     } catch (error) {
       return handleError(error, 'publishCampaign');
@@ -292,23 +191,8 @@ class CampaignService {
    */
   async updateCampaignStatus(campaignId: string, status: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to update campaign status');
-      }
-
+      const response = await authPut(`${API_BASE_URL}/api/campaigns/${campaignId}/status`, { status });
+      await handleApiResponse(response);
       return { data: { success: true }, error: null };
     } catch (error) {
       return handleError(error, 'updateCampaignStatus');
@@ -321,24 +205,12 @@ class CampaignService {
    */
   async addAmbassadorToCampaign(campaignId: string, ambassadorId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(
+      const response = await authPost(
         `${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors/${ambassadorId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+        {}
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to add ambassador to campaign');
-      }
-
+      const data = await handleApiResponse(response);
       return { data: data, error: null };
     } catch (error) {
       return handleError(error, 'addAmbassadorToCampaign');
@@ -350,23 +222,8 @@ class CampaignService {
    */
   async getCampaignAmbassadors(campaignId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(
-        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to fetch campaign ambassadors');
-      }
-
+      const response = await authFetch(`${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors`);
+      const data = await handleApiResponse<{ ambassadors: CampaignAmbassador[] }>(response);
       return { data: data.ambassadors || [], error: null };
     } catch (error) {
       return handleError(error, 'getCampaignAmbassadors');
@@ -379,24 +236,8 @@ class CampaignService {
    */
   async deleteCampaignAmbassadorByChatRoomId(chatRoomId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(
-        `${API_BASE_URL}/api/campaigns/ambassadors/chat/${chatRoomId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to delete campaign ambassador');
-      }
-
+      const response = await authDelete(`${API_BASE_URL}/api/campaigns/ambassadors/chat/${chatRoomId}`);
+      await handleApiResponse(response);
       return { data: { success: true }, error: null };
     } catch (error) {
       return handleError(error, 'deleteCampaignAmbassadorByChatRoomId');
@@ -408,23 +249,8 @@ class CampaignService {
    */
   async getCampaignAmbassadorRows(campaignId: string) {
     try {
-      const token = getAuthToken();
-      
-      const response = await fetch(
-        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassador-rows`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to fetch campaign ambassador rows');
-      }
-
+      const response = await authFetch(`${API_BASE_URL}/api/campaigns/${campaignId}/ambassador-rows`);
+      const data = await handleApiResponse<{ rows: unknown[] }>(response);
       return { data: data.rows || [], error: null };
     } catch (error) {
       return handleError(error, 'getCampaignAmbassadorRows');

@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Search, MapPin, Users, Star } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { X, Search, MapPin, Users, Star, CheckCircle } from "lucide-react";
+import { API_URL } from "@/config/api";
 
 interface Ambassador {
   id: string;
@@ -37,14 +36,13 @@ interface AmbassadorSelectionProps {
 }
 
 export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionProps) {
-  const { clientProfile } = useAuth();
   const [ambassadors, setAmbassadors] = useState<Ambassador[]>([]);
   const [filteredAmbassadors, setFilteredAmbassadors] = useState<Ambassador[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAmbassadors, setSelectedAmbassadors] = useState<Set<string>>(new Set());
   const [invitationMessage, setInvitationMessage] = useState("");
-  const [sentInvitations, setSentInvitations] = useState<Set<string>>(new Set());
+  const [sentInvitations] = useState<Set<string>>(new Set());
   const [targetNiches, setTargetNiches] = useState<string[]>([]);
 
   useEffect(() => {
@@ -58,11 +56,11 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
           setTargetNiches(metadata.targetNiches);
         }
       }
-    } catch (e) {
+    } catch {
       // If parsing fails, requirements is probably a string
       console.log('Campaign requirements is not JSON metadata');
     }
-  }, []);
+  }, [campaign.requirements]);
 
   useEffect(() => {
     // Generate default invitation message
@@ -102,23 +100,25 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
 
   const fetchAmbassadors = async () => {
     try {
-      const { data, error } = await supabase
-        .from('ambassador_profiles')
-        .select('*, user_id')
-        .limit(20);
+      const response = await fetch(`${API_URL}/api/explore/ambassadors`, {
+        credentials: 'include'
+      });
 
-      if (error) {
-        console.error('Error fetching ambassadors:', error);
+      if (!response.ok) {
+        console.error('Error fetching ambassadors:', response.statusText);
         return;
       }
 
+      const result = await response.json();
+      const data = result.data || [];
+
       // Add mock data for demonstration
-      const ambassadorsWithMockData = data?.map(ambassador => ({
+      const ambassadorsWithMockData = data.map((ambassador: Record<string, unknown>) => ({
         ...ambassador,
         followers: `${Math.floor(Math.random() * 100)}K`,
         rating: 4.2 + Math.random() * 0.8,
         completedCampaigns: Math.floor(Math.random() * 20) + 1
-      })) || [];
+      }));
 
       setAmbassadors(ambassadorsWithMockData);
     } catch (error) {
@@ -161,7 +161,7 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl font-semibold text-gray-900">
-                Find Ambassadors for "{campaign.campaign_title}"
+                Find Ambassadors for &quot;{campaign.campaign_title}&quot;
               </CardTitle>
               <p className="text-sm text-gray-600 mt-1">
                 Target niches: {targetNiches.join(", ") || "All"}
@@ -240,8 +240,9 @@ export function AmbassadorSelection({ campaign, onClose }: AmbassadorSelectionPr
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold flex-shrink-0">
+                          <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold flex-shrink-0 overflow-hidden">
                             {ambassador.profile_photo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={ambassador.profile_photo_url}
                                 alt={ambassador.full_name}

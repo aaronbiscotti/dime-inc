@@ -86,7 +86,7 @@ export function CampaignEditModal({
       }
 
       // Validate max ambassadors
-      if (formData.max_ambassadors < 1) {
+      if (formData.max_ambassadors !== null && formData.max_ambassadors < 1) {
         setError("Maximum ambassadors must be at least 1");
         setLoading(false);
         return;
@@ -110,9 +110,9 @@ export function CampaignEditModal({
       setTimeout(() => {
         handleClose();
       }, 1500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating campaign:", err);
-      setError(err.message || "Failed to update campaign");
+      setError(err instanceof Error ? err.message : "Failed to update campaign");
     } finally {
       setLoading(false);
     }
@@ -232,7 +232,7 @@ export function CampaignEditModal({
               id="max_ambassadors"
               type="number"
               min="1"
-              value={formData.max_ambassadors}
+              value={formData.max_ambassadors ?? 1}
               onChange={(e) =>
                 handleInputChange("max_ambassadors", parseInt(e.target.value) || 1)
               }

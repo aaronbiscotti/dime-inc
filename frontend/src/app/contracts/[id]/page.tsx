@@ -4,15 +4,25 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
-import { contractService } from "@/services/contractService";
+import { API_URL } from "@/config/api";
 import { Button } from "@/components/ui/button";
+
+type ContractView = {
+  client_id?: string | null;
+  created_at?: string | null;
+  contract_text?: string | null;
+  campaign_ambassadors?: {
+    ambassador_profiles?: { id?: string; full_name?: string } | null;
+    campaigns?: { title?: string } | null;
+  } | null;
+};
 
 export default function ContractDetailPage() {
   const { user, clientProfile, ambassadorProfile } = useAuth();
   const router = useRouter();
   const params = useParams();
   const contractId = params?.id as string;
-  const [contract, setContract] = useState<any>(null);
+  const [contract, setContract] = useState<ContractView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,22 +32,18 @@ export default function ContractDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        // Fetch contract by ID, including campaign/ambassador info
-        const supabase = (await import("@/lib/supabase")).createClient();
-        const { data, error } = await supabase
-          .from("contracts")
-          .select(`
-            id, contract_text, terms_accepted, created_at, client_id, campaign_ambassador_id,
-            campaign_ambassadors (
-              campaigns (title),
-              ambassador_profiles:ambassador_id (full_name)
-            )
-          `)
-          .eq("id", contractId)
-          .single();
-        if (error) throw error;
-        setContract(data);
-      } catch (err: any) {
+        // Fetch contract by ID using backend API
+        const response = await fetch(`${API_URL}/api/contracts/${contractId}`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch contract');
+        }
+        
+        const result = await response.json();
+        setContract(result.data as ContractView);
+      } catch {
         setError("Failed to load contract");
       }
       setLoading(false);

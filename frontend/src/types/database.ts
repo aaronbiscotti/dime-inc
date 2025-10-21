@@ -717,3 +717,23 @@ export const Constants = {
     },
   },
 } as const
+
+// ============================================================================
+// CONVENIENCE TYPES
+// ============================================================================
+
+export type Profile = Tables<"profiles">
+export type UserRole = Enums<"user_role">
+export type CampaignStatus = Enums<"campaign_status">
+export type CampaignAmbassadorStatus = Enums<"campaign_ambassador_status">
+export type ContractPaymentType = Enums<"contract_payment_type">
+
+export type AmbassadorProfile = Tables<"ambassador_profiles">
+export type ClientProfile = Tables<"client_profiles">
+export type Campaign = Tables<"campaigns">
+export type CampaignAmbassador = Tables<"campaign_ambassadors">
+export type ChatRoom = Tables<"chat_rooms">
+export type Message = Tables<"messages">
+export type Contract = Tables<"contracts">
+export type Portfolio = Tables<"portfolios">
+export type InstagramConnection = Tables<"instagram_connections">

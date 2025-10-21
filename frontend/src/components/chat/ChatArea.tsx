@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   EllipsisVerticalIcon,
   Bars3Icon,
@@ -10,322 +10,175 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
-import { chatService } from "@/services/chatService";
-import type { RealtimeChannel } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { chatService, type Message as ChatMessage, type ChatParticipant } from "@/services/chatService";
 
-interface Message {
-  id: string;
-  sender_id: string;
-  chat_room_id: string;
-  content: string;
-  created_at: string;
-  sender?: {
-    role: string;
-    ambassador_profiles?: { full_name: string };
-    client_profiles?: { company_name: string };
-  };
-}
-
-interface ChatRoom {
-  id: string;
-  name: string | null;
-  is_group: boolean;
-  participants?: Array<{
-    user_id: string;
-    profiles: {
-      role: string;
-    };
-    ambassador_profiles?: { full_name: string };
-    client_profiles?: { company_name: string };
-  }>;
+interface Message extends ChatMessage {
+  sender_name?: string;
 }
 
 interface ChatAreaProps {
   selectedChatId: string | null;
   onOpenMobileMenu: () => void;
   onParticipantsUpdate?: () => void;
-  onChatDeleted?: () => void;
+  onChatDeleted?: (chatId: string) => void;
 }
 
 export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdate, onChatDeleted }: ChatAreaProps) {
-  const router = useRouter();
   const { user } = useAuth();
   
-  // Helper function to get participant name from user ID (same as ChatSidebar)
-  const getParticipantNameFromUserId = useCallback(async (userId: string): Promise<string | null> => {
-    try {
-      // console.log('ChatArea - looking up user ID:', userId);
-      
-      // Get the user's role first
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      if (!profile) {
-        // console.log('ChatArea - no profile found for user ID:', userId);
-        return null;
-      }
-
-      // console.log('ChatArea - found profile role:', profile.role);
-
-      // Get detailed profile based on role
-      if (profile.role === 'ambassador') {
-        const { data: ambassadorProfile } = await supabase
-          .from('ambassador_profiles')
-          .select('full_name')
-          .eq('user_id', userId)
-          .single();
-
-        if (ambassadorProfile) {
-          // console.log('ChatArea - found ambassador name:', ambassadorProfile.full_name);
-          return ambassadorProfile.full_name;
-        }
-      } else if (profile.role === 'client') {
-        const { data: clientProfile } = await supabase
-          .from('client_profiles')
-          .select('company_name')
-          .eq('user_id', userId)
-          .single();
-
-        if (clientProfile) {
-          // console.log('ChatArea - found client name:', clientProfile.company_name);
-          return clientProfile.company_name;
-        }
-      }
-
-      return null;
-    } catch (error) {
-      // console.error('ChatArea - error looking up user:', error);
-      return null;
-    }
-  }, []);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
   const [chatDisplayName, setChatDisplayName] = useState<string>("Unknown Chat");
   const [loading, setLoading] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [sending, setSending] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isGroupChat, setIsGroupChat] = useState(false);
+  const [otherParticipant, setOtherParticipant] = useState<ChatParticipant | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Update chat display name when chat room changes
-  useEffect(() => {
-    const updateDisplayName = async () => {
-      if (!chatRoom) {
-        setChatDisplayName("Unknown Chat");
-        return;
-      }
-
-      const displayName = await getChatDisplayName();
-      setChatDisplayName(displayName);
-    };
-
-    updateDisplayName();
-  }, [chatRoom, user]); // Re-run when chatRoom or user changes
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Fetch chat room data and set up real-time messaging
+  // Fetch chat data and messages
   useEffect(() => {
     if (!selectedChatId || !user) {
       setMessages([]);
-      setChatRoom(null);
-      if (channel) {
-        supabase.removeChannel(channel);
-        setChannel(null);
+      setChatDisplayName("Unknown Chat");
+      setOtherParticipant(null);
+      setIsGroupChat(false);
+      setErrorMessage(null);
+      
+      // Clear polling when no chat selected
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
       return;
     }
 
     const fetchChatData = async () => {
       setLoading(true);
+      setErrorMessage(null);
+      
       try {
-        // Get chat room details
-        const { data: chatRoomData, error: chatError } = await supabase
-          .from("chat_rooms")
-          .select("id, name, is_group")
-          .eq("id", selectedChatId)
-          .single();
-
-        if (chatError || !chatRoomData) {
-          console.error("Error fetching chat room:", chatError);
+        // Fetch chat room details
+        const chatRoomResult = await chatService.getChatRoom(selectedChatId);
+        
+        if (chatRoomResult.error) {
+          setErrorMessage(chatRoomResult.error.message);
           return;
         }
-
-        // Get participants for the chat room (simple query to avoid RLS issues)
-        const { data: participantsData, error: participantsError } = await supabase
-          .from("chat_participants")
-          .select("user_id")
-          .eq("chat_room_id", selectedChatId)
-          .neq("user_id", user.id);
-
-        if (participantsError) {
-          console.error("Error fetching participants:", participantsError);
-        }
-
-        // Get profile details for other participants
-        let participants: any[] = [];
-        if (participantsData && participantsData.length > 0) {
-          const otherUserIds = participantsData.map(p => p.user_id);
-          console.log('Fetching profiles for other users:', otherUserIds);
-
-          const { data: profilesData, error: profilesError } = await supabase
-            .from("profiles")
-            .select(`
-              id, role,
-              ambassador_profiles(full_name, profile_photo_url),
-              client_profiles(company_name, logo_url)
-            `)
-            .in("id", otherUserIds);
-
-          console.log('Profiles data:', profilesData, 'Error:', profilesError);
-
-          if (profilesData) {
-            participants = profilesData.map(profile => ({
-              user_id: profile.id,
-              profiles: { role: profile.role },
-              ambassador_profiles: profile.ambassador_profiles || null,
-              client_profiles: profile.client_profiles || null
-            }));
-            console.log('Mapped participants:', participants);
+        
+        const chatRoom = chatRoomResult.data;
+        setIsGroupChat(chatRoom?.is_group || false);
+        
+        // For private chats, get the other participant's info
+        if (!chatRoom?.is_group) {
+          const participantResult = await chatService.getOtherParticipant(selectedChatId);
+          
+          if (participantResult.data) {
+            setOtherParticipant(participantResult.data);
+            setChatDisplayName(`Chat with ${participantResult.data.name}`);
+          } else {
+            setChatDisplayName("Private Chat");
           }
+        } else {
+          setChatDisplayName(chatRoom?.name || "Group Chat");
         }
-
-        setChatRoom({ 
-          ...chatRoomData, 
-          participants,
-          is_group: chatRoomData.is_group || false
-        });
-
-        // Pass participants to parent component
+        
+        // Fetch initial messages
+        await fetchMessages();
+        
+        // Notify parent about participants update
         if (onParticipantsUpdate) {
-          onParticipantsUpdate?.();
+          onParticipantsUpdate();
         }
-
-        // Fetch existing messages
-        const { data: messagesData, error: messagesError } = await supabase
-          .from("messages")
-          .select(`
-            id,
-            sender_id,
-            chat_room_id,
-            content,
-            created_at,
-            sender:profiles(
-              role,
-              ambassador_profiles(full_name),
-              client_profiles(company_name)
-            )
-          `)
-          .eq("chat_room_id", selectedChatId)
-          .order("created_at", { ascending: true });
-
-        if (!messagesError && messagesData) {
-          setMessages(messagesData as Message[]);
-        }
-
+        
       } catch (error) {
         console.error("Error fetching chat data:", error);
+        setErrorMessage("Failed to load chat. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchChatData();
-  }, [selectedChatId, user]);
-
-  // Set up real-time subscriptions
-  useEffect(() => {
-    if (!selectedChatId || !user) return;
-
-    // Clean up existing channel
-    if (channel) {
-      supabase.removeChannel(channel);
-    }
-
-    // Create new channel for this chat room
-    const newChannel = supabase
-      .channel(`chat:${selectedChatId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `chat_room_id=eq.${selectedChatId}`,
-        },
-        async (payload) => {
-          // Fetch the complete message with sender info
-          const { data: newMessage } = await supabase
-            .from("messages")
-            .select(`
-              id,
-              sender_id,
-              chat_room_id,
-              content,
-              created_at,
-              sender:profiles(
-                role,
-                ambassador_profiles(full_name),
-                client_profiles(company_name)
-              )
-            `)
-            .eq("id", payload.new.id)
-            .single();
-
-          if (newMessage) {
-            setMessages(prev => [...prev, newMessage as Message]);
-          }
-        }
-      )
-      .on("presence", { event: "sync" }, () => {
-        const state = newChannel.presenceState();
-        const users = new Set<string>();
-
-        Object.values(state).forEach((presences: any[]) => {
-          presences.forEach((presence) => {
-            if (presence.user_id !== user.id && presence.typing) {
-              users.add(presence.user_id);
-            }
-          });
-        });
-
-        setTypingUsers(users);
-      })
-      .on("presence", { event: "join" }, ({ key, newPresences }) => {
-        // console.log("User joined:", key, newPresences);
-      })
-      .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-        // console.log("User left:", key, leftPresences);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          // Track presence for this user
-          await newChannel.track({
-            user_id: user.id,
-            typing: false,
-            online_at: new Date().toISOString(),
-          });
-        }
-      });
-
-    setChannel(newChannel);
-
+    
+    // Set up polling for new messages every 3 seconds
+    pollingIntervalRef.current = setInterval(async () => {
+      await fetchMessages(true); // Silent fetch, don't show loading
+    }, 3000);
+    
+    // Cleanup polling on unmount or chat change
     return () => {
-      if (newChannel) {
-        supabase.removeChannel(newChannel);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
-  }, [selectedChatId, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChatId, user, onParticipantsUpdate]);
+
+  // Fetch messages function
+  const fetchMessages = async (silent: boolean = false) => {
+    if (!selectedChatId) return;
+    
+    if (!silent) {
+      setLoading(true);
+    }
+    
+    try {
+      const result = await chatService.getMessages(selectedChatId, 100);
+      
+      if (result.error) {
+        if (!silent) {
+          console.error("Error fetching messages:", result.error.message);
+        }
+        return;
+      }
+      
+      // Enrich messages with sender names
+      const enrichedMessages = await Promise.all(
+        (result.data || []).map(async (msg) => {
+          // If we already have the other participant info and this is their message
+          if (otherParticipant && msg.sender_id !== user?.id) {
+            return {
+              ...msg,
+              sender_name: otherParticipant.name
+            };
+          }
+          
+          // For current user's messages
+          if (msg.sender_id === user?.id) {
+            return {
+              ...msg,
+              sender_name: "You"
+            };
+          }
+          
+          // For group chats or unknown senders, would need to fetch
+          // For now, return with generic name
+          return {
+            ...msg,
+            sender_name: "Unknown"
+          };
+        })
+      );
+      
+      setMessages(enrichedMessages);
+      
+    } catch (error) {
+      if (!silent) {
+        console.error("Error fetching messages:", error);
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -336,7 +189,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
   // Close options menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       if (showOptionsMenu) {
         setShowOptionsMenu(false);
       }
@@ -351,106 +204,6 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     };
   }, [showOptionsMenu]);
 
-  // Handle typing indicators
-  const handleTypingStart = async () => {
-    if (!channel || isTyping) return;
-
-    setIsTyping(true);
-    await channel.track({
-      user_id: user?.id,
-      typing: true,
-      online_at: new Date().toISOString(),
-    });
-
-    // Clear any existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Set timeout to stop typing indicator
-    typingTimeoutRef.current = setTimeout(async () => {
-      if (channel) {
-        await channel.track({
-          user_id: user?.id,
-          typing: false,
-          online_at: new Date().toISOString(),
-        });
-      }
-      setIsTyping(false);
-    }, 3000);
-  };
-
-  const handleTypingStop = async () => {
-    if (!channel || !isTyping) return;
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    await channel.track({
-      user_id: user?.id,
-      typing: false,
-      online_at: new Date().toISOString(),
-    });
-    setIsTyping(false);
-  };
-
-  // Get chat display name
-  const getChatDisplayName = useCallback(async () => {
-    if (!chatRoom) return "Unknown Chat";
-
-    // For group chats, use the chat name
-    if (chatRoom.is_group && chatRoom.name) {
-      return chatRoom.name;
-    }
-
-    // For private chats, construct "Chat with {participant name}"
-    if (chatRoom.participants && chatRoom.participants.length > 0) {
-      const participant = chatRoom.participants[0];
-      // console.log('ChatArea - Getting name for participant:', participant);
-      
-      let participantName = "Unknown User";
-      if (participant.profiles?.role === "ambassador" && participant.ambassador_profiles) {
-        participantName = participant.ambassador_profiles.full_name;
-      } else if (participant.profiles?.role === "client" && participant.client_profiles) {
-        participantName = participant.client_profiles.company_name;
-      }
-      
-      return `Chat with ${participantName}`;
-    }
-
-    // Fallback: try to parse neutral chat name format
-    if (chatRoom.name && user) {
-      // console.log('ChatArea - no participants found, trying to parse chat name:', chatRoom.name);
-      // console.log('ChatArea - current user ID:', user.id);
-      
-      if (chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/)) {
-        // This is a neutral format chat name, try to get the other user ID
-        const neutralMatch = chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/);
-        if (neutralMatch) {
-          const [, userId1, userId2] = neutralMatch;
-          const otherUserId = userId1 === user.id ? userId2 : userId1;
-          // console.log('ChatArea - found other user ID from neutral name:', otherUserId);
-          
-          // Try to get their profile
-          const foundName = await getParticipantNameFromUserId(otherUserId);
-          if (foundName) {
-            // console.log('ChatArea - successfully resolved name:', foundName);
-            return `Chat with ${foundName}`;
-          } else {
-            // console.log('ChatArea - could not resolve name, using fallback');
-          }
-        }
-      } else if (chatRoom.name.match(/Chat with (.+)/)) {
-        // Old format, keep as is
-        return chatRoom.name;
-      }
-    }
-
-    // Final fallback for private chats without participant info
-    return "Private Chat";
-  }, [chatRoom, user, getParticipantNameFromUserId]);
-
   // Format message timestamp
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -464,44 +217,31 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     }
   };
 
-  // Get sender display name
-  const getSenderName = (message: Message) => {
-    if (!message.sender) return "Unknown";
-
-    if (message.sender.role === "ambassador" && message.sender.ambassador_profiles) {
-      return message.sender.ambassador_profiles.full_name;
-    } else if (message.sender.role === "client" && message.sender.client_profiles) {
-      return message.sender.client_profiles.company_name;
-    }
-
-    return "Unknown User";
-  };
-
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedChatId || !user || sending) return;
 
     setSending(true);
+    setErrorMessage(null);
+    
     try {
-      // Stop typing indicator
-      await handleTypingStop();
-
-      // Send message to database
-      const { error } = await supabase
-        .from("messages")
-        .insert({
-          sender_id: user.id,
-          chat_room_id: selectedChatId,
-          content: messageInput.trim(),
-        });
-      if (error) {
-        console.error("Error sending message:", error);
+      const result = await chatService.sendMessage(selectedChatId, {
+        content: messageInput.trim()
+      });
+      
+      if (result.error) {
+        setErrorMessage(`Failed to send message: ${result.error.message}`);
         return;
       }
 
-      // Clear input
+      // Clear input on success
       setMessageInput("");
+      
+      // Immediately fetch messages to show the new one
+      await fetchMessages(true);
+      
     } catch (error) {
       console.error("Error sending message:", error);
+      setErrorMessage("Failed to send message. Please try again.");
     } finally {
       setSending(false);
     }
@@ -520,27 +260,30 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     setDeleting(true);
     setShowDeleteConfirm(false);
     setShowOptionsMenu(false);
+    setErrorMessage(null);
 
     try {
       const result = await chatService.deleteChat(selectedChatId);
       
       if (result.error) {
-        console.error('Failed to delete chat:', result.error);
+        setErrorMessage(`Failed to delete chat: ${result.error.message}`);
         return;
       }
 
       console.log('Chat deleted successfully');
       
-      // Notify parent component with deleted chat ID
-      onChatDeleted?.(selectedChatId);
+      // Notify parent component
+      if (onChatDeleted) {
+        onChatDeleted(selectedChatId);
+      }
       
       // Clear local state
       setMessages([]);
-      setChatRoom(null);
+      setChatDisplayName("Unknown Chat");
       
-      // No redirect here; parent will handle navigation
     } catch (error) {
       console.error('Error deleting chat:', error);
+      setErrorMessage("Failed to delete chat. Please try again.");
     } finally {
       setDeleting(false);
     }
@@ -548,10 +291,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessageInput(e.target.value);
-    handleTypingStart();
   };
 
-  // Prevent fetchChatData from running if selectedChatId is null
+  // No chat selected state
   if (!selectedChatId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
@@ -589,7 +331,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
             {/* Profile Picture */}
             <div className="relative">
-              {chatRoom?.is_group ? (
+              {isGroupChat ? (
                 <div className="w-10 h-10 bg-[#f5d82e] rounded-full flex items-center justify-center">
                   <span className="text-sm font-semibold text-gray-900">G</span>
                 </div>
@@ -609,7 +351,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                       : "rounded-full"
                   }`}
                 >
-                  {chatDisplayName.charAt(0)}
+                  {chatDisplayName.split(' ').pop()?.charAt(0) || '?'}
                 </div>
               )}
             </div>
@@ -617,19 +359,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             {/* Chat Info */}
             <div>
               <h2 className="font-semibold text-gray-900">{chatDisplayName}</h2>
-              {chatRoom?.is_group ? (
-                <p className="text-sm text-gray-600">
-                  {(chatRoom.participants?.length || 0) + 1} members
-                </p>
-              ) : (
-                <div className="text-sm text-gray-600">
-                  {typingUsers.size > 0 ? (
-                    <span className="text-green-600 font-medium">Typing...</span>
-                  ) : (
-                    "Last seen recently"
-                  )}
-                </div>
-              )}
+              <div className="text-sm text-gray-600">
+                {isGroupChat ? "Group chat" : "Private chat"}
+              </div>
             </div>
           </div>
 
@@ -638,7 +370,10 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptionsMenu(!showOptionsMenu);
+              }}
             >
               <EllipsisVerticalIcon className="w-5 h-5" />
             </Button>
@@ -658,6 +393,13 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           </div>
         </div>
       </div>
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600">{errorMessage}</p>
+        </div>
+      )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -687,7 +429,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
         ) : (
           messages.map((message) => {
             const isCurrentUser = message.sender_id === user?.id;
-            const senderName = getSenderName(message);
+            const senderName = message.sender_name || "Unknown";
             
             return (
               <div key={message.id}>
@@ -704,7 +446,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                   )}
 
                   <div className="max-w-[60%]">
-                    {!isCurrentUser && chatRoom?.is_group && (
+                    {!isCurrentUser && isGroupChat && (
                       <p className="text-xs text-gray-600 mb-1 pl-3 font-medium">
                         {senderName}
                       </p>
@@ -732,28 +474,6 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           })
         )}
 
-        {/* Typing indicator */}
-        {typingUsers.size > 0 && (
-          <div className="flex justify-start items-end gap-2">
-            {/* Avatar for typing indicator */}
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-              ?
-            </div>
-            
-            <div className="max-w-[45%]">
-              <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-md">
-                <div className="flex items-center space-x-1">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div ref={messagesEndRef} />
       </div>
 
@@ -769,7 +489,6 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
               value={messageInput}
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
-              onBlur={handleTypingStop}
               placeholder="Write something..."
               rows={1}
               disabled={sending}
@@ -800,7 +519,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop with blur effect */}
+          {/* Backdrop */}
           <div
             className="fixed inset-0"
             style={{

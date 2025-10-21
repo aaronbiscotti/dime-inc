@@ -47,18 +47,18 @@ export function AmbassadorCard({ ambassador }: AmbassadorCardProps) {
         ambassador.id // This is now the user_id from ExploreGrid
       );
 
-      if (existingChat) {
+      if (existingChat && typeof existingChat === 'object' && 'id' in existingChat) {
         // Redirect to existing chat
-        router.push(`/chats?chat=${existingChat.id}`);
+        const chat = existingChat as { id: string };
+        router.push(`/chats?chat=${chat.id}`);
         return;
       }
 
       // Create new chat
       const { data: newChat, error } = await chatService.createChat({
-        participantId: ambassador.id,
-        participantName: ambassador.name,
-        participantRole: 'ambassador',
-        subject: `Collaboration with ${ambassador.name}`
+        participant_id: ambassador.id,
+        participant_name: ambassador.name,
+        participant_role: 'ambassador'
       });
 
       if (error || !newChat) {

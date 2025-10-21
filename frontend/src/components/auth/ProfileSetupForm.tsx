@@ -37,7 +37,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
     setLoading(true);
     setError(null);
 
-    let profileData: any = {};
+    let profileData: Record<string, unknown> = {};
 
     if (role === "client") {
       if (!companyName) {
@@ -70,7 +70,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
     const { error } = await createProfile(role, profileData);
 
     if (error) {
-      setError(error.message);
+      setError(error);
     } else {
       onComplete?.();
     }

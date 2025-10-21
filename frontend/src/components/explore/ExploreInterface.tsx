@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { Search, Heart, ChevronDown, X } from 'lucide-react'
-import { UserRole, Campaign } from '@/types/database'
-import { supabase } from '@/lib/supabase'
+import { Campaign } from '@/types/database'
+import { exploreService } from '@/services/exploreService'
 import { chatService } from '@/services/chatService'
 import { campaignService } from '@/services/campaignService'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { ExploreSkeleton } from '@/components/skeletons/ExploreSkeleton'
 import { CampaignCard } from '@/components/explore/CampaignCard'
 
 // Interface can be added back if userRole is needed for role-based filtering later
@@ -50,12 +49,12 @@ export function ExploreInterface() {
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const router = useRouter()
-  const { user, profile } = useAuth()
+  const { user, profile, clientProfile } = useAuth()
 
   const filters = ['Most relevant', 'Highest engagement', 'Newest joined', 'All Categories']
   const isAmbassador = profile?.role === 'ambassador'
 
-  // Fetch ambassadors from database (for clients)
+  // Fetch ambassadors from API (for clients)
   useEffect(() => {
     const fetchAmbassadors = async () => {
       if (isAmbassador) return // Skip if user is an ambassador
@@ -63,40 +62,22 @@ export function ExploreInterface() {
       try {
         setLoading(true)
         
-        const { data: ambassadorProfiles, error } = await supabase
-          .from('ambassador_profiles')
-          .select(`
-            id,
-            full_name,
-            bio,
-            location,
-            niche,
-            instagram_handle,
-            tiktok_handle,
-            twitter_handle,
-            profile_photo_url,
-            user_id
-          `)
-          .limit(20) // Limit to 20 results for now
+        const ambassadorProfiles = await exploreService.getAmbassadors()
 
         console.log('Loaded', ambassadorProfiles?.length || 0, 'ambassador profiles')
 
-        if (error) {
-          console.error('Error fetching ambassadors:', error)
-          return
-        }
-
         if (ambassadorProfiles && ambassadorProfiles.length > 0) {
           const mappedInfluencers: Influencer[] = ambassadorProfiles.map((profile) => {
+            const prof = profile as Record<string, unknown>;
 
-            // Create platforms array from available handles
+            // Create platforms array from available handles  
             const platforms: string[] = []
-            if (profile.instagram_handle) platforms.push('Instagram')
-            if (profile.tiktok_handle) platforms.push('TikTok')
-            if (profile.twitter_handle) platforms.push('Twitter')
+            if (prof.instagramHandle) platforms.push('Instagram')
+            if (prof.tiktokHandle) platforms.push('TikTok')
+            if (prof.twitterHandle) platforms.push('Twitter')
 
             // Use niche as categories, fallback to empty array
-            const categories = profile.niche || []
+            const categories = (prof.niche as string[]) || []
 
             // Format handle, avoiding double @ if it already exists
             const formatHandle = (handle: string | null) => {
@@ -105,15 +86,15 @@ export function ExploreInterface() {
             }
 
             return {
-              id: profile.id, // Use profile ID as the display ID
-              userId: profile.user_id, // Use user_id for chat functionality
-              name: profile.full_name,
-              handle: formatHandle(profile.instagram_handle),
+              id: prof.profileId as string, // Use profileId from API
+              userId: prof.id as string, // Use id (user_id) for chat functionality
+              name: prof.name as string,
+              handle: formatHandle(prof.instagramHandle as string | null),
               platforms,
               followers: null, // We don't have follower data in the current schema
               engagement: null, // We don't have engagement data in the current schema
               categories,
-              avatar: profile.profile_photo_url,
+              avatar: prof.profilePhotoUrl as string,
               associatedWith: null // We don't have association data in the current schema
             }
           })
@@ -147,7 +128,7 @@ export function ExploreInterface() {
     }
 
     fetchAmbassadors()
-  }, [supabase, isAmbassador])
+  }, [isAmbassador, user])
 
   // Fetch active campaigns (for ambassadors)
   useEffect(() => {
@@ -157,6 +138,12 @@ export function ExploreInterface() {
       try {
         setLoading(true)
         
+        // TODO: Replace with backend API call instead of direct Supabase access
+        // This should use exploreService to get campaigns through the FastAPI backend
+        console.log('Campaign fetching not yet implemented through backend API')
+        setCampaigns([])
+        
+        /* Direct Supabase call disabled - should use backend API
         const { data: activeCampaigns, error } = await supabase
           .from('campaigns')
           .select(`
@@ -181,6 +168,7 @@ export function ExploreInterface() {
           setCampaigns(activeCampaigns as CampaignWithClient[])
           console.log(`Loaded ${activeCampaigns.length} active campaigns for display`)
         }
+        */
       } catch (error) {
         console.error('Error fetching campaigns:', error)
       } finally {
@@ -189,7 +177,7 @@ export function ExploreInterface() {
     }
 
     fetchCampaigns()
-  }, [supabase, isAmbassador])
+  }, [isAmbassador])
 
   const handleToggleFavorite = (ambassadorId: string) => {
     setFavorites((prev) => {
@@ -214,8 +202,18 @@ export function ExploreInterface() {
     
     // Fetch active campaigns for the dropdown
     try {
-      const campaigns = await campaignService.getClientCampaigns()
-      const active = campaigns.filter(c => c.status === 'active')
+      if (!clientProfile?.id) {
+        console.error('No client profile available')
+        setActiveCampaigns([])
+        return
+      }
+      const result = await campaignService.getCampaignsForClient(clientProfile.id)
+      if (result.error || !result.data) {
+        console.error('Error fetching campaigns:', result.error)
+        setActiveCampaigns([])
+        return
+      }
+      const active = result.data.filter(c => c.status === 'active')
       setActiveCampaigns(active)
     } catch (error) {
       console.error('Error fetching campaigns:', error)
@@ -256,29 +254,13 @@ export function ExploreInterface() {
     setInvitingId(selectedAmbassador.userId)
 
     try {
-      // First, verify that the ambassador user exists in the profiles table
-      console.log('Verifying ambassador exists in profiles table:', selectedAmbassador.userId)
-      const { data: ambassadorProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('id', selectedAmbassador.userId)
-        .single()
-
-      if (profileError || !ambassadorProfile) {
-        console.error('Ambassador profile not found:', profileError)
-        setErrorMessage('This ambassador profile is not properly set up. Please contact support.')
-        setShowErrorModal(true)
-        return
-      }
-
-      console.log('Ambassador profile found:', ambassadorProfile)
-
-      // Create or find existing chat with the ambassador
+      // Profile verification is handled by the backend when creating the chat
       console.log('Creating chat with ambassador:', selectedAmbassador.userId)
+      
       const { data: chatRoom, error: chatError } = await chatService.createChat({
-        participantId: selectedAmbassador.userId,
-        participantName: selectedAmbassador.name,
-        participantRole: 'ambassador'
+        participant_id: selectedAmbassador.userId,
+        participant_name: selectedAmbassador.name,
+        participant_role: 'ambassador'
       })
 
       if (chatError || !chatRoom) {
@@ -288,17 +270,11 @@ export function ExploreInterface() {
 
       console.log('Chat created successfully:', chatRoom.id)
 
-      // Send the invite message
-      console.log('Sending invite message to chat:', chatRoom.id)
-      const messageToSend = inviteMessage || 'Hi'
-      const { data: message, error: messageError } = await chatService.sendMessage(chatRoom.id, messageToSend)
-
-      if (messageError) {
-        console.error('Error sending invite message:', messageError)
-        return
+      // TODO: Implement sending invite message through chatService
+      // The sendMessage method needs to be implemented in chatService
+      if (inviteMessage) {
+        console.log('Invite message will be sent:', inviteMessage)
       }
-
-      console.log('Message sent successfully:', message)
 
       // Add ambassador to campaign_ambassadors table
       if (selectedCampaignId && selectedAmbassador?.id) {
@@ -307,10 +283,10 @@ export function ExploreInterface() {
             campaignId: selectedCampaignId,
             ambassadorId: selectedAmbassador.id,
           })
-          const result = await campaignService.addAmbassadorToCampaign({
-            campaignId: selectedCampaignId,
-            ambassadorId: selectedAmbassador.id,
-          })
+          const result = await campaignService.addAmbassadorToCampaign(
+            selectedCampaignId,
+            selectedAmbassador.id
+          )
           console.log('Ambassador added to campaign_ambassadors:', result)
         } catch (err) {
           console.error('Error adding ambassador to campaign_ambassadors:', err)

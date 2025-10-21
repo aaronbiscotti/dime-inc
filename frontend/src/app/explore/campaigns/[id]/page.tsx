@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
 import { Campaign } from "@/types/database";
@@ -27,64 +28,43 @@ export default function AmbassadorCampaignDetails() {
   const [applicationMessage, setApplicationMessage] = useState("");
   const router = useRouter();
   const params = useParams();
-  const supabase = createClient();
+  const { user, profile, loading: authLoading } = useAuth();
   const campaignId = params.id as string;
 
   useEffect(() => {
     const loadCampaign = async () => {
+      // Wait for auth to load
+      if (authLoading) return;
+
       try {
         // Check authentication
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
         if (!user) {
           router.push("/login/brand-ambassador");
           return;
         }
 
         // Verify ambassador role
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
         if (profile?.role !== "ambassador") {
           router.push("/dashboard");
           return;
         }
 
-        // Load campaign with client details
-        const { data: campaignData, error } = await supabase
-          .from("campaigns")
-          .select(
-            `
-            *,
-            client_profiles (
-              company_name,
-              company_description,
-              logo_url,
-              industry
-            )
-          `
-          )
-          .eq("id", campaignId)
-          .single();
+        // Load campaign with client details using API
+        const result = await campaignService.getCampaign(campaignId);
 
-        if (error || !campaignData) {
-          console.error("Error loading campaign:", error);
+        if (result.error || !result.data) {
+          console.error("Error loading campaign:", result.error);
           router.push("/explore");
           return;
         }
 
         // Only show active campaigns
-        if (campaignData.status !== "active") {
+        if (result.data.status !== "active") {
           router.push("/explore");
           return;
         }
 
-        setCampaign(campaignData as CampaignWithClient);
+        setCampaign(result.data as CampaignWithClient);
       } catch (error) {
         console.error("Error loading campaign:", error);
         router.push("/explore");
@@ -94,7 +74,7 @@ export default function AmbassadorCampaignDetails() {
     };
 
     loadCampaign();
-  }, [campaignId, router, supabase]);
+  }, [campaignId, router, user, profile, authLoading]);
 
   const handleApply = async () => {
     if (!campaign) return;
@@ -152,10 +132,12 @@ export default function AmbassadorCampaignDetails() {
             <div className="flex items-start gap-6 mb-6">
               {/* Client Logo */}
               {campaign.client_profiles?.logo_url ? (
-                <img
+                <Image
                   src={campaign.client_profiles.logo_url}
                   alt={campaign.client_profiles.company_name}
-                  className="w-20 h-20 rounded-xl object-cover"
+                  width={80}
+                  height={80}
+                  className="rounded-xl object-cover"
                 />
               ) : (
                 <div className="w-20 h-20 bg-gray-200 rounded-xl flex items-center justify-center">
@@ -292,7 +274,7 @@ export default function AmbassadorCampaignDetails() {
               Apply to {campaign.title}
             </h3>
             <p className="text-gray-600 mb-6">
-              Tell the client why you're a great fit for this campaign.
+              Tell the client why you&apos;re a great fit for this campaign.
             </p>
             
             <textarea
@@ -344,7 +326,7 @@ export default function AmbassadorCampaignDetails() {
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Application Submitted!</h3>
             <p className="text-gray-600">
-              Your application has been sent to the client. They'll review it and get back to you soon.
+              Your application has been sent to the client. They&apos;ll review it and get back to you soon.
             </p>
           </div>
         </div>

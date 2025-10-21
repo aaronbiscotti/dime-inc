@@ -3,6 +3,7 @@
 import { Campaign } from "@/types/database";
 import { Calendar, DollarSign, Users, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface CampaignCardProps {
   campaign: Campaign;
@@ -21,10 +22,12 @@ export function CampaignCard({ campaign, clientName, clientLogo }: CampaignCardP
       {/* Client Info */}
       <div className="flex items-center gap-3 mb-4">
         {clientLogo ? (
-          <img
+          <Image
             src={clientLogo}
             alt={clientName || "Client"}
-            className="w-10 h-10 rounded-full object-cover"
+            width={40}
+            height={40}
+            className="rounded-full object-cover"
           />
         ) : (
           <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">

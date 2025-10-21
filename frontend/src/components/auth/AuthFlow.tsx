@@ -6,7 +6,6 @@ import { LoginForm } from "./LoginForm";
 import { SignupForm } from "./SignupForm";
 import { ProfileSetupForm } from "./ProfileSetupForm";
 import { useAuth } from "@/contexts/AuthContext";
-import { AuthSkeleton } from "@/components/skeletons/AuthSkeleton";
 import { UserRole } from "@/types/database";
 
 type AuthStep = "login" | "signup" | "profile-setup";
@@ -27,7 +26,7 @@ export function AuthFlow({
     initialRole || null
   );
 
-  const { user, profile, ambassadorProfile, clientProfile, loading, signOut } = useAuth();
+  const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

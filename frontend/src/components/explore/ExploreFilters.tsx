@@ -1,14 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { MagnifyingGlassIcon, FunnelIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { FunnelIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/button'
 import { UserRole } from '@/types/database'
 
 interface ExploreFiltersProps {
   userRole: UserRole
-  searchQuery: string
-  onSearchChange: (query: string) => void
   selectedFilters: Record<string, string[]>
   onFilterChange: (filterType: string, value: string, checked: boolean) => void
   onClearFilters: () => void
@@ -16,8 +14,6 @@ interface ExploreFiltersProps {
 
 export function ExploreFilters({
   userRole,
-  searchQuery,
-  onSearchChange,
   selectedFilters,
   onFilterChange,
   onClearFilters

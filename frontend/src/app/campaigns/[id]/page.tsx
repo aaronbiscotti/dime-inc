@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
 import { Campaign, CampaignStatus } from "@/types/database";
@@ -17,40 +17,36 @@ export default function CampaignDetails() {
   const [editedCampaign, setEditedCampaign] = useState<Campaign | null>(null);
   const router = useRouter();
   const params = useParams();
-  const supabase = createClient();
+  const { user, profile, loading: authLoading } = useAuth();
   const campaignId = params.id as string;
 
   useEffect(() => {
     const loadCampaign = async () => {
+      // Wait for auth to finish loading
+      if (authLoading) return;
+      
       try {
         // Check authentication
-        const { data: { user } } = await supabase.auth.getUser();
-        
         if (!user) {
           router.push("/login/client");
           return;
         }
 
         // Verify client role
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
         if (profile?.role !== "client") {
           router.push("/dashboard");
           return;
         }
 
         // Load campaign
-        const campaignData = await campaignService.getCampaignById(campaignId);
-        if (!campaignData) {
+        const result = await campaignService.getCampaign(campaignId);
+        if (result.error || !result.data) {
+          console.error("Error loading campaign:", result.error);
           router.push("/campaigns");
           return;
         }
-        setCampaign(campaignData);
-        setEditedCampaign(campaignData);
+        setCampaign(result.data);
+        setEditedCampaign(result.data);
       } catch (error) {
         console.error("Error loading campaign:", error);
         router.push("/campaigns");
@@ -60,7 +56,7 @@ export default function CampaignDetails() {
     };
 
     loadCampaign();
-  }, [campaignId, router, supabase]);
+  }, [campaignId, router, user, profile, authLoading]);
 
   const handleToggleStatus = async () => {
     if (!campaign) return;
@@ -98,7 +94,7 @@ export default function CampaignDetails() {
     setIsEditMode(!isEditMode);
   };
 
-  const handleFieldChange = (field: keyof Campaign, value: any) => {
+  const handleFieldChange = (field: keyof Campaign, value: string | number | boolean | null) => {
     if (!editedCampaign) return;
     setEditedCampaign({
       ...editedCampaign,
@@ -112,7 +108,7 @@ export default function CampaignDetails() {
     setIsUpdating(true);
     try {
       // Prepare update data with only editable fields
-      const updateData: any = {
+      const updateData: Partial<Campaign> = {
         title: editedCampaign.title,
         description: editedCampaign.description,
         budget_min: editedCampaign.budget_min,
@@ -123,10 +119,10 @@ export default function CampaignDetails() {
         proposal_message: editedCampaign.proposal_message,
       };
 
-      const updatedCampaign = await campaignService.updateCampaign(campaign.id, updateData);
-      if (updatedCampaign) {
-        setCampaign(updatedCampaign);
-        setEditedCampaign(updatedCampaign);
+      const { data: updated } = await campaignService.updateCampaign(campaign.id, updateData);
+      if (updated) {
+        setCampaign(updated);
+        setEditedCampaign(updated);
         setIsEditMode(false);
       }
     } catch (error) {
@@ -386,11 +382,13 @@ export default function CampaignDetails() {
                   <h3 className="text-lg font-semibold text-gray-900">Created</h3>
                 </div>
                 <p className="text-gray-600">
-                  {new Date(campaign.created_at).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {campaign.created_at
+                    ? new Date(campaign.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "Unknown"}
                 </p>
               </div>
             </div>
@@ -449,7 +447,7 @@ export default function CampaignDetails() {
           <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-gray-900 mb-3">Delete Campaign?</h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "{campaign.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{campaign.title}&quot;? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button

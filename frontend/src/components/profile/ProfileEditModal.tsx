@@ -7,22 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  X,
-  MapPin,
-  Calendar,
-  Instagram,
-  Twitter,
-  ExternalLink,
-} from "lucide-react";
+import { X } from "lucide-react";
 import Image from "next/image";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface ProfileEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: Record<string, unknown>) => void;
 }
 
 export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalProps) {
@@ -82,12 +74,6 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
     setError(null);
 
     try {
-      // Get the auth token
-      const token = localStorage.getItem('auth-token');
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
       const endpoint = profile.role === "ambassador" 
         ? `${API_BASE_URL}/api/profiles/ambassador`
         : `${API_BASE_URL}/api/profiles/client`;
@@ -95,9 +81,9 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
       const response = await fetch(endpoint, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use cookie-based auth
         body: JSON.stringify(formData),
       });
 
@@ -137,6 +123,7 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
       const res = await fetch(`${API_BASE_URL}/api/users/delete`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include', // Use cookie-based auth
         body: JSON.stringify({ user_id: profile.id }),
       });
 
@@ -144,9 +131,12 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
 
       if (res.ok && result.success) {
         setSuccess(true);
-        // Clear auth token and redirect after successful deletion
-        setTimeout(() => {
-          localStorage.removeItem('auth-token');
+        // Call backend logout to clear cookie, then redirect
+        setTimeout(async () => {
+          await fetch(`${API_BASE_URL}/api/auth/logout`, {
+            method: 'POST',
+            credentials: 'include'
+          });
           // Force reload to clear all app state
           window.location.href = "/";
         }, 1500);

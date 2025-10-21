@@ -13,8 +13,8 @@ import { campaignService } from "@/services/campaignService";
 
 interface CampaignFormProps {
   onClose: () => void;
-  onCampaignCreated?: (campaign: any) => void;
-  onOpenAmbassadorSelection?: (campaign: any) => void;
+  onCampaignCreated?: (campaign: Record<string, unknown>) => void;
+  onOpenAmbassadorSelection?: (campaign: Record<string, unknown>) => void;
 }
 
 interface CampaignFormData {
@@ -100,12 +100,11 @@ export function CampaignForm({ onClose, onCampaignCreated, onOpenAmbassadorSelec
     try {
       // Create campaign using campaign service
       const { data: campaign, error } = await campaignService.createCampaign({
-        client_id: clientProfile.id,
         title: formData.title,
         description: formData.description,
         budget: formData.budget,
         timeline: formData.timeline,
-        requirements: formData.requirements.filter(r => r.trim() !== ""),
+        requirements: formData.requirements.filter(r => r.trim() !== "").join("\n"),
         targetNiches: formData.targetNiches,
         campaignType: formData.campaignType,
         deliverables: formData.deliverables.filter(d => d.trim() !== "")

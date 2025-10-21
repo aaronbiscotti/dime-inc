@@ -33,21 +33,23 @@ interface AuthContextType extends AuthState {
     email: string,
     password: string,
     role: UserRole
-  ) => Promise<{ error: any }>;
+  ) => Promise<{ error: string | null }>;
   signIn: (
     email: string,
     password: string,
     expectedRole?: UserRole
-  ) => Promise<{ error: any }>;
+  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  createProfile: (role: UserRole, profileData: Record<string, any>) => Promise<{ error: any }>;
+  createProfile: (role: UserRole, profileData: Record<string, unknown>) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// API base URL - adjust this based on your environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { API_URL } from "@/config/api";
+
+// API base URL from centralized config
+const API_BASE_URL = API_URL;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -59,42 +61,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
   });
 
-  // Initialize auth on mount - check for existing token and validate it
+  // Initialize auth on mount - check for auth cookie via backend
   useEffect(() => {
     const initializeAuth = async () => {
-      // 1. Get the token stored after login
-      const token = localStorage.getItem('auth-token');
-
-      if (!token) {
-        // No token found, user is not logged in
-        setState({ 
-          user: null, 
-          session: null, 
-          profile: null, 
-          ambassadorProfile: null,
-          clientProfile: null,
-          loading: false 
-        });
-        return;
-      }
-
       try {
-        // 2. Verify token with backend and get user data
+        // Verify auth cookie with backend and get user data
+        // Cookie is automatically sent by browser (httpOnly, secure)
         const response = await fetch(`${API_BASE_URL}/api/users/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          credentials: 'include' // Send cookies
         });
 
         if (response.ok) {
-          // 3. Backend confirmed token is valid, get user data
+          // Backend confirmed auth cookie is valid, get user data
           const userData = await response.json();
           
           setState({
             user: { id: userData.id, email: userData.email },
             session: { 
               user: { id: userData.id, email: userData.email },
-              access_token: token 
+              access_token: 'cookie-based' // Token is in httpOnly cookie, not accessible
             },
             profile: userData.profile || null,
             ambassadorProfile: userData.ambassador_profile || null,
@@ -102,8 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             loading: false
           });
         } else {
-          // 4. Backend said token is invalid (expired, etc.)
-          localStorage.removeItem('auth-token');
+          // Backend said no valid auth cookie found
           setState({ 
             user: null, 
             session: null, 
@@ -143,12 +127,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        return { error: { message: data.detail || 'Signup failed' } };
+        return { error: data.detail || 'Signup failed' };
       }
 
       return { error: null };
-    } catch (error) {
-      return { error: { message: 'Network error during signup' } };
+    } catch {
+      return { error: 'Network error during signup' };
     }
   };
 
@@ -172,39 +156,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!validateData.valid) {
           return { 
-            error: { 
-              message: validateData.message,
-              code: validateData.error_type === 'role_mismatch' ? 'ROLE_MISMATCH' : 'INVALID_CREDENTIALS',
-              userRole: validateData.user_role
-            } 
+            error: validateData.message
           };
         }
       }
 
-      // Now sign in with the login endpoint
+      // Now sign in with the login endpoint (sets httpOnly cookie)
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Allow server to set cookies
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        return { error: { message: data.detail || 'Invalid login credentials' } };
+        return { error: data.detail || 'Invalid login credentials' };
       }
 
-      // Store the access token
-      const accessToken = data.access_token;
-      localStorage.setItem('auth-token', accessToken);
+      // Cookie is set by server (httpOnly, secure)
+      // No need to store token in localStorage (XSS vulnerability)
 
-      // Fetch user profile with the new token
+      // Fetch user profile using the cookie
       const meResponse = await fetch(`${API_BASE_URL}/api/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+        credentials: 'include' // Send the cookie
       });
 
       if (meResponse.ok) {
@@ -214,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           user: { id: userData.id, email: userData.email },
           session: { 
             user: { id: userData.id, email: userData.email },
-            access_token: accessToken 
+            access_token: 'cookie-based' // Token is in httpOnly cookie
           },
           profile: userData.profile || null,
           ambassadorProfile: userData.ambassador_profile || null,
@@ -224,22 +202,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return { error: null };
       } else {
-        localStorage.removeItem('auth-token');
-        return { error: { message: 'Failed to fetch user data' } };
+        return { error: 'Failed to fetch user data' };
       }
-    } catch (error) {
-      return { error: { message: 'Network error during login' } };
+    } catch {
+      return { error: 'Network error during login' };
     }
   };
 
   const signOut = async () => {
     try {
-      // Clear token from storage
-      localStorage.removeItem('auth-token');
+      // Call backend logout endpoint to clear httpOnly cookie
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include' // Send cookie to be cleared
+      });
       
-      // Clear all auth-related storage
+      // Clear all auth-related storage (if any)
       try {
         sessionStorage.clear();
+        // Remove any legacy tokens
+        localStorage.removeItem('auth-token');
       } catch (storageError) {
         console.warn("Could not clear session storage:", storageError);
       }
@@ -255,11 +237,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     } catch (error) {
       console.error("Sign out error:", error);
+      // Even if backend fails, clear local state
+      setState({
+        user: null,
+        session: null,
+        profile: null,
+        ambassadorProfile: null,
+        clientProfile: null,
+        loading: false,
+      });
     }
   };
 
-  const createProfile = async (role: UserRole, profileData: Record<string, any>) => {
-    if (!state.user || !state.session?.access_token) {
+  const createProfile = async (role: UserRole, profileData: Record<string, unknown>) => {
+    if (!state.user) {
       return { error: new Error("No user logged in") };
     }
 
@@ -271,9 +262,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${state.session.access_token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Send auth cookie
         body: JSON.stringify({
           user_id: state.user.id,
           ...profileData
@@ -283,26 +274,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        return { error: { message: data.detail || 'Failed to create profile' } };
+        return { error: data.detail || 'Failed to create profile' };
       }
 
       // Refresh profile data
       await refreshProfile();
 
       return { error: null };
-    } catch (error) {
-      return { error: { message: 'Network error during profile creation' } };
+    } catch {
+      return { error: 'Network error during profile creation' };
     }
   };
 
   const refreshProfile = async () => {
-    if (!state.session?.access_token) return;
+    if (!state.user) return;
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${state.session.access_token}`
-        }
+        credentials: 'include' // Send auth cookie
       });
 
       if (response.ok) {

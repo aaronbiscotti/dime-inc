@@ -1,11 +1,16 @@
 """Authentication routes for user signup, login, and password management."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Response
 from pydantic import BaseModel, EmailStr
 from supabase_client import admin_client
 from typing import Literal
+from datetime import timedelta
 
 router = APIRouter()
+
+# Cookie configuration
+COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days in seconds
+COOKIE_NAME = "auth_token"
 
 UserRole = Literal["client", "ambassador"]
 
@@ -114,25 +119,109 @@ async def validate_login(request: SignInRequest) -> dict:
 
 
 @router.post("/login")
-async def login(request: SignInRequest):
+async def login(request: SignInRequest, response: Response):
     """
-    Sign in a user with Supabase and return their session token.
-    Returns the complete session object including the access_token (JWT).
+    Sign in a user with Supabase and set secure httpOnly cookie.
+    Also returns session data for compatibility.
     """
     try:
         # Use the admin client to sign the user in
-        response = admin_client.auth.sign_in_with_password({
+        auth_response = admin_client.auth.sign_in_with_password({
             "email": request.email,
             "password": request.password
         })
         
-        # Return the entire session object, which includes the access_token (JWT)
-        return response.session
+        # Extract the access token
+        access_token = auth_response.session.access_token
+        
+        # Set httpOnly cookie with the JWT token
+        response.set_cookie(
+            key=COOKIE_NAME,
+            value=access_token,
+            httponly=True,  # Prevents JavaScript access (XSS protection)
+            secure=True,     # Only sent over HTTPS in production
+            samesite="lax",  # CSRF protection
+            max_age=COOKIE_MAX_AGE,
+            path="/"
+        )
+        
+        # Return session data (for compatibility, but token should be read from cookie)
+        return {
+            "message": "Login successful",
+            "session": auth_response.session
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid login credentials"
         )
+
+
+@router.post("/signup")
+async def signup(request: SignUpRequest, response: Response):
+    """
+    Sign up a new user with Supabase and set secure httpOnly cookie.
+    Creates user account and initial profile record.
+    """
+    try:
+        # Create user with Supabase Auth
+        auth_response = admin_client.auth.sign_up({
+            "email": request.email,
+            "password": request.password
+        })
+        
+        if not auth_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to create user account"
+            )
+        
+        user_id = auth_response.user.id
+        
+        # Create profile record
+        profile_data = {
+            "id": user_id,
+            "email": request.email,
+            "role": request.role,
+            "profile_completed": False
+        }
+        
+        admin_client.table("profiles").insert(profile_data).execute()
+        
+        # If we have a session, set the cookie
+        if auth_response.session:
+            access_token = auth_response.session.access_token
+            
+            response.set_cookie(
+                key=COOKIE_NAME,
+                value=access_token,
+                httponly=True,
+                secure=True,
+                samesite="lax",
+                max_age=COOKIE_MAX_AGE,
+                path="/"
+            )
+        
+        return {
+            "message": "Signup successful",
+            "user_id": user_id,
+            "role": request.role
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Signup failed: {str(e)}"
+        )
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """
+    Log out the current user by clearing the auth cookie.
+    """
+    response.delete_cookie(key=COOKIE_NAME, path="/")
+    return {"message": "Logout successful"}
 
 
 class PasswordResetRequest(BaseModel):

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InstagramMedia } from "@/services/instagramService";
@@ -17,7 +16,6 @@ export function AddContentModal({
   onClose,
   onContentSelected,
 }: AddContentModalProps) {
-  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
@@ -25,14 +23,7 @@ export function AddContentModal({
   const [selectedMedia, setSelectedMedia] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  // Check if Instagram is connected
-  useEffect(() => {
-    if (isOpen) {
-      checkConnection();
-    }
-  }, [isOpen]);
-
-  const checkConnection = async () => {
+  const checkConnection = useCallback(async () => {
     try {
       const response = await fetch("/api/instagram/connect");
       const data = await response.json();
@@ -45,14 +36,25 @@ export function AddContentModal({
     } catch (err) {
       console.error("Error checking connection:", err);
     }
-  };
+  }, []);
+
+  // Check if Instagram is connected
+  useEffect(() => {
+    if (isOpen) {
+      checkConnection();
+    }
+  }, [isOpen, checkConnection]);
 
   const handleConnectInstagram = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Initiate Instagram OAuth
+      // TODO: Implement Instagram OAuth flow
+      // This requires NextAuth or similar OAuth provider setup
+      setError("Instagram connection not yet implemented");
+      
+      /* Instagram OAuth not yet implemented
       await signIn("instagram", {
         callbackUrl: window.location.href,
       });
@@ -67,12 +69,14 @@ export function AddContentModal({
       if (!response.ok) {
         throw new Error(data.error || "Failed to connect Instagram");
       }
+      */
 
-      setConnected(true);
-      setUsername(data.username);
-      await fetchMedia();
-    } catch (err: any) {
-      setError(err.message);
+      // Placeholder - Instagram connection not implemented
+      // setConnected(true);
+      // setUsername(data.username);
+      // await fetchMedia();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -89,8 +93,8 @@ export function AddContentModal({
       }
 
       setMedia(data.data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }

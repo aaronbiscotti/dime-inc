@@ -5,11 +5,25 @@ import { Paperclip, FileText, Eye, Calendar, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { campaignService } from "@/services/campaignService";
 import { contractService } from "@/services/contractService";
-import { uuidv4 } from "@/lib/uuid";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import styles from "./page.module.css";
 import ContractTextEditor from "./ContractTextEditor";
+
+type CampaignSummary = {
+  id: string;
+  title?: string;
+  description?: string;
+  status?: string;
+};
+
+type AmbassadorSummary = {
+  id: string;
+  name?: string;
+  avatar_url?: string;
+  instagram_handle?: string;
+  tiktok_handle?: string;
+  twitter_handle?: string;
+};
 
 export default function ContractDraftForm({ initialCampaignId = "", initialAmbassadorIds = [] }: { initialCampaignId?: string, initialAmbassadorIds?: string[] }) {
   // Form state
@@ -20,14 +34,14 @@ export default function ContractDraftForm({ initialCampaignId = "", initialAmbas
   const [startDate, setStartDate] = useState("");
   const [agreed, setAgreed] = useState(false);
   const { clientProfile } = useAuth();
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
-  const [ambassadors, setAmbassadors] = useState<any[]>([]);
+  const [ambassadors, setAmbassadors] = useState<AmbassadorSummary[]>([]);
   const [loadingAmbassadors, setLoadingAmbassadors] = useState(false);
   const [selectedAmbassadorIds, setSelectedAmbassadorIds] = useState<string[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   const [editorText, setEditorText] = useState("");
-  const [clientName, setClientName] = useState(clientProfile?.company_name || clientProfile?.full_name || clientProfile?.name || "");
+  const [clientName, setClientName] = useState(clientProfile?.company_name || "");
   const router = useRouter();
 
   // Set initial state from props on mount
@@ -39,8 +53,8 @@ export default function ContractDraftForm({ initialCampaignId = "", initialAmbas
       // For each campaign, fetch ambassadors and check if ambassadorId is present
       (async () => {
         for (const campaign of campaigns) {
-          const ambs = await campaignService.getCampaignAmbassadors(campaign.id);
-          if (ambs && ambs.some((a: any) => a.id === ambassadorId)) {
+          const { data: ambs } = await campaignService.getCampaignAmbassadors(campaign.id);
+          if (ambs && ambs.some((a) => a.id === ambassadorId)) {
             setSelectedCampaignId(campaign.id);
             setSelectedAmbassadorIds([ambassadorId]);
             break;
@@ -57,11 +71,13 @@ export default function ContractDraftForm({ initialCampaignId = "", initialAmbas
   useEffect(() => {
     if (!clientProfile) return;
     setLoadingCampaigns(true);
-    campaignService.getClientCampaigns()
-      .then((data: any[]) => {
-        // Only include active campaigns
-        const activeCampaigns = (data || []).filter((c: any) => c.status === 'active');
-        setCampaigns(activeCampaigns);
+    campaignService.getCampaignsForClient(clientProfile.id)
+      .then((result) => {
+        if (!result.error && result.data) {
+          // Only include active campaigns
+          const activeCampaigns = (result.data || []).filter((c) => c.status === 'active');
+          setCampaigns(activeCampaigns);
+        }
       })
       .finally(() => setLoadingCampaigns(false));
   }, [clientProfile]);
@@ -77,7 +93,7 @@ export default function ContractDraftForm({ initialCampaignId = "", initialAmbas
     setLoadingAmbassadors(true);
     // Placeholder: implement this in campaignService if not present
     campaignService.getCampaignAmbassadors(selectedCampaignId)
-      .then((ambs: any[]) => setAmbassadors(ambs || []))
+      .then(({ data }) => setAmbassadors(data || []))
       .finally(() => setLoadingAmbassadors(false));
   }, [selectedCampaignId, campaigns]);
 
@@ -104,8 +120,8 @@ export default function ContractDraftForm({ initialCampaignId = "", initialAmbas
     // Generate contract text (simple template for now)
     const ambassadorName = contractData.ambassadors[0]?.name || "[Ambassador]";
     const campaignTitle = contractData.campaign?.title || "[Campaign]";
-    // Prefer company_name from clientProfile, fallback to full_name or name
-    const clientNameForContract = clientName || clientProfile?.company_name || clientProfile?.full_name || clientProfile?.name || "[Client]";
+    // Prefer company_name from clientProfile
+    const clientNameForContract = clientName || clientProfile?.company_name || "[Client]";
     const pay = payType === "post" ? "$250 per post" : payType === "cpm" ? "$X CPM" : "[Pay]";
     const start = startDate || "[Start Date]";
     const defaultText = `CREATOR COLLABORATION AGREEMENT\n\nThis Creator Agreement (the \"Agreement\") is made and entered into as of the date of execution by both parties (the \"Effective Date\"), by and between ${clientNameForContract} (\"Client\"), and ${ambassadorName} (\"Creator\").\n\n1. Scope of Work\n${clientNameForContract} agrees to create and post content for the campaign: ${campaignTitle}.\n\n2. Compensation\n${clientNameForContract} agrees to pay Creator ${pay}.\n\n3. Content Submission & Ad Authorization\n...\n\n4. Posting Requirements & Deadline\nStart date: ${start}.\n...\n\n[Full contract terms here]\n`;
@@ -117,32 +133,38 @@ export default function ContractDraftForm({ initialCampaignId = "", initialAmbas
   const handleSaveFromEditor = async (text: string) => {
     try {
       // Fetch campaign_ambassadors join table rows for the selected campaign
-      const caRows = await campaignService.getCampaignAmbassadorRows(selectedCampaignId); // This should return [{ id, ambassador_id, ... }]
+      const caResult = await campaignService.getCampaignAmbassadorRows(selectedCampaignId); // This returns [{ id, ambassador_id, ... }]
       console.log('Selected campaign:', selectedCampaignId);
       console.log('Selected ambassadorIds:', selectedAmbassadorIds);
-      console.log('campaignService.getCampaignAmbassadorRows result:', caRows);
+      console.log('campaignService.getCampaignAmbassadorRows result:', caResult.data);
       // Find the campaign_ambassador row for the selected ambassador
+      if (!caResult.data || caResult.error) {
+        alert("Failed to fetch campaign ambassadors.");
+        return;
+      }
+      const caRows = caResult.data as Array<{ id: string; ambassador_id: string; [key: string]: unknown }>;
       const caRow = caRows.find(row => selectedAmbassadorIds.includes(row.ambassador_id));
       console.log('Matched caRow:', caRow);
       if (!caRow) {
         alert("No campaign_ambassador found for this campaign and ambassador.");
         return;
       }
+      if (!clientProfile?.id) {
+        alert("Client profile not found.");
+        return;
+      }
       await contractService.createContract({
-        id: uuidv4(), // new contract UUID
         contract_text: text,
         payment_type: payType === "post" ? "pay_per_post" : "pay_per_cpm",
-        start_date: startDate || null,
-        terms_accepted: agreed,
-        client_signed_at: new Date().toISOString(),
+        start_date: startDate || undefined,
         campaign_ambassador_id: caRow.id, // correct join table FK
-        client_id: clientProfile?.id, // correct client FK
+        client_id: clientProfile.id, // correct client FK
         // Add more fields as needed
       });
       router.push("/contracts");
       router.refresh();
     } catch (err) {
-      alert("Failed to save contract: " + (err as any)?.message);
+      alert("Failed to save contract: " + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 

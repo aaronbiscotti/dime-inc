@@ -1,86 +1,154 @@
-import { createClient } from "@/lib/supabase";
-import { Database } from "@/types/database";
+/**
+ * Contract Service - Handles all contract-related operations via backend API
+ * NO direct Supabase calls - all operations go through FastAPI backend
+ */
+
+import { API_URL } from '@/config/api';
+import { authFetch, authPost, authPut, authDelete, handleApiResponse } from '@/utils/fetch';
+
+const API_BASE_URL = API_URL;
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+export interface Contract {
+  id: string;
+  contract_text: string | null;
+  terms_accepted: boolean;
+  created_at: string;
+  campaign_ambassador_id: string;
+  client_id: string;
+  campaign_name?: string;
+  ambassador_name?: string;
+}
+
+export interface CreateContractData {
+  payment_type: 'pay_per_post' | 'pay_per_cpm';
+  target_impressions?: number;
+  cost_per_cpm?: number;
+  start_date?: string;
+  usage_rights_duration?: string;
+  contract_text?: string;
+  contract_file_url?: string;
+  campaign_ambassador_id: string;
+  client_id: string;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Handle API errors consistently
+ */
+function handleError(error: unknown, context: string) {
+  console.error(`[ContractService] ${context}:`, error);
+  
+  const message = error instanceof Error 
+    ? error.message 
+    : typeof error === 'string' 
+    ? error 
+    : 'An unexpected error occurred';
+  
+  throw new Error(message);
+}
+
+// ============================================================================
+// CONTRACT SERVICE
+// ============================================================================
 
 export const contractService = {
-  async createContract(data: Omit<Database["public"]["Tables"]["contracts"]["Insert"], "created_at" | "updated_at">) {
-    const supabase = createClient();
-    const { data: contract, error } = await supabase
-      .from("contracts")
-      .insert([data])
-      .select()
-      .single();
-    if (error) throw error;
-    return contract;
+  /**
+   * Create a new contract
+   */
+  async createContract(data: CreateContractData): Promise<Contract> {
+    try {
+      const response = await authPost(`${API_BASE_URL}/api/contracts/create`, data);
+      const result = await handleApiResponse<{ contract: Contract }>(response);
+      return result.contract;
+    } catch (error) {
+      return handleError(error, 'createContract');
+    }
   },
 
   /**
-   * Fetch all contracts for a client by client_id FK, with campaign and ambassador info for display
+   * Get all contracts for a client
    */
-  async getContractsForClient(clientId: string) {
-    const supabase = createClient();
-    // Join campaign_ambassadors, campaigns, ambassador_profiles for display fields
-    const { data, error } = await supabase
-      .from("contracts")
-      .select(`
-        id, contract_text, terms_accepted, created_at, campaign_ambassador_id, client_id,
-        campaign_ambassadors (
-          campaign_id,
-          ambassador_id,
-          campaigns (title),
-          ambassador_profiles:ambassador_id (full_name)
-        )
-      `)
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    // Map for table display
-    return (
-      data || []
-    ).map((row: any) => ({
-      id: row.id,
-      contract_text: row.contract_text,
-      terms_accepted: row.terms_accepted,
-      created_at: row.created_at,
-      campaign_name: row.campaign_ambassadors?.campaigns?.title || "",
-      ambassador_name: row.campaign_ambassadors?.ambassador_profiles?.full_name || "",
-    }));
+  async getContractsForClient(clientId: string): Promise<Contract[]> {
+    try {
+      const response = await authFetch(`${API_BASE_URL}/api/contracts/client/${clientId}`);
+      const result = await handleApiResponse<{ contracts: Contract[] }>(response);
+      return result.contracts || [];
+    } catch (error) {
+      return handleError(error, 'getContractsForClient');
+    }
   },
 
   /**
-   * Fetch all contracts for an ambassador by ambassador_id (via campaign_ambassadors FK)
+   * Get all contracts for an ambassador
    */
-  async getContractsForAmbassador(ambassadorId: string) {
-    const supabase = createClient();
-    // Find all campaign_ambassadors rows for this ambassador
-    const { data: caRows, error: caError } = await supabase
-      .from("campaign_ambassadors")
-      .select("id")
-      .eq("ambassador_id", ambassadorId);
-    if (caError) throw caError;
-    const caIds = (caRows || []).map((row: any) => row.id);
-    if (!caIds.length) return [];
-    // Fetch contracts where campaign_ambassador_id is in caIds
-    const { data, error } = await supabase
-      .from("contracts")
-      .select(`
-        id, contract_text, terms_accepted, created_at, campaign_ambassador_id, client_id,
-        campaign_ambassadors (
-          campaigns (title),
-          ambassador_profiles:ambassador_id (full_name)
-        )
-      `)
-      .in("campaign_ambassador_id", caIds)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (
-      data || []
-    ).map((row: any) => ({
-      id: row.id,
-      contract_text: row.contract_text,
-      terms_accepted: row.terms_accepted,
-      created_at: row.created_at,
-      campaign_name: row.campaign_ambassadors?.campaigns?.title || "",
-      ambassador_name: row.campaign_ambassadors?.ambassador_profiles?.full_name || "",
-    }));
+  async getContractsForAmbassador(ambassadorId: string): Promise<Contract[]> {
+    try {
+      const response = await authFetch(`${API_BASE_URL}/api/contracts/ambassador/${ambassadorId}`);
+      const result = await handleApiResponse<{ contracts: Contract[] }>(response);
+      return result.contracts || [];
+    } catch (error) {
+      return handleError(error, 'getContractsForAmbassador');
+    }
   },
+
+  /**
+   * Get a single contract by ID
+   */
+  async getContract(contractId: string): Promise<Contract> {
+    try {
+      const response = await authFetch(`${API_BASE_URL}/api/contracts/${contractId}`);
+      const result = await handleApiResponse<{ contract: Contract }>(response);
+      return result.contract;
+    } catch (error) {
+      return handleError(error, 'getContract');
+    }
+  },
+
+  /**
+   * Accept/sign a contract
+   */
+  async acceptContract(contractId: string, userRole: 'client' | 'ambassador'): Promise<Contract> {
+    try {
+      const response = await authPost(
+        `${API_BASE_URL}/api/contracts/${contractId}/accept`,
+        { role: userRole }
+      );
+      const result = await handleApiResponse<{ contract: Contract }>(response);
+      return result.contract;
+    } catch (error) {
+      return handleError(error, 'acceptContract');
+    }
+  },
+
+  /**
+   * Update a contract
+   */
+  async updateContract(contractId: string, updates: Partial<CreateContractData>): Promise<Contract> {
+    try {
+      const response = await authPut(`${API_BASE_URL}/api/contracts/${contractId}`, updates);
+      const result = await handleApiResponse<{ contract: Contract }>(response);
+      return result.contract;
+    } catch (error) {
+      return handleError(error, 'updateContract');
+    }
+  },
+
+  /**
+   * Delete a contract
+   */
+  async deleteContract(contractId: string): Promise<void> {
+    try {
+      const response = await authDelete(`${API_BASE_URL}/api/contracts/${contractId}`);
+      await handleApiResponse(response);
+    } catch (error) {
+      return handleError(error, 'deleteContract');
+    }
+  }
 };

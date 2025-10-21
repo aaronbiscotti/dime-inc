@@ -35,8 +35,19 @@ export function CreateCampaignForm({ onSuccess, onCancel }: CampaignFormProps) {
     setError(null);
 
     try {
-      const campaign = await campaignService.createCampaign(formData);
-      if (campaign) {
+      // Convert CreateCampaignData to CampaignData format
+      const campaignData = {
+        title: formData.title,
+        description: formData.description,
+        budget: `$${formData.budget_min} - $${formData.budget_max}`,
+        timeline: formData.deadline || "No deadline",
+        requirements: formData.requirements,
+      };
+      
+      const { data: campaign, error: createError } = await campaignService.createCampaign(campaignData);
+      if (createError || !campaign) {
+        setError(createError?.message || "Failed to create campaign");
+      } else {
         setCreatedCampaign(campaign);
         setShowSuccessModal(true);
       }
@@ -258,7 +269,7 @@ export function CreateCampaignForm({ onSuccess, onCancel }: CampaignFormProps) {
               Campaign Created!
             </h3>
             <p className="text-gray-600 text-center mb-6">
-              Your campaign "<span className="font-semibold">{createdCampaign.title}</span>" has been successfully created.
+              Your campaign &quot;<span className="font-semibold">{createdCampaign.title}</span>&quot; has been successfully created.
             </p>
 
             {/* Campaign Details */}

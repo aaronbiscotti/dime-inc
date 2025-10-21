@@ -1,4 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { API_URL } from '@/config/api';
+import { authFetch, authPost, handleApiResponse } from '@/utils/fetch';
+
+const API_BASE_URL = API_URL;
 
 export interface InstagramMedia {
   id: string;
@@ -29,17 +32,6 @@ export interface InstagramConnection {
 
 class InstagramService {
   /**
-   * Get authentication token from localStorage
-   */
-  private getAuthToken(): string {
-    const token = localStorage.getItem('auth-token');
-    if (!token) {
-      throw new Error('Not authenticated');
-    }
-    return token;
-  }
-
-  /**
    * Save Instagram connection after OAuth
    */
   async saveConnection(
@@ -47,25 +39,12 @@ class InstagramService {
     instagramUserId: string
   ): Promise<{ success: boolean; username?: string; expiresIn?: number; error?: string }> {
     try {
-      const token = this.getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/instagram/connect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          short_lived_token: shortLivedToken,
-          instagram_user_id: instagramUserId
-        })
+      const response = await authPost(`${API_BASE_URL}/api/instagram/connect`, {
+        short_lived_token: shortLivedToken,
+        instagram_user_id: instagramUserId
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { success: false, error: data.detail || 'Failed to connect Instagram' };
-      }
+      const data = await handleApiResponse<{ username: string; expires_in: number }>(response);
 
       return {
         success: true,
@@ -85,19 +64,13 @@ class InstagramService {
    */
   async getConnection(): Promise<InstagramConnection> {
     try {
-      const token = this.getAuthToken();
-      
-      const response = await fetch(`${API_BASE_URL}/api/instagram/connect`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await authFetch(`${API_BASE_URL}/api/instagram/connect`);
 
       if (!response.ok) {
         return { connected: false };
       }
 
-      const data = await response.json();
+      const data = await handleApiResponse<{ connected: boolean; username?: string; expires_at?: string }>(response);
       
       return {
         connected: data.connected,
@@ -115,22 +88,8 @@ class InstagramService {
    */
   async getUserMedia(limit: number = 25): Promise<InstagramMedia[]> {
     try {
-      const token = this.getAuthToken();
-      
-      const response = await fetch(
-        `${API_BASE_URL}/api/instagram/media?limit=${limit}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch media');
-      }
-
-      const data = await response.json();
+      const response = await authFetch(`${API_BASE_URL}/api/instagram/media?limit=${limit}`);
+      const data = await handleApiResponse<{ data: InstagramMedia[] }>(response);
       return data.data || [];
     } catch (error) {
       console.error('Failed to fetch Instagram media:', error);
@@ -143,22 +102,8 @@ class InstagramService {
    */
   async getMediaInsights(mediaId: string): Promise<InstagramInsights> {
     try {
-      const token = this.getAuthToken();
-      
-      const response = await fetch(
-        `${API_BASE_URL}/api/instagram/insights/${mediaId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch insights');
-      }
-
-      const data = await response.json();
+      const response = await authFetch(`${API_BASE_URL}/api/instagram/insights/${mediaId}`);
+      const data = await handleApiResponse<{ data: InstagramInsights }>(response);
       return data.data || {};
     } catch (error) {
       console.error('Failed to fetch Instagram insights:', error);

@@ -50,7 +50,7 @@ export function SignupForm({
     const { error } = await signUp(email, password, role);
 
     if (error) {
-      setError(error.message);
+      setError(error);
     } else {
       onSignupSuccess?.(role);
     }

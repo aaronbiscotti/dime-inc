@@ -3,22 +3,33 @@
 import { useState, useEffect } from "react";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { Chat } from "@/types/database";
-import { supabase } from "@/lib/supabase";
+import { chatService, type ChatRoom } from "@/services/chatService";
 import { useAuth } from "@/contexts/AuthContext";
+
+// UI-specific chat type for sidebar display
+interface Chat {
+  id: string;
+  name: string;
+  lastMessage: string;
+  timestamp: string;
+  unreadCount: number;
+  isOnline: boolean;
+  isGroup: boolean;
+  participants: string[];
+}
 
 interface ChatSidebarProps {
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
   onCloseMobile: () => void;
-  chatsChanged?: number; // NEW: trigger refresh
+  chatsChanged?: number; // Trigger refresh
 }
 
 export function ChatSidebar({
   selectedChatId,
   onSelectChat,
   onCloseMobile,
-  chatsChanged, // NEW
+  chatsChanged,
 }: ChatSidebarProps) {
   const [activeTab, setActiveTab] = useState<"private" | "group">("private");
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,209 +37,70 @@ export function ChatSidebar({
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // Helper function to get participant name from user ID
-  const getParticipantNameFromUserId = async (userId: string): Promise<string | null> => {
-    try {
-      // console.log('Sidebar - looking up user ID:', userId);
-      
-      // Get the user's role first
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      if (!profile) {
-        // console.log('Sidebar - no profile found for user ID:', userId);
-        return null;
-      }
-
-      // console.log('Sidebar - found profile role:', profile.role);
-
-      // Get detailed profile based on role
-      if (profile.role === 'ambassador') {
-        const { data: ambassadorProfile } = await supabase
-          .from('ambassador_profiles')
-          .select('full_name')
-          .eq('user_id', userId)
-          .single();
-
-        if (ambassadorProfile) {
-          // console.log('Sidebar - found ambassador name:', ambassadorProfile.full_name);
-          return ambassadorProfile.full_name;
-        }
-      } else if (profile.role === 'client') {
-        const { data: clientProfile } = await supabase
-          .from('client_profiles')
-          .select('company_name')
-          .eq('user_id', userId)
-          .single();
-
-        if (clientProfile) {
-          // console.log('Sidebar - found client name:', clientProfile.company_name);
-          return clientProfile.company_name;
-        }
-      }
-
-      return null;
-    } catch (error) {
-      // console.error('Sidebar - error looking up user:', error);
-      return null;
-    }
-  };
-
-  // Fetch real chat data from database
+  // Fetch chats from API
   useEffect(() => {
     const fetchChats = async () => {
       if (!user) return;
 
+      setLoading(true);
       try {
-        // First get chat room IDs that the user participates in
-        const { data: userParticipations, error: participationError } =
-          await supabase
-            .from("chat_participants")
-            .select("chat_room_id")
-            .eq("user_id", user.id);
+        const result = await chatService.getUserChats();
 
-        if (participationError) {
-          console.error(
-            "Error fetching user participations:",
-            participationError
-          );
+        if (result.error) {
+          console.error("Error fetching chats:", result.error.message);
           return;
         }
 
-        if (!userParticipations || userParticipations.length === 0) {
-          setChats([]);
-          return;
-        }
+        const chatRooms = result.data || [];
 
-        const chatRoomIds = userParticipations.map((p) => p.chat_room_id);
+        // For each chat room, get additional details
+        const chatPromises = chatRooms.map(async (chatRoom: ChatRoom) => {
+          // Get latest messages for this chat
+          const messagesResult = await chatService.getMessages(chatRoom.id, 1);
+          const latestMessage = messagesResult.data?.[0];
 
-        // Now get the chat rooms using the IDs
-        const { data: userChatRooms, error: chatRoomsError } = await supabase
-          .from("chat_rooms")
-          .select("id, name, is_group, created_at, updated_at")
-          .in("id", chatRoomIds);
-
-        if (chatRoomsError) {
-          console.error("Error fetching chat rooms:", chatRoomsError);
-          return;
-        }
-
-        // For each chat room, get the latest message and other participants
-        const chatPromises = userChatRooms.map(async (chatRoom: any) => {
-          // Get latest message (maybeSingle allows 0 or 1 row)
-          const { data: latestMessage } = await supabase
-            .from("messages")
-            .select("content, created_at")
-            .eq("chat_room_id", chatRoom.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          // Get other participants (simple queries to avoid RLS issues)
-          const { data: participantIds } = await supabase
-            .from("chat_participants")
-            .select("user_id")
-            .eq("chat_room_id", chatRoom.id)
-            .neq("user_id", user.id);
-
-          let otherParticipants: any[] = [];
-          if (participantIds && participantIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from("profiles")
-              .select(`
-                id, role,
-                ambassador_profiles(full_name, profile_photo_url),
-                client_profiles(company_name, logo_url)
-              `)
-              .in("id", participantIds.map(p => p.user_id));
-
-            // console.log('Sidebar - raw profiles data:', profiles);
-            if (profiles) {
-              otherParticipants = profiles;
-            }
-          }
-
-          // Format chat name - show "Chat with {other person's name}" for private chats
-          let chatName = chatRoom.name;
-          let participantName = "Unknown User";
+          // Get chat display name
+          let chatName = chatRoom.name || "Unnamed Chat";
           
-          if (!chatRoom.is_group && otherParticipants && otherParticipants.length > 0) {
-            const otherParticipant = otherParticipants[0] as any;
-            // console.log('Sidebar - formatting name for participant:', otherParticipant);
+          if (!chatRoom.is_group) {
+            // For private chats, get the other participant's info
+            const participantResult = await chatService.getOtherParticipant(chatRoom.id);
             
-            if (
-              otherParticipant.role === "ambassador" &&
-              otherParticipant.ambassador_profiles &&
-              otherParticipant.ambassador_profiles.length > 0
-            ) {
-              participantName = otherParticipant.ambassador_profiles[0].full_name;
-            } else if (
-              otherParticipant.role === "client" &&
-              otherParticipant.client_profiles &&
-              otherParticipant.client_profiles.length > 0
-            ) {
-              participantName = otherParticipant.client_profiles[0].company_name;
-            }
-            
-            // console.log('Sidebar - extracted participant name:', participantName);
-            
-            // Format as "Chat with {name}" for display
-            chatName = `Chat with ${participantName}`;
-          } else if (!chatRoom.is_group) {
-            // Fallback: try to parse neutral chat name format
-            // console.log('Sidebar - no participants found, trying to parse chat name:', chatRoom.name);
-            // console.log('Sidebar - current user ID:', user?.id);
-            
-            if (chatRoom.name && chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/)) {
-              // This is a neutral format chat name, try to get the other user ID
-              const neutralMatch = chatRoom.name.match(/^chat_([a-f0-9-]+)_([a-f0-9-]+)$/);
-              if (neutralMatch && user) {
-                const [, userId1, userId2] = neutralMatch;
-                const otherUserId = userId1 === user.id ? userId2 : userId1;
-                // console.log('Sidebar - found other user ID from neutral name:', otherUserId);
-                
-                // Try to get their profile
-                const foundName = await getParticipantNameFromUserId(otherUserId);
-                if (foundName) {
-                  chatName = `Chat with ${foundName}`;
-                  // console.log('Sidebar - successfully resolved name:', chatName);
-                } else {
-                  chatName = "Private Chat";
-                  // console.log('Sidebar - could not resolve name, using fallback');
-                }
-              } else {
-                chatName = "Private Chat";
-              }
-            } else if (chatRoom.name && chatRoom.name.match(/Chat with (.+)/)) {
-              // Old format, keep as is
-              chatName = chatRoom.name;
+            if (participantResult.data) {
+              chatName = `Chat with ${participantResult.data.name}`;
             } else {
               chatName = "Private Chat";
             }
           }
 
+          // Format timestamp
+          const timestamp = latestMessage 
+            ? new Date(latestMessage.created_at).toLocaleDateString()
+            : new Date(chatRoom.created_at).toLocaleDateString();
+
           const chat: Chat = {
             id: chatRoom.id,
-            name: chatName || "Unnamed Chat",
+            name: chatName,
             lastMessage: latestMessage?.content || "No messages yet",
-            timestamp: latestMessage && latestMessage.created_at
-              ? new Date(latestMessage.created_at).toLocaleDateString()
-              : new Date(chatRoom.created_at).toLocaleDateString(),
+            timestamp,
             unreadCount: 0, // TODO: Implement unread count tracking
             isOnline: false, // TODO: Implement online status
             isGroup: chatRoom.is_group,
-            participants: otherParticipants?.map((p: any) => p.id) || [],
+            participants: [], // Will be populated if needed
           };
 
           return chat;
         });
 
-        const resolvedChats = (await Promise.all(chatPromises)).filter(
-          Boolean
-        ) as Chat[];
+        const resolvedChats = (await Promise.all(chatPromises)).filter(Boolean) as Chat[];
+        
+        // Sort by most recent first (based on timestamp)
+        resolvedChats.sort((a, b) => {
+          const dateA = new Date(a.timestamp);
+          const dateB = new Date(b.timestamp);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
         setChats(resolvedChats);
       } catch (error) {
         console.error("Error fetching chats:", error);
@@ -238,7 +110,7 @@ export function ChatSidebar({
     };
 
     fetchChats();
-  }, [user, chatsChanged]); // Add chatsChanged to deps
+  }, [user, chatsChanged]);
 
   const filteredChats = chats.filter(
     (chat) =>
@@ -348,7 +220,7 @@ export function ChatSidebar({
                     ) : (
                       <div
                         className={`w-10 h-10 bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-semibold ${
-                          // Use square avatars for companies/clients (check if name contains company-like words)
+                          // Use square avatars for companies/clients
                           chat.name.includes("Chat with") && (
                             chat.name.includes("Team") ||
                             chat.name.includes("Corp") ||
@@ -365,7 +237,7 @@ export function ChatSidebar({
                           ) ? "rounded-lg" : "rounded-full"
                         }`}
                       >
-                        {/* Get first character from the participant name, not "Chat with" */}
+                        {/* Get first character from the participant name */}
                         {chat.name.startsWith("Chat with ") 
                           ? chat.name.replace("Chat with ", "").charAt(0) 
                           : chat.name.charAt(0)

@@ -19,7 +19,7 @@ export function ExploreGrid({
   searchQuery,
   filters,
 }: ExploreGridProps) {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch real data from FastAPI using cookie-based auth
@@ -76,26 +76,34 @@ export function ExploreGrid({
     };
 
     fetchData();
-  }, [userRole]);
+  }, [userRole, searchQuery, filters.niches, filters.location, filters.industry]);
 
   // Apply search filtering
   const filteredData = data.filter((item) => {
     const searchText = searchQuery.toLowerCase();
     if (!searchText) return true;
 
+    const itemData = item as Record<string, string | string[] | undefined>;
+
     if (userRole === "client") {
       // Searching ambassadors
+      const name = itemData.name as string | undefined;
+      const bio = itemData.bio as string | undefined;
+      const niche = itemData.niche as string[] | undefined;
       return (
-        item.name?.toLowerCase().includes(searchText) ||
-        item.bio?.toLowerCase().includes(searchText) ||
-        item.niche?.some((n: string) => n.toLowerCase().includes(searchText))
+        name?.toLowerCase().includes(searchText) ||
+        bio?.toLowerCase().includes(searchText) ||
+        niche?.some((n: string) => n.toLowerCase().includes(searchText))
       );
     } else {
       // Searching clients
+      const companyName = itemData.companyName as string | undefined;
+      const description = itemData.description as string | undefined;
+      const industry = itemData.industry as string | undefined;
       return (
-        item.companyName?.toLowerCase().includes(searchText) ||
-        item.description?.toLowerCase().includes(searchText) ||
-        item.industry?.toLowerCase().includes(searchText)
+        companyName?.toLowerCase().includes(searchText) ||
+        description?.toLowerCase().includes(searchText) ||
+        industry?.toLowerCase().includes(searchText)
       );
     }
   });
@@ -170,9 +178,11 @@ export function ExploreGrid({
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredData.map((item) =>
           userRole === "client" ? (
-            <AmbassadorCard key={item.id} ambassador={item as any} />
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            <AmbassadorCard key={item.id as string} ambassador={item as any} />
           ) : (
-            <ClientCard key={item.id} client={item as any} />
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            <ClientCard key={item.id as string} client={item as any} />
           )
         )}
       </div>

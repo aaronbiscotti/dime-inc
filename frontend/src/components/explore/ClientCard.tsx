@@ -46,18 +46,18 @@ export function ClientCard({ client }: ClientCardProps) {
         client.id
       );
 
-      if (existingChat) {
+      if (existingChat && typeof existingChat === 'object' && 'id' in existingChat) {
         // Redirect to existing chat
-        router.push(`/chats?chat=${existingChat.id}`);
+        const chat = existingChat as { id: string };
+        router.push(`/chats?chat=${chat.id}`);
         return;
       }
 
       // Create new chat
       const { data: newChat, error } = await chatService.createChat({
-        participantId: client.id,
-        participantName: client.companyName,
-        participantRole: 'client',
-        subject: `Partnership application with ${client.companyName}`
+        participant_id: client.id,
+        participant_name: client.companyName,
+        participant_role: 'client'
       });
 
       if (error || !newChat) {

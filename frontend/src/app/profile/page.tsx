@@ -10,10 +10,33 @@ import { ProfileSidebar } from "@/components/profile/ProfileSidebar";
 import { AmbassadorPortfolio } from "@/components/profile/AmbassadorPortfolio";
 import { ClientCampaigns } from "@/components/profile/ClientCampaigns";
 import { AddContentModal } from "@/components/portfolio/AddContentModal";
-import { PortfolioItem, CampaignDisplay } from "@/types/database";
-import { supabase } from "@/lib/supabase";
 import { campaignService } from "@/services/campaignService";
-import { instagramService, InstagramMedia } from "@/services/instagramService";
+import { portfolioService } from "@/services/portfolioService";
+import { InstagramMedia } from "@/services/instagramService";
+
+// Display types for UI
+interface PortfolioItem {
+  id: string;
+  title: string;
+  description?: string;
+  platform: "instagram" | "tiktok";
+  postUrl: string;
+  thumbnailUrl?: string;
+  date: string;
+  views?: string;
+  likes?: string;
+  engagement?: string;
+}
+
+interface CampaignDisplay {
+  id: string;
+  title: string;
+  status: "draft" | "active" | "completed" | "cancelled";
+  budgetRange: string;
+  ambassadorCount: number;
+  timeline: string;
+  coverImage?: string;
+}
 
 export default function Profile() {
   const router = useRouter();
@@ -31,14 +54,10 @@ export default function Profile() {
 
       try {
         if (profile.role === "ambassador" && ambassadorProfile) {
-          // Fetch portfolio items for ambassador
-          const { data: portfolios, error } = await supabase
-            .from("portfolios")
-            .select("*")
-            .eq("ambassador_id", ambassadorProfile.id)
-            .order("created_at", { ascending: false });
-
-          if (!error && portfolios) {
+          // Fetch portfolio items for ambassador using API
+          try {
+            const portfolios = await portfolioService.getAmbassadorPortfolio(ambassadorProfile.id);
+            
             // Convert database portfolios to PortfolioItem format
             const items: PortfolioItem[] = portfolios.map((portfolio) => ({
               id: portfolio.id,
@@ -55,19 +74,26 @@ export default function Profile() {
               date: new Date(
                 portfolio.campaign_date || portfolio.created_at || new Date()
               ).toLocaleDateString(),
-              views: (portfolio.results as any)?.views?.toString() || undefined,
-              likes: (portfolio.results as any)?.likes?.toString() || undefined,
-              engagement: (portfolio.results as any)?.engagement?.toString() || undefined,
+              views: (portfolio.results as Record<string, unknown>)?.views?.toString() || undefined,
+              likes: (portfolio.results as Record<string, unknown>)?.likes?.toString() || undefined,
+              engagement: (portfolio.results as Record<string, unknown>)?.engagement?.toString() || undefined,
             }));
             setPortfolioItems(items);
+          } catch (error) {
+            console.error("Error fetching portfolio:", error);
           }
         } else if (profile.role === "client" && clientProfile) {
           // Fetch campaigns for client using campaign service
           try {
-            const campaignData = await campaignService.getClientCampaigns();
+            const result = await campaignService.getCampaignsForClient(clientProfile.id);
+            
+            if (result.error || !result.data) {
+              console.error("Error fetching campaigns:", result.error);
+              return;
+            }
             
             // Convert database campaigns to UI Campaign format
-            const clientCampaigns: CampaignDisplay[] = campaignData.map((campaign) => ({
+            const clientCampaigns: CampaignDisplay[] = result.data.map((campaign) => ({
               id: campaign.id,
               title: campaign.title,
               status: campaign.status as "draft" | "active" | "completed" | "cancelled",
@@ -96,17 +122,16 @@ export default function Profile() {
     if (!ambassadorProfile) return;
 
     try {
-      // Save each selected media item to portfolio
+      // Save each selected media item to portfolio using API
       for (const media of mediaItems) {
         // Fetch insights for the media
         const insightsResponse = await fetch(`/api/instagram/insights/${media.id}`);
         const { data: insights } = await insightsResponse.json();
 
-        // Create portfolio item
-        await supabase.from("portfolios").insert({
-          ambassador_id: ambassadorProfile.id,
+        // Create portfolio item via API
+        await portfolioService.createPortfolio({
           title: media.caption || `Instagram Reel - ${new Date(media.timestamp).toLocaleDateString()}`,
-          description: media.caption || null,
+          description: media.caption || undefined,
           instagram_url: media.permalink,
           media_urls: [media.media_url],
           campaign_date: media.timestamp,
@@ -119,29 +144,23 @@ export default function Profile() {
       }
 
       // Refresh portfolio items
-      const { data: portfolios } = await supabase
-        .from("portfolios")
-        .select("*")
-        .eq("ambassador_id", ambassadorProfile.id)
-        .order("created_at", { ascending: false });
+      const portfolios = await portfolioService.getAmbassadorPortfolio(ambassadorProfile.id);
 
-      if (portfolios) {
-        const items: PortfolioItem[] = portfolios.map((portfolio) => ({
-          id: portfolio.id,
-          title: portfolio.title,
-          description: portfolio.description || undefined,
-          platform: portfolio.instagram_url ? "instagram" : "tiktok",
-          postUrl: portfolio.instagram_url || portfolio.tiktok_url || "#",
-          thumbnailUrl: (portfolio.media_urls as string[])?.[0] || undefined,
-          date: new Date(
-            portfolio.campaign_date || portfolio.created_at || new Date()
-          ).toLocaleDateString(),
-          views: (portfolio.results as any)?.views?.toString() || undefined,
-          likes: (portfolio.results as any)?.likes?.toString() || undefined,
-          engagement: (portfolio.results as any)?.engagement?.toString() || undefined,
-        }));
-        setPortfolioItems(items);
-      }
+      const items: PortfolioItem[] = portfolios.map((portfolio) => ({
+        id: portfolio.id,
+        title: portfolio.title,
+        description: portfolio.description || undefined,
+        platform: portfolio.instagram_url ? "instagram" : "tiktok",
+        postUrl: portfolio.instagram_url || portfolio.tiktok_url || "#",
+        thumbnailUrl: (portfolio.media_urls as string[])?.[0] || undefined,
+        date: new Date(
+          portfolio.campaign_date || portfolio.created_at || new Date()
+        ).toLocaleDateString(),
+        views: (portfolio.results as Record<string, unknown>)?.views?.toString() || undefined,
+        likes: (portfolio.results as Record<string, unknown>)?.likes?.toString() || undefined,
+        engagement: (portfolio.results as Record<string, unknown>)?.engagement?.toString() || undefined,
+      }));
+      setPortfolioItems(items);
     } catch (error) {
       console.error("Error saving content:", error);
     }

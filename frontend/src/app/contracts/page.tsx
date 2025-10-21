@@ -4,13 +4,13 @@ import { Navbar } from "@/components/layout/Navbar";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { contractService } from "@/services/contractService";
+import { contractService, Contract } from "@/services/contractService";
 import { useEffect, useState } from "react";
 
 export default function ContractsPage() {
   const { clientProfile } = useAuth();
   const router = useRouter();
-  const [contracts, setContracts] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +23,7 @@ export default function ContractsPage() {
         // Fetch all contracts for this client by client_id FK
         const data = await contractService.getContractsForClient(clientProfile.id);
         setContracts(data || []);
-      } catch (error) {
+      } catch {
         setError("Failed to load contracts");
       }
       setLoading(false);
@@ -52,7 +52,7 @@ export default function ContractsPage() {
           <div className="text-center text-gray-500 py-12">
             <div className="text-2xl mb-2">📄</div>
             <div className="text-lg font-semibold mb-1">No contracts yet</div>
-            <div className="text-sm text-gray-500 mb-4">You have not created any contracts. Click "Draft Contract" to get started.</div>
+            <div className="text-sm text-gray-500 mb-4">You have not created any contracts. Click &quot;Draft Contract&quot; to get started.</div>
             <Button
               className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
               onClick={() => router.push("/contracts/new")}
