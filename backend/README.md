@@ -68,6 +68,18 @@ backend/
 └── README.md           # This file
 ```
 
+## Testing
+
+Run unit tests:
+```bash
+pytest
+```
+
+Run tests with coverage:
+```bash
+pytest --cov=.
+```
+
 ## Development
 
 The backend uses:

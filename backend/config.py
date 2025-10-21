@@ -1,8 +1,11 @@
+"""Configuration management for the Dime API using environment variables."""
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
     supabase_url: str
     supabase_service_role_key: str
     supabase_anon_key: str
@@ -15,4 +18,5 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
+    """Returns cached application settings instance."""
     return Settings()

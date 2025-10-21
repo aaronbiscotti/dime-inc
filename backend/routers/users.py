@@ -1,15 +1,30 @@
-from fastapi import APIRouter, HTTPException, status
+"""User management routes for fetching and deleting user accounts."""
+
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 from supabase_client import admin_client
+from core.security import get_current_user
 
 router = APIRouter()
 
 
+@router.get("/me")
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    """
+    Get the current user's profile information.
+    This endpoint requires a valid JWT token in the Authorization header.
+    Returns the user's basic info, profile, and role-specific profile.
+    """
+    return current_user
+
+
 class DeleteUserRequest(BaseModel):
+    """Request model for user deletion with user ID."""
     user_id: str
 
 
 class DeleteUserResponse(BaseModel):
+    """Response model for user deletion operation."""
     success: bool
     message: str
 

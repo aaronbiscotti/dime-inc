@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from "react";
-import { SessionProvider } from "next-auth/react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 import { ToastProvider } from "@/components/ui/toast";
@@ -57,13 +56,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <SessionProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <LayoutContent>{children}</LayoutContent>
-          <DebugPanel />
-        </AuthProvider>
-      </ToastProvider>
-    </SessionProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <LayoutContent>{children}</LayoutContent>
+        <DebugPanel />
+      </AuthProvider>
+    </ToastProvider>
   );
 }

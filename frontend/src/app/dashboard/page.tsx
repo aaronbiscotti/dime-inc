@@ -1,47 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Dashboard() {
   const router = useRouter();
-  const supabase = createClient();
-  const [loading, setLoading] = useState(true);
+  const { user, profile, loading } = useAuth();
 
   useEffect(() => {
-    const redirectBasedOnRole = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          router.replace("/login");
-          return;
-        }
+    // Wait for auth to finish loading
+    if (loading) return;
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+    // If no user, redirect to login
+    if (!user) {
+      router.replace("/signin");
+      return;
+    }
 
-        if (profile?.role === "client") {
-          router.replace("/client-dashboard");
-        } else if (profile?.role === "ambassador") {
-          router.replace("/ambassador-dashboard");
-        } else {
-          router.replace("/profile"); // fallback
-        }
-      } catch (error) {
-        console.error("Error checking user role:", error);
-        router.replace("/signin");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    redirectBasedOnRole();
-  }, [router, supabase]);
+    // Redirect based on role
+    if (profile?.role === "client") {
+      router.replace("/client-dashboard");
+    } else if (profile?.role === "ambassador") {
+      router.replace("/ambassador-dashboard");
+    } else {
+      // If no profile yet, go to profile page
+      router.replace("/profile");
+    }
+  }, [user, profile, loading, router]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

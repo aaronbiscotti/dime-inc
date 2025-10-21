@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { UserRole } from "@/types/database";
 import { AmbassadorCard } from "./AmbassadorCard";
 import { ClientCard } from "./ClientCard";
-import { supabase } from "@/lib/supabase";
+import { API_URL } from "@/config/api";
+
+const API_BASE_URL = API_URL;
 
 interface ExploreGridProps {
   userRole: UserRole;
@@ -20,54 +22,50 @@ export function ExploreGrid({
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch real data from database
+  // Fetch real data from FastAPI using cookie-based auth
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (userRole === "client") {
           // Client is looking for ambassadors
-          const { data: ambassadors, error } = await supabase
-            .from("ambassador_profiles")
-            .select("*, user_id");
+          const params = new URLSearchParams();
+          if (searchQuery) params.append('search', searchQuery);
+          if (filters.niches && filters.niches.length > 0) {
+            filters.niches.forEach(niche => params.append('niches', niche));
+          }
+          if (filters.location && filters.location.length > 0) {
+            params.append('location', filters.location[0]);
+          }
 
-          if (!error && ambassadors) {
-            // Convert to expected format
-            const formattedAmbassadors = ambassadors.map((ambassador) => ({
-              id: ambassador.user_id, // Use user_id as the main ID
-              profileId: ambassador.id, // Keep profile ID for reference
-              name: ambassador.full_name,
-              username: ambassador.full_name.toLowerCase().replace(/\s+/g, ""),
-              bio: ambassador.bio || "Ambassador on Dime",
-              location: ambassador.location || "Location not specified",
-              followers: "N/A", // No follower count in our schema
-              niche: ambassador.niche || [],
-              rating: 4.8, // Default rating since we don't track this yet
-              completedCampaigns: 0, // TODO: Calculate from actual data
-              avgEngagement: "N/A",
-            }));
-            setData(formattedAmbassadors);
+          const response = await fetch(
+            `${API_BASE_URL}/api/explore/ambassadors?${params.toString()}`,
+            {
+              credentials: 'include' // Use cookie-based auth
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            setData(result.data || []);
           }
         } else {
           // Ambassador is looking for clients
-          const { data: clients, error } = await supabase
-            .from("client_profiles")
-            .select("*, user_id");
+          const params = new URLSearchParams();
+          if (searchQuery) params.append('search', searchQuery);
+          if (filters.industry && filters.industry.length > 0) {
+            params.append('industry', filters.industry[0]);
+          }
 
-          if (!error && clients) {
-            // Convert to expected format
-            const formattedClients = clients.map((client) => ({
-              id: client.user_id, // Use user_id as the main ID (same as ambassadors)
-              profileId: client.id, // Keep profile ID for reference
-              companyName: client.company_name,
-              industry: client.industry || "Various",
-              description: client.company_description || "Company on Dime",
-              location: "Location not specified", // Add location to client_profiles if needed
-              activeCampaigns: 0, // TODO: Calculate from campaigns table
-              budgetRange: "TBD",
-              rating: 4.7, // Default rating
-              completedPartnerships: 0, // TODO: Calculate from actual data
-            }));
-            setData(formattedClients);
+          const response = await fetch(
+            `${API_BASE_URL}/api/explore/clients?${params.toString()}`,
+            {
+              credentials: 'include' // Use cookie-based auth
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            setData(result.data || []);
           }
         }
       } catch (error) {

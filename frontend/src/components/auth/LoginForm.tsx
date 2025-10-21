@@ -10,7 +10,6 @@ import { useToast } from "@/components/ui/toast";
 import { UserRole } from "@/types/database";
 import { Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
 
 interface LoginFormProps {
   onSwitchToSignup?: () => void;
@@ -153,15 +152,22 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        {
-          redirectTo: `${window.location.origin}/reset-password`,
-        }
-      );
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          redirect_to: `${window.location.origin}/reset-password`,
+        }),
+      });
 
-      if (error) {
-        setError({ message: error.message });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError({ message: data.detail || "Failed to send password reset email" });
       } else {
         setError({
           message: "Password reset email sent! Please check your inbox.",

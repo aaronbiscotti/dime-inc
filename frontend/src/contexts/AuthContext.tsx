@@ -1,15 +1,23 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { createClient } from "@/utils/supabase/client";
 import {
   Profile,
   UserRole,
   AmbassadorProfile,
   ClientProfile,
-  Database,
 } from "@/types/database";
+
+// Define a simpler User type since we're no longer using Supabase's User type
+interface User {
+  id: string;
+  email: string;
+}
+
+interface Session {
+  user: User;
+  access_token?: string;
+}
 
 interface AuthState {
   user: User | null;
@@ -38,11 +46,10 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Create Supabase client once and memoize it
-  const supabaseRef = React.useRef(createClient());
-  const supabase = supabaseRef.current;
+// API base URL - adjust this based on your environment
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
@@ -52,209 +59,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
   });
 
-  const isUpdatingProfileRef = React.useRef(false);
-
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error("Error fetching profile:", profileError);
-        return { profile: null, ambassadorProfile: null, clientProfile: null };
-      }
-
-      if (!profile) {
-        return { profile: null, ambassadorProfile: null, clientProfile: null };
-      }
-
-      let ambassadorProfile = null;
-      let clientProfile = null;
-
-      // Only query role-specific profiles if the main profile exists and has the correct role
-      if (profile.role === "ambassador") {
-        const { data, error } = await supabase
-          .from("ambassador_profiles")
-          .select("*")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (!error && data) {
-          ambassadorProfile = data;
-        }
-      } else if (profile.role === "client") {
-        const { data, error } = await supabase
-          .from("client_profiles")
-          .select("*")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (!error && data) {
-          clientProfile = data;
-        }
-      }
-
-      return { profile, ambassadorProfile, clientProfile };
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      return { profile: null, ambassadorProfile: null, clientProfile: null };
-    }
-  };
-
+  // Initialize auth on mount - check for existing token and validate it
   useEffect(() => {
-    let mounted = true;
+    const initializeAuth = async () => {
+      // 1. Get the token stored after login
+      const token = localStorage.getItem('auth-token');
 
-    const updateAuthState = async (session: Session | null, isInitialLoad = false) => {
-      if (!mounted) return;
-      if (isUpdatingProfileRef.current) return;
-
-      if (session?.user) {
-        isUpdatingProfileRef.current = true;
-
-        // Only show loading skeleton on initial load, not on refresh
-        if (isInitialLoad) {
-          setState(prev => ({ ...prev, loading: true }));
-        }
-
-        try {
-          const { profile, ambassadorProfile, clientProfile } =
-            await fetchUserProfile(session.user.id);
-
-          if (mounted) {
-            setState({
-              user: session.user,
-              session,
-              profile,
-              ambassadorProfile,
-              clientProfile,
-              loading: false,
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching profile:", error);
-          if (mounted) {
-            setState(prev => ({ ...prev, loading: false }));
-          }
-        } finally {
-          isUpdatingProfileRef.current = false;
-        }
-      } else {
-        setState({
-          user: null,
-          session: null,
-          profile: null,
+      if (!token) {
+        // No token found, user is not logged in
+        setState({ 
+          user: null, 
+          session: null, 
+          profile: null, 
           ambassadorProfile: null,
           clientProfile: null,
-          loading: false,
+          loading: false 
+        });
+        return;
+      }
+
+      try {
+        // 2. Verify token with backend and get user data
+        const response = await fetch(`${API_BASE_URL}/api/users/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          // 3. Backend confirmed token is valid, get user data
+          const userData = await response.json();
+          
+          setState({
+            user: { id: userData.id, email: userData.email },
+            session: { 
+              user: { id: userData.id, email: userData.email },
+              access_token: token 
+            },
+            profile: userData.profile || null,
+            ambassadorProfile: userData.ambassador_profile || null,
+            clientProfile: userData.client_profile || null,
+            loading: false
+          });
+        } else {
+          // 4. Backend said token is invalid (expired, etc.)
+          localStorage.removeItem('auth-token');
+          setState({ 
+            user: null, 
+            session: null, 
+            profile: null, 
+            ambassadorProfile: null,
+            clientProfile: null,
+            loading: false 
+          });
+        }
+      } catch (error) {
+        // Network error, backend is down, etc.
+        console.error("Failed to authenticate with backend", error);
+        setState({ 
+          user: null, 
+          session: null, 
+          profile: null, 
+          ambassadorProfile: null,
+          clientProfile: null,
+          loading: false 
         });
       }
     };
 
-    const initializeAuth = async (isInitialLoad = false) => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        await updateAuthState(session, isInitialLoad);
-      } catch (error) {
-        console.error("Error initializing auth:", error);
-        if (mounted) {
-          setState(prev => ({ ...prev, loading: false }));
-        }
-      }
-    };
-
-    // Handle page visibility change - refresh when user returns (background refresh)
-    const handleVisibilityChange = () => {
-      if (!document.hidden && mounted) {
-        // Background refresh - don't show loading skeleton
-        initializeAuth(false);
-      }
-    };
-
-    // Handle window focus - additional refresh trigger (background refresh)
-    const handleWindowFocus = () => {
-      if (mounted) {
-        // Background refresh - don't show loading skeleton
-        initializeAuth(false);
-      }
-    };
-
-    // Initial load - show loading skeleton
-    initializeAuth(true);
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
-      // Skip INITIAL_SESSION event - we handle this in initializeAuth
-      if (event === 'INITIAL_SESSION') {
-        return;
-      }
-
-      // Add a small delay to prevent rapid state changes
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Auth state change - don't show loading skeleton (background refresh)
-      await updateAuthState(session, false);
-    });
-
-    // Delay adding event listeners to prevent them from firing during initial mount
-    const timeoutId = setTimeout(() => {
-      if (mounted) {
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('focus', handleWindowFocus);
-      }
-    }, 1000);
-
-    return () => {
-      mounted = false;
-      clearTimeout(timeoutId);
-      subscription.unsubscribe();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleWindowFocus);
-      // Cleanup function to reset any pending states
-      if (isUpdatingProfileRef.current) {
-        isUpdatingProfileRef.current = false;
-      }
-    };
-  }, []);
+    initializeAuth();
+  }, []); // This hook runs only ONCE when the app loads
 
   const signUp = async (email: string, password: string, role: UserRole) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, role }),
       });
 
-      if (error) {
-        return { error };
-      }
+      const data = await response.json();
 
-      if (data.user) {
-        // Use upsert to handle potential conflicts
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            id: data.user.id,
-            role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-
-        if (profileError) {
-          return { error: profileError };
-        }
+      if (!response.ok) {
+        return { error: { message: data.detail || 'Signup failed' } };
       }
 
       return { error: null };
     } catch (error) {
-      return { error };
+      return { error: { message: 'Network error during signup' } };
     }
   };
 
@@ -264,59 +158,93 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     expectedRole?: UserRole
   ) => {
     try {
-      // Sign in with credentials
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // First validate credentials and role with the validate-login endpoint
+      if (expectedRole) {
+        const validateResponse = await fetch(`${API_BASE_URL}/api/auth/validate-login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password, expected_role: expectedRole }),
+        });
 
-      if (error) {
-        return { error };
-      }
+        const validateData = await validateResponse.json();
 
-      // If expectedRole is provided, validate user's role matches
-      if (expectedRole && data.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          return { error: profileError };
-        }
-
-        if (profile && profile.role !== expectedRole) {
-          // Sign out the user since their role doesn't match
-          await supabase.auth.signOut();
-
-          const roleName = expectedRole === "client" ? "client" : "brand ambassador";
-          const userRoleName = profile.role === "client" ? "client" : "brand ambassador";
-
-          return {
-            error: {
-              message: `You have a ${userRoleName} account. Please sign in as a ${userRoleName}.`,
-              code: "ROLE_MISMATCH",
-              userRole: profile.role,
-            },
+        if (!validateData.valid) {
+          return { 
+            error: { 
+              message: validateData.message,
+              code: validateData.error_type === 'role_mismatch' ? 'ROLE_MISMATCH' : 'INVALID_CREDENTIALS',
+              userRole: validateData.user_role
+            } 
           };
         }
       }
 
-      return { error: null };
+      // Now sign in with the login endpoint
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { error: { message: data.detail || 'Invalid login credentials' } };
+      }
+
+      // Store the access token
+      const accessToken = data.access_token;
+      localStorage.setItem('auth-token', accessToken);
+
+      // Fetch user profile with the new token
+      const meResponse = await fetch(`${API_BASE_URL}/api/users/me`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (meResponse.ok) {
+        const userData = await meResponse.json();
+        
+        setState({
+          user: { id: userData.id, email: userData.email },
+          session: { 
+            user: { id: userData.id, email: userData.email },
+            access_token: accessToken 
+          },
+          profile: userData.profile || null,
+          ambassadorProfile: userData.ambassador_profile || null,
+          clientProfile: userData.client_profile || null,
+          loading: false
+        });
+
+        return { error: null };
+      } else {
+        localStorage.removeItem('auth-token');
+        return { error: { message: 'Failed to fetch user data' } };
+      }
     } catch (error) {
-      return { error };
+      return { error: { message: 'Network error during login' } };
     }
   };
 
   const signOut = async () => {
     try {
-      // Cancel any ongoing operations
-      if (isUpdatingProfileRef.current) {
-        isUpdatingProfileRef.current = false;
+      // Clear token from storage
+      localStorage.removeItem('auth-token');
+      
+      // Clear all auth-related storage
+      try {
+        sessionStorage.clear();
+      } catch (storageError) {
+        console.warn("Could not clear session storage:", storageError);
       }
 
-      // Clear state immediately for responsive UI
+      // Clear state
       setState({
         user: null,
         session: null,
@@ -325,97 +253,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clientProfile: null,
         loading: false,
       });
-
-      // Clear all possible auth-related storage
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch (storageError) {
-        console.warn("Could not clear storage:", storageError);
-      }
-
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("Error signing out:", error);
-      }
     } catch (error) {
       console.error("Sign out error:", error);
     }
-
-    // Force a complete state reset regardless of errors
-    setState({
-      user: null,
-      session: null,
-      profile: null,
-      ambassadorProfile: null,
-      clientProfile: null,
-      loading: false,
-    });
   };
 
   const createProfile = async (role: UserRole, profileData: Record<string, any>) => {
-    if (!state.user) {
+    if (!state.user || !state.session?.access_token) {
       return { error: new Error("No user logged in") };
     }
 
     try {
-      if (role === "ambassador") {
-        const { error } = await supabase
-          .from("ambassador_profiles")
-          .insert({
-            user_id: state.user.id,
-            full_name: profileData.full_name || "",
-            ...profileData,
-          });
+      const endpoint = role === "ambassador" 
+        ? `${API_BASE_URL}/api/profiles/ambassador`
+        : `${API_BASE_URL}/api/profiles/client`;
 
-        if (error) return { error };
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.session.access_token}`
+        },
+        body: JSON.stringify({
+          user_id: state.user.id,
+          ...profileData
+        }),
+      });
 
-        const { profile, ambassadorProfile, clientProfile } =
-          await fetchUserProfile(state.user.id);
-        setState((prev) => ({
-          ...prev,
-          profile,
-          ambassadorProfile,
-          clientProfile,
-        }));
-      } else if (role === "client") {
-        const { error } = await supabase
-          .from("client_profiles")
-          .insert({
-            user_id: state.user.id,
-            company_name: profileData.company_name || "",
-            ...profileData,
-          });
+      const data = await response.json();
 
-        if (error) return { error };
-
-        const { profile, ambassadorProfile, clientProfile } =
-          await fetchUserProfile(state.user.id);
-        setState((prev) => ({
-          ...prev,
-          profile,
-          ambassadorProfile,
-          clientProfile,
-        }));
+      if (!response.ok) {
+        return { error: { message: data.detail || 'Failed to create profile' } };
       }
+
+      // Refresh profile data
+      await refreshProfile();
 
       return { error: null };
     } catch (error) {
-      return { error };
+      return { error: { message: 'Network error during profile creation' } };
     }
   };
 
   const refreshProfile = async () => {
-    if (!state.user) return;
+    if (!state.session?.access_token) return;
     
     try {
-      const { profile, ambassadorProfile, clientProfile } = await fetchUserProfile(state.user.id);
-      setState(prev => ({
-        ...prev,
-        profile,
-        ambassadorProfile,
-        clientProfile,
-      }));
+      const response = await fetch(`${API_BASE_URL}/api/users/me`, {
+        headers: {
+          'Authorization': `Bearer ${state.session.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        
+        setState(prev => ({
+          ...prev,
+          profile: userData.profile || null,
+          ambassadorProfile: userData.ambassador_profile || null,
+          clientProfile: userData.client_profile || null,
+        }));
+      }
     } catch (error) {
       console.error("Error refreshing profile:", error);
     }

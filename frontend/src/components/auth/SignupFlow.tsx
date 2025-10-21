@@ -6,14 +6,12 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { AuthError, User } from "@supabase/supabase-js";
 import { Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 
 type UserRole = "ambassador" | "client" | null;
 type Step = "email" | "role" | "signup" | "signin" | "verify";
-type AuthError = {
+type AuthErrorType = {
   message: string;
   field?: string;
 };
@@ -26,12 +24,12 @@ interface PasswordStrength {
 
 export default function SignupFlow() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signUp: authSignUp, signIn: authSignIn } = useAuth();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<AuthError | null>(null);
+  const [error, setError] = useState<AuthErrorType | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [emailChecked, setEmailChecked] = useState(false);
   const [formData, setFormData] = useState({
@@ -183,54 +181,34 @@ export default function SignupFlow() {
     setLoading(true);
 
     try {
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName.trim(),
-            role: role,
-          }
-        }
-      });
+      // Sign up using AuthContext
+      const { error: authError } = await authSignUp(
+        email.trim().toLowerCase(),
+        formData.password,
+        role || "ambassador"
+      );
 
       if (authError) {
         // Handle specific auth errors
-        if (authError.message.includes("already registered")) {
+        if (authError.message?.includes("already registered") || authError.message?.includes("already exists")) {
           setError({ message: "An account with this email already exists. Please sign in instead.", field: "email" });
           setStep("signin");
           return;
-        } else if (authError.message.includes("Password")) {
+        } else if (authError.message?.includes("Password")) {
           setError({ message: authError.message, field: "password" });
           return;
-        } else if (authError.message.includes("Email")) {
+        } else if (authError.message?.includes("Email")) {
           setError({ message: authError.message, field: "email" });
           return;
         } else {
-          throw authError;
+          setError({ message: authError.message || "Signup failed. Please try again." });
+          return;
         }
       }
 
-      if (!authData.user) {
-        throw new Error("Account creation failed. Please try again.");
-      }
-
-      // Check if email confirmation is required
-      if (!authData.session && authData.user && !authData.user.email_confirmed_at) {
-        setStep("verify");
-        return;
-      }
-
-      // If we have a session, the user is logged in
-      if (authData.session) {
-        // Redirect to the login page which will handle profile setup
-        // AuthFlow will detect incomplete profile and show ProfileSetupForm
-        const redirectPath = role === "client"
-          ? "/login/client"
-          : "/login/brand-ambassador";
-        router.push(redirectPath);
-      }
+      // Check if email confirmation is required (you'll need to handle this in your backend)
+      // For now, redirect to verify step
+      setStep("verify");
 
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -260,28 +238,23 @@ export default function SignupFlow() {
     setLoading(true);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: formData.password,
-      });
+      const { error: authError } = await authSignIn(
+        email.trim().toLowerCase(),
+        formData.password
+      );
 
       if (authError) {
         // Handle specific signin errors
-        if (authError.message.includes("Invalid login credentials")) {
+        if (authError.message?.includes("Invalid login credentials") || authError.message?.includes("Incorrect")) {
           setError({ message: "Incorrect email or password. Please try again.", field: "password" });
-        } else if (authError.message.includes("Email not confirmed")) {
+        } else if (authError.message?.includes("Email not confirmed")) {
           setError({ message: "Please check your email and click the confirmation link before signing in." });
           setStep("verify");
-        } else if (authError.message.includes("Too many requests")) {
+        } else if (authError.message?.includes("Too many requests")) {
           setError({ message: "Too many login attempts. Please wait a moment and try again." });
         } else {
           setError({ message: authError.message || "Unable to sign in. Please try again." });
         }
-        return;
-      }
-
-      if (!data.user) {
-        setError({ message: "Sign in failed. Please try again." });
         return;
       }
 
@@ -308,10 +281,19 @@ export default function SignupFlow() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email.trim().toLowerCase(),
+      // Note: You'll need to implement this endpoint in your FastAPI backend
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+        }),
       });
+
+      const error = response.ok ? null : { message: "Failed to resend confirmation email" };
 
       if (error) {
         setError({ message: error.message });
@@ -605,3 +587,4 @@ export default function SignupFlow() {
     </div>
   );
 }
+

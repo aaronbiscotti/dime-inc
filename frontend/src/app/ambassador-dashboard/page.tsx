@@ -2,58 +2,39 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
 
 export default function AmbassadorDashboard() {
+  const { user, profile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [isAmbassador, setIsAmbassador] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
-    const checkAmbassadorRole = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          router.push("/login/brand-ambassador");
-          return;
-        }
+    // Wait for auth to finish loading
+    if (authLoading) return;
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+    // If no user, redirect to login
+    if (!user) {
+      router.push("/login/brand-ambassador");
+      return;
+    }
 
-        if (profile?.role === "ambassador") {
-          setIsAmbassador(true);
-        } else {
-          // Redirect clients to their dashboard
-          router.push("/client-dashboard");
-          return;
-        }
-      } catch (error) {
-        console.error("Error checking user role:", error);
-        router.push("/login/brand-ambassador");
-      } finally {
-        setLoading(false);
-      }
-    };
+    // If not an ambassador, redirect to client dashboard
+    if (profile?.role !== "ambassador") {
+      router.push("/client-dashboard");
+      return;
+    }
 
-    checkAmbassadorRole();
-  }, [router, supabase]);
+    // User is authenticated and is an ambassador
+    setLoading(false);
+  }, [user, profile, authLoading, router]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e]"></div>
-      </div>
-    );
+  if (loading || authLoading) {
+    return null;
   }
 
-  if (!isAmbassador) {
+  if (!user || profile?.role !== "ambassador") {
     return null; // Will redirect
   }
 

@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 import {
   X,
   MapPin,
@@ -17,6 +16,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import Image from "next/image";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -81,42 +82,29 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
     setError(null);
 
     try {
-      if (profile.role === "ambassador" && ambassadorProfile) {
-        // Update ambassador profile
-        const { error: updateError } = await supabase
-          .from("ambassador_profiles")
-          .update({
-            full_name: formData.full_name,
-            bio: formData.bio,
-            location: formData.location,
-            instagram_handle: formData.instagram_handle,
-            tiktok_handle: formData.tiktok_handle,
-            twitter_handle: formData.twitter_handle,
-            profile_photo_url: formData.profile_photo_url,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", ambassadorProfile.id);
+      // Get the auth token
+      const token = localStorage.getItem('auth-token');
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
 
-        if (updateError) {
-          throw updateError;
-        }
-      } else if (profile.role === "client" && clientProfile) {
-        // Update client profile
-        const { error: updateError } = await supabase
-          .from("client_profiles")
-          .update({
-            company_name: formData.company_name,
-            company_description: formData.company_description,
-            industry: formData.industry,
-            website: formData.website,
-            logo_url: formData.logo_url,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", clientProfile.id);
+      const endpoint = profile.role === "ambassador" 
+        ? `${API_BASE_URL}/api/profiles/ambassador`
+        : `${API_BASE_URL}/api/profiles/client`;
 
-        if (updateError) {
-          throw updateError;
-        }
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to update profile');
       }
 
       // Call the parent's onSave callback
@@ -133,7 +121,7 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
       
     } catch (error) {
       console.error("Error updating profile:", error);
-      setError("Failed to update profile. Please try again.");
+      setError(error instanceof Error ? error.message : "Failed to update profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -146,9 +134,7 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
       setLoading(true);
       setError(null);
 
-
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-      const res = await fetch(`${backendUrl}/api/users/delete`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/delete`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: profile.id }),
@@ -158,9 +144,9 @@ export function ProfileEditModal({ isOpen, onClose, onSave }: ProfileEditModalPr
 
       if (res.ok && result.success) {
         setSuccess(true);
-        // Sign out and redirect after successful deletion
-        setTimeout(async () => {
-          await supabase.auth.signOut();
+        // Clear auth token and redirect after successful deletion
+        setTimeout(() => {
+          localStorage.removeItem('auth-token');
           // Force reload to clear all app state
           window.location.href = "/";
         }, 1500);

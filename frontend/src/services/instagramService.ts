@@ -1,6 +1,4 @@
-import { createClient } from "@/utils/supabase/client";
-
-const INSTAGRAM_GRAPH_API_URL = "https://graph.instagram.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface InstagramMedia {
   id: string;
@@ -24,228 +22,147 @@ export interface InstagramInsights {
 }
 
 export interface InstagramConnection {
-  id: string;
-  ambassador_id: string;
-  instagram_user_id: string;
-  instagram_username: string;
-  access_token: string;
-  token_expires_at: string;
-  created_at: string;
-  updated_at: string;
+  connected: boolean;
+  username?: string;
+  expires_at?: string;
 }
 
 class InstagramService {
   /**
-   * Exchange short-lived token for long-lived token (60 days)
+   * Get authentication token from localStorage
    */
-  async exchangeForLongLivedToken(shortLivedToken: string): Promise<{
-    access_token: string;
-    expires_in: number;
-  }> {
-    const response = await fetch(
-      `${INSTAGRAM_GRAPH_API_URL}/access_token?` +
-        new URLSearchParams({
-          grant_type: "ig_exchange_token",
-          client_secret: process.env.INSTAGRAM_APP_SECRET!,
-          access_token: shortLivedToken,
-        })
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to exchange token");
+  private getAuthToken(): string {
+    const token = localStorage.getItem('auth-token');
+    if (!token) {
+      throw new Error('Not authenticated');
     }
-
-    return await response.json();
+    return token;
   }
 
   /**
-   * Refresh long-lived token before expiration
+   * Save Instagram connection after OAuth
    */
-  async refreshLongLivedToken(currentToken: string): Promise<{
-    access_token: string;
-    expires_in: number;
-  }> {
-    const response = await fetch(
-      `${INSTAGRAM_GRAPH_API_URL}/refresh_access_token?` +
-        new URLSearchParams({
-          grant_type: "ig_refresh_token",
-          access_token: currentToken,
+  async saveConnection(
+    shortLivedToken: string,
+    instagramUserId: string
+  ): Promise<{ success: boolean; username?: string; expiresIn?: number; error?: string }> {
+    try {
+      const token = this.getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/instagram/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          short_lived_token: shortLivedToken,
+          instagram_user_id: instagramUserId
         })
-    );
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to refresh token");
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: data.detail || 'Failed to connect Instagram' };
+      }
+
+      return {
+        success: true,
+        username: data.username,
+        expiresIn: data.expires_in
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to connect Instagram'
+      };
     }
-
-    return await response.json();
   }
 
   /**
-   * Fetch user's media (Reels, posts)
+   * Get Instagram connection status
    */
-  async getUserMedia(
-    accessToken: string,
-    userId: string,
-    limit: number = 25
-  ): Promise<InstagramMedia[]> {
-    const response = await fetch(
-      `${INSTAGRAM_GRAPH_API_URL}/${userId}/media?` +
-        new URLSearchParams({
-          fields:
-            "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,username",
-          limit: limit.toString(),
-          access_token: accessToken,
-        })
-    );
+  async getConnection(): Promise<InstagramConnection> {
+    try {
+      const token = this.getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/instagram/connect`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch media");
+      if (!response.ok) {
+        return { connected: false };
+      }
+
+      const data = await response.json();
+      
+      return {
+        connected: data.connected,
+        username: data.username,
+        expires_at: data.expires_at
+      };
+    } catch (error) {
+      console.error('Failed to get Instagram connection:', error);
+      return { connected: false };
     }
+  }
 
-    const data = await response.json();
-    return data.data || [];
+  /**
+   * Fetch user's Instagram media (Reels, posts)
+   */
+  async getUserMedia(limit: number = 25): Promise<InstagramMedia[]> {
+    try {
+      const token = this.getAuthToken();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/instagram/media?limit=${limit}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch media');
+      }
+
+      const data = await response.json();
+      return data.data || [];
+    } catch (error) {
+      console.error('Failed to fetch Instagram media:', error);
+      throw error;
+    }
   }
 
   /**
    * Fetch insights for a specific media item
    */
-  async getMediaInsights(
-    accessToken: string,
-    mediaId: string
-  ): Promise<InstagramInsights> {
-    const response = await fetch(
-      `${INSTAGRAM_GRAPH_API_URL}/${mediaId}/insights?` +
-        new URLSearchParams({
-          metric: "plays,reach,likes,comments,shares,saved,total_interactions",
-          access_token: accessToken,
-        })
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch insights");
-    }
-
-    const data = await response.json();
-    const insights: InstagramInsights = {};
-
-    // Parse insights response
-    data.data?.forEach((metric: { name: string; values: { value: number }[] }) => {
-      const value = metric.values[0]?.value;
-      switch (metric.name) {
-        case "plays":
-          insights.plays = value;
-          break;
-        case "reach":
-          insights.reach = value;
-          break;
-        case "likes":
-          insights.likes = value;
-          break;
-        case "comments":
-          insights.comments = value;
-          break;
-        case "shares":
-          insights.shares = value;
-          break;
-        case "saved":
-          insights.saved = value;
-          break;
-        case "total_interactions":
-          insights.total_interactions = value;
-          break;
-      }
-    });
-
-    return insights;
-  }
-
-  /**
-   * Save Instagram connection to database
-   */
-  async saveConnection(
-    ambassadorId: string,
-    instagramUserId: string,
-    instagramUsername: string,
-    accessToken: string,
-    expiresIn: number
-  ): Promise<{ error: any }> {
-    const supabase = createClient();
-    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
-
-    const { error } = await supabase.from("instagram_connections").upsert(
-      {
-        ambassador_id: ambassadorId,
-        instagram_user_id: instagramUserId,
-        instagram_username: instagramUsername,
-        access_token: accessToken,
-        token_expires_at: expiresAt,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "ambassador_id",
-      }
-    );
-
-    return { error };
-  }
-
-  /**
-   * Get Instagram connection for ambassador
-   */
-  async getConnection(ambassadorId: string): Promise<{
-    data: InstagramConnection | null;
-    error: any;
-  }> {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from("instagram_connections")
-      .select("*")
-      .eq("ambassador_id", ambassadorId)
-      .maybeSingle();
-
-    return { data, error };
-  }
-
-  /**
-   * Check if token needs refresh (within 7 days of expiration)
-   */
-  shouldRefreshToken(expiresAt: string): boolean {
-    const expiryDate = new Date(expiresAt);
-    const now = new Date();
-    const daysUntilExpiry =
-      (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-
-    return daysUntilExpiry < 7;
-  }
-
-  /**
-   * Auto-refresh token if needed
-   */
-  async ensureValidToken(
-    connection: InstagramConnection
-  ): Promise<{ accessToken: string; error: any }> {
-    if (!this.shouldRefreshToken(connection.token_expires_at)) {
-      return { accessToken: connection.access_token, error: null };
-    }
-
+  async getMediaInsights(mediaId: string): Promise<InstagramInsights> {
     try {
-      const { access_token, expires_in } = await this.refreshLongLivedToken(
-        connection.access_token
+      const token = this.getAuthToken();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/instagram/insights/${mediaId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
       );
 
-      // Update token in database
-      await this.saveConnection(
-        connection.ambassador_id,
-        connection.instagram_user_id,
-        connection.instagram_username,
-        access_token,
-        expires_in
-      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch insights');
+      }
 
-      return { accessToken: access_token, error: null };
+      const data = await response.json();
+      return data.data || {};
     } catch (error) {
-      return { accessToken: "", error };
+      console.error('Failed to fetch Instagram insights:', error);
+      throw error;
     }
   }
 }

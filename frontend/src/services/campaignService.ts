@@ -1,315 +1,452 @@
-import { createClient } from "@/lib/supabase";
-import { Campaign, CampaignStatus } from "@/types/database";
+/**
+ * Campaign Service - Handles all campaign-related operations via backend API
+ * NO direct Supabase calls - all operations go through FastAPI backend
+ */
 
-export interface CreateCampaignData {
+import { API_URL } from '@/config/api';
+
+const API_BASE_URL = API_URL;
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+export interface CampaignData {
+  id?: string;
   title: string;
   description: string;
-  budget_min: number;
-  budget_max: number;
-  deadline?: string | null;
-  requirements?: string | null;
-  proposal_message?: string | null;
-  max_ambassadors?: number;
+  budget: string;
+  timeline: string;
+  requirements?: string[];
+  targetNiches?: string[];
+  campaignType?: string;
+  deliverables?: string[];
 }
 
-async function getCampaignAmbassadors(campaignId: string) {
-  const supabase = createClient();
-  // Query campaign_ambassadors and join ambassador_profiles (select handles and avatar)
-  const { data, error } = await supabase
-    .from("campaign_ambassadors")
-    .select(`id, ambassador_id, status, ambassador_profiles:ambassador_id (id, full_name, profile_photo_url, instagram_handle, tiktok_handle, twitter_handle)`)
-    .eq("campaign_id", campaignId);
-  if (error) {
-    console.error("Error fetching campaign ambassadors:", error);
-    return [];
+export interface Campaign {
+  id: string;
+  title: string;
+  description: string;
+  budget: string;
+  timeline: string;
+  requirements?: string[];
+  target_niches?: string[];
+  campaign_type?: string;
+  deliverables?: string[];
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignAmbassador {
+  id: string;
+  name: string;
+  avatar_url?: string;
+  instagram_handle?: string;
+  tiktok_handle?: string;
+  twitter_handle?: string;
+  status?: string;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Get authentication token from localStorage
+ */
+function getAuthToken(): string {
+  const token = localStorage.getItem('auth-token');
+  if (!token) {
+    throw new Error('Not authenticated');
   }
-  // Map to flatten ambassador_profiles
-  return (data || []).map((row: any) => ({
-    id: row.ambassador_profiles?.id || row.ambassador_id,
-    name: row.ambassador_profiles?.full_name,
-    avatar_url: row.ambassador_profiles?.profile_photo_url,
-    instagram_handle: row.ambassador_profiles?.instagram_handle,
-    tiktok_handle: row.ambassador_profiles?.tiktok_handle,
-    twitter_handle: row.ambassador_profiles?.twitter_handle,
-    status: row.status,
-  }));
+  return token;
 }
 
 /**
- * Fetch campaign_ambassadors join table rows for a campaign (with id and ambassador_id)
+ * Standard error response format
  */
-async function getCampaignAmbassadorRows(campaignId: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('campaign_ambassadors')
-    .select('id, ambassador_id')
-    .eq('campaign_id', campaignId);
-  if (error) throw error;
-  return data || [];
+interface ErrorResponse {
+  data: null;
+  error: { message: string };
 }
 
-export const campaignService = {
+/**
+ * Handle API errors consistently
+ */
+function handleError(error: any, context: string): ErrorResponse {
+  console.error(`[CampaignService] ${context}:`, error);
+  
+  const message = error instanceof Error 
+    ? error.message 
+    : typeof error === 'string' 
+    ? error 
+    : 'An unexpected error occurred';
+  
+  // Propagate error to UI layer
+  return {
+    data: null,
+    error: { message }
+  };
+}
+
+// ============================================================================
+// CAMPAIGN SERVICE
+// ============================================================================
+
+class CampaignService {
   /**
    * Create a new campaign
    */
-  async createCampaign(data: CreateCampaignData): Promise<Campaign | null> {
-    const supabase = createClient();
-    
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error("[createCampaign] No authenticated user.");
-      throw new Error("User not authenticated");
+  async createCampaign(campaignData: CampaignData) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: campaignData.title,
+          description: campaignData.description,
+          budget: campaignData.budget,
+          timeline: campaignData.timeline,
+          requirements: campaignData.requirements,
+          target_niches: campaignData.targetNiches,
+          campaign_type: campaignData.campaignType,
+          deliverables: campaignData.deliverables
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to create campaign');
+      }
+
+      return { data: data.campaign, error: null };
+    } catch (error) {
+      return handleError(error, 'createCampaign');
     }
-
-    // Get the client profile ID
-    const { data: clientProfile, error: profileError } = await supabase
-      .from("client_profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-    if (profileError || !clientProfile) {
-      console.error("[createCampaign] Client profile not found.");
-      throw new Error("Client profile not found");
-    }
-
-    // Create the campaign
-    const { data: campaign, error } = await supabase
-      .from("campaigns")
-      .insert({
-        ...data,
-        client_id: clientProfile.id,
-        status: "draft" as CampaignStatus,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating campaign - Full error:", JSON.stringify(error, null, 2));
-      console.error("Error details:", error.message, error.details, error.hint, error.code);
-      throw new Error(`Failed to create campaign: ${error.message || JSON.stringify(error)}`);
-    }
-
-    return campaign;
-  },
+  }
 
   /**
-   * Get all campaigns for the current client
+   * Get all campaigns for a specific client
    */
-  async getClientCampaigns(): Promise<Campaign[]> {
-    const supabase = createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("User not authenticated");
+  async getCampaignsForClient(clientId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/client/${clientId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.detail || 'Failed to fetch campaigns');
+      }
+
+      return { data: result.data || [], error: null };
+    } catch (error) {
+      return handleError(error, 'getCampaignsForClient');
     }
-
-    // Get the client profile ID
-    const { data: clientProfile } = await supabase
-      .from("client_profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!clientProfile) {
-      return [];
-    }
-
-    const { data: campaigns, error } = await supabase
-      .from("campaigns")
-      .select("*")
-      .eq("client_id", clientProfile.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching campaigns:", error);
-      throw new Error(error.message);
-    }
-
-    return campaigns || [];
-  },
+  }
 
   /**
-   * Publish a campaign (change status from draft to active)
+   * Get all open campaigns (for ambassadors to browse)
    */
-  async publishCampaign(campaignId: string): Promise<void> {
-    const supabase = createClient();
-    
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ status: "active" as CampaignStatus })
-      .eq("id", campaignId);
+  async getAllOpenCampaigns() {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/all`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-    if (error) {
-      console.error("Error publishing campaign:", error);
-      throw new Error(error.message);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.detail || 'Failed to fetch open campaigns');
+      }
+
+      return { data: result.data || [], error: null };
+    } catch (error) {
+      return handleError(error, 'getAllOpenCampaigns');
     }
-  },
-
-  /**
-   * Update campaign status
-   */
-  async updateCampaignStatus(campaignId: string, status: CampaignStatus): Promise<void> {
-    const supabase = createClient();
-    
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq("id", campaignId);
-
-    if (error) {
-      console.error("Error updating campaign status:", error);
-      throw new Error(error.message);
-    }
-  },
-
-  /**
-   * Update campaign details
-   */
-  async updateCampaign(campaignId: string, data: Partial<CreateCampaignData>): Promise<Campaign | null> {
-    const supabase = createClient();
-    
-    const { data: campaign, error } = await supabase
-      .from("campaigns")
-      .update({
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", campaignId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating campaign:", error);
-      throw new Error(error.message);
-    }
-
-    return campaign;
-  },
-
-  /**
-   * Delete a campaign
-   */
-  async deleteCampaign(campaignId: string): Promise<void> {
-    const supabase = createClient();
-    
-    const { error } = await supabase
-      .from("campaigns")
-      .delete()
-      .eq("id", campaignId);
-
-    if (error) {
-      console.error("Error deleting campaign:", error);
-      throw new Error(error.message);
-    }
-  },
+  }
 
   /**
    * Get a single campaign by ID
    */
-  async getCampaignById(campaignId: string): Promise<Campaign | null> {
-    const supabase = createClient();
-    
-    const { data: campaign, error } = await supabase
-      .from("campaigns")
-      .select("*")
-      .eq("id", campaignId)
-      .single();
+  async getCampaign(campaignId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-    if (error) {
-      console.error("Error fetching campaign:", error);
-      throw new Error(error.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to fetch campaign');
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return handleError(error, 'getCampaign');
     }
-
-    return campaign;
-  },
+  }
 
   /**
-   * Add an ambassador to a campaign (campaign_ambassadors row)
-   * Now also creates/finds a chat room and links it.
+   * Update a campaign
    */
-  async addAmbassadorToCampaign({ campaignId, ambassadorId }: { campaignId: string; ambassadorId: string }) {
-    const supabase = createClient();
+  async updateCampaign(campaignId: string, updates: Partial<CampaignData>) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
 
-    // Get current user (client)
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
+      const data = await response.json();
 
-    // Get ambassador's user_id from ambassador_profiles
-    const { data: ambassadorProfile, error: ambassadorProfileError } = await supabase
-      .from("ambassador_profiles")
-      .select("user_id, full_name")
-      .eq("id", ambassadorId)
-      .single();
-    if (ambassadorProfileError || !ambassadorProfile) {
-      throw new Error("Ambassador profile not found");
-    }
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to update campaign');
+      }
 
-    // Get client profile for name
-    const { data: clientProfile, error: clientProfileError } = await supabase
-      .from("client_profiles")
-      .select("company_name")
-      .eq("user_id", user.id)
-      .single();
-    if (clientProfileError || !clientProfile) {
-      throw new Error("Client profile not found");
+      return { data: data.campaign, error: null };
+    } catch (error) {
+      return handleError(error, 'updateCampaign');
     }
-
-    // Create or find private chat between client and ambassador
-    // Import chatService at the top: import { chatService } from "./chatService";
-    const { data: chat, error: chatError } = await (await import("./chatService")).chatService.createChat({
-      participantId: ambassadorProfile.user_id,
-      participantName: ambassadorProfile.full_name,
-      participantRole: "ambassador",
-      subject: clientProfile.company_name,
-    });
-    if (chatError || !chat) {
-      throw new Error("Failed to create/find chat room: " + (typeof chatError === 'object' && chatError && 'message' in chatError ? (chatError as any).message : JSON.stringify(chatError) || "Unknown error"));
-    }
-
-    // Insert campaign_ambassadors row with chat_room_id
-    const { data, error } = await supabase
-      .from("campaign_ambassadors")
-      .insert({
-        campaign_id: campaignId,
-        ambassador_id: ambassadorId,
-        status: "proposal_received",
-        chat_room_id: chat.id,
-      })
-      .select()
-      .single();
-    if (error || !data) {
-      console.error("[addAmbassadorToCampaign] Failed to add row:", error);
-      throw new Error("Failed to add ambassador to campaign: " + (error?.message || "Unknown error"));
-    }
-    return data;
-  },
+  }
 
   /**
-   * Delete campaign_ambassadors row(s) by chat_room_id
-   * Call this after deleting a chat room to keep data in sync.
+   * Delete a campaign
    */
-  async deleteCampaignAmbassadorByChatRoomId(chatRoomId: string): Promise<void> {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("campaign_ambassadors")
-      .delete()
-      .eq("chat_room_id", chatRoomId);
-    if (error) {
-      console.error("Error deleting campaign_ambassador by chat_room_id:", error);
-      throw new Error(error.message);
+  async deleteCampaign(campaignId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to delete campaign');
+      }
+
+      return { data: { success: true }, error: null };
+    } catch (error) {
+      return handleError(error, 'deleteCampaign');
     }
-  },
+  }
 
   /**
-   * Placeholder: Fetch ambassadors for a campaign by campaignId
+   * Publish a campaign (change status from draft to active)
    */
+  async publishCampaign(campaignId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}/publish`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to publish campaign');
+      }
+
+      return { data: { success: true }, error: null };
+    } catch (error) {
+      return handleError(error, 'publishCampaign');
+    }
+  }
+
+  /**
+   * Update campaign status
+   */
+  async updateCampaignStatus(campaignId: string, status: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to update campaign status');
+      }
+
+      return { data: { success: true }, error: null };
+    } catch (error) {
+      return handleError(error, 'updateCampaignStatus');
+    }
+  }
+
+  /**
+   * Add an ambassador to a campaign
+   * This creates a campaign_ambassadors relationship and chat room
+   */
+  async addAmbassadorToCampaign(campaignId: string, ambassadorId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors/${ambassadorId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to add ambassador to campaign');
+      }
+
+      return { data: data, error: null };
+    } catch (error) {
+      return handleError(error, 'addAmbassadorToCampaign');
+    }
+  }
+
+  /**
+   * Get ambassadors for a campaign
+   */
+  async getCampaignAmbassadors(campaignId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to fetch campaign ambassadors');
+      }
+
+      return { data: data.ambassadors || [], error: null };
+    } catch (error) {
+      return handleError(error, 'getCampaignAmbassadors');
+    }
+  }
+
+  /**
+   * Delete campaign_ambassadors row by chat_room_id
+   * This is used when deleting a chat to keep data in sync
+   */
+  async deleteCampaignAmbassadorByChatRoomId(chatRoomId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/campaigns/ambassadors/chat/${chatRoomId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to delete campaign ambassador');
+      }
+
+      return { data: { success: true }, error: null };
+    } catch (error) {
+      return handleError(error, 'deleteCampaignAmbassadorByChatRoomId');
+    }
+  }
+
+  /**
+   * Get campaign ambassador rows (join table entries)
+   */
+  async getCampaignAmbassadorRows(campaignId: string) {
+    try {
+      const token = getAuthToken();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassador-rows`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to fetch campaign ambassador rows');
+      }
+
+      return { data: data.rows || [], error: null };
+    } catch (error) {
+      return handleError(error, 'getCampaignAmbassadorRows');
+    }
+  }
+}
+
+// Export singleton instance
+export const campaignService = new CampaignService();
+
+// Export individual methods for convenience
+export const {
+  createCampaign,
+  getCampaignsForClient,
+  getAllOpenCampaigns,
+  getCampaign,
+  updateCampaign,
+  deleteCampaign,
+  publishCampaign,
+  updateCampaignStatus,
+  addAmbassadorToCampaign,
   getCampaignAmbassadors,
-
-  /**
-   * Fetch campaign_ambassadors join table rows for a campaign (with id and ambassador_id)
-   */
-  getCampaignAmbassadorRows,
-};
+  deleteCampaignAmbassadorByChatRoomId,
+  getCampaignAmbassadorRows
+} = campaignService;

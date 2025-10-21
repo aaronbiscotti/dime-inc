@@ -1,3 +1,5 @@
+"""Supabase client initialization for admin and public API access."""
+
 from supabase import create_client, Client
 from config import get_settings
 

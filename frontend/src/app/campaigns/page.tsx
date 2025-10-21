@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { CreateCampaignForm } from "@/components/campaigns/CreateCampaignForm";
 import { campaignService } from "@/services/campaignService";
@@ -10,48 +10,35 @@ import { Campaign } from "@/types/database";
 import { ChevronRight } from "lucide-react";
 
 export default function Campaigns() {
+  const { user, profile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [isClient, setIsClient] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
-    const checkClientRole = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          router.push("/login/client");
-          return;
-        }
+    // Wait for auth to finish loading
+    if (authLoading) return;
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+    // If no user, redirect to login
+    if (!user) {
+      router.push("/login/client");
+      return;
+    }
 
-        if (profile?.role === "client") {
-          setIsClient(true);
-          loadCampaigns();
-        } else {
-          // Redirect ambassadors to their dashboard
-          router.push("/ambassador-dashboard");
-          return;
-        }
-      } catch (error) {
-        console.error("Error checking user role:", error);
-        router.push("/login/client");
-      } finally {
-        setLoading(false);
-      }
-    };
+    // If not a client, redirect to ambassador dashboard
+    if (profile?.role !== "client") {
+      router.push("/ambassador-dashboard");
+      return;
+    }
 
-    checkClientRole();
-  }, [router, supabase]);
+    // Load campaigns for client
+    loadCampaigns();
+
+    // User is authenticated and is a client
+    setLoading(false);
+  }, [user, profile, authLoading, router]);
 
   const loadCampaigns = async () => {
     setLoadingCampaigns(true);
@@ -70,7 +57,7 @@ export default function Campaigns() {
     setShowForm(false);
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e]"></div>
@@ -78,7 +65,7 @@ export default function Campaigns() {
     );
   }
 
-  if (!isClient) {
+  if (!user || profile?.role !== "client") {
     return null; // Will redirect
   }
 
