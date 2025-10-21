@@ -151,21 +151,28 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
     setError(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          redirect_to: `${window.location.origin}/reset-password`,
-        }),
-      });
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        }/api/auth/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            redirect_to: `${window.location.origin}/reset-password`,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError({ message: data.detail || "Failed to send password reset email" });
+        setError({
+          message: data.detail || "Failed to send password reset email",
+        });
       } else {
         setError({
           message: "Password reset email sent! Please check your inbox.",
@@ -334,7 +341,7 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
           </Button>
 
           {onSwitchToSignup && (
-            <div className="text-center pt-4 border-t border-gray-200">
+            <div className="text-center pt-4 border-t border-gray-300">
               <p className="text-sm text-gray-600">
                 Don&apos;t have an account?{" "}
                 <button

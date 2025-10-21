@@ -26,13 +26,17 @@ export function Navbar() {
   }
 
   return (
-    <nav className="bg-white border-b-2 border-gray-300 w-full">
+    <nav className="bg-white border-b border-gray-300 w-full">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between w-full">
           {/* Logo and Navigation Links */}
           <div className="flex items-center space-x-8">
-            <Link 
-              href={profile.role === "client" ? "/client-dashboard" : "/ambassador-dashboard"} 
+            <Link
+              href={
+                profile.role === "client"
+                  ? "/client-dashboard"
+                  : "/ambassador-dashboard"
+              }
               className="flex items-center"
             >
               <Image
@@ -59,7 +63,7 @@ export function Navbar() {
                   >
                     Dashboard
                   </Link>
-                  
+
                   <Link
                     href="/campaigns"
                     className={`text-sm font-medium transition-colors ${

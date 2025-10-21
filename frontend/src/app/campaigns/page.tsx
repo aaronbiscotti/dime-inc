@@ -61,7 +61,7 @@ export default function Campaigns() {
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b border-[#f5d82e]"></div>
       </div>
     );
   }
@@ -74,13 +74,11 @@ export default function Campaigns() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="pt-16">
-        <div className="max-w-7xl mx-auto p-6">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                My Campaigns
-              </h1>
+              <h1 className="text-3xl font-bold text-gray-900">My Campaigns</h1>
               <p className="text-gray-600 mt-1">
                 Create and manage your campaigns
               </p>
@@ -97,7 +95,7 @@ export default function Campaigns() {
 
           {/* Create Campaign Form */}
           {showForm && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+            <div className="bg-white rounded-xl border border-gray-300 p-6 mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">
                 Create New Campaign
               </h2>
@@ -112,10 +110,10 @@ export default function Campaigns() {
           <div className="space-y-4">
             {loadingCampaigns ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e] mx-auto"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b border-[#f5d82e] mx-auto"></div>
               </div>
             ) : campaigns.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+              <div className="bg-white rounded-xl border border-gray-300 p-12 text-center">
                 <p className="text-gray-600">
                   No campaigns yet. Create your first campaign to get started!
                 </p>
@@ -125,7 +123,7 @@ export default function Campaigns() {
                 <div
                   key={campaign.id}
                   onClick={() => router.push(`/campaigns/${campaign.id}`)}
-                  className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-all cursor-pointer hover:border-[#f5d82e]"
+                  className="bg-white rounded-xl border border-gray-300 p-6 hover:shadow-md transition-all cursor-pointer hover:border-[#f5d82e]"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -144,10 +142,13 @@ export default function Campaigns() {
                               : "bg-red-100 text-red-700"
                           }`}
                         >
-                          {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                          {campaign.status.charAt(0).toUpperCase() +
+                            campaign.status.slice(1)}
                         </span>
                       </div>
-                      <p className="text-gray-600 mb-4 line-clamp-2">{campaign.description}</p>
+                      <p className="text-gray-600 mb-4 line-clamp-2">
+                        {campaign.description}
+                      </p>
                       <div className="flex gap-6 text-sm text-gray-500">
                         <div>
                           <span className="font-medium">Budget:</span> $

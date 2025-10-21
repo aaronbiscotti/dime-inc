@@ -11,13 +11,17 @@ interface CampaignCardProps {
   clientLogo?: string;
 }
 
-export function CampaignCard({ campaign, clientName, clientLogo }: CampaignCardProps) {
+export function CampaignCard({
+  campaign,
+  clientName,
+  clientLogo,
+}: CampaignCardProps) {
   const router = useRouter();
 
   return (
     <div
       onClick={() => router.push(`/explore/campaigns/${campaign.id}`)}
-      className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-[#f5d82e] transition-all cursor-pointer"
+      className="bg-white rounded-xl border border-gray-300 p-6 hover:shadow-lg hover:border-[#f5d82e] transition-all cursor-pointer"
     >
       {/* Client Info */}
       <div className="flex items-center gap-3 mb-4">
@@ -57,14 +61,16 @@ export function CampaignCard({ campaign, clientName, clientLogo }: CampaignCardP
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <DollarSign className="w-4 h-4 text-[#f5d82e]" />
           <span className="font-medium">
-            ${campaign.budget_min.toFixed(0)} - ${campaign.budget_max.toFixed(0)}
+            ${campaign.budget_min.toFixed(0)} - $
+            {campaign.budget_max.toFixed(0)}
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Users className="w-4 h-4 text-blue-500" />
           <span>
-            Up to {campaign.max_ambassadors} ambassador{campaign.max_ambassadors !== 1 ? 's' : ''}
+            Up to {campaign.max_ambassadors} ambassador
+            {campaign.max_ambassadors !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -72,7 +78,8 @@ export function CampaignCard({ campaign, clientName, clientLogo }: CampaignCardP
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Calendar className="w-4 h-4 text-purple-500" />
             <span>
-              Due {new Date(campaign.deadline).toLocaleDateString("en-US", {
+              Due{" "}
+              {new Date(campaign.deadline).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
                 year: "numeric",

@@ -3,11 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PortfolioItem } from "@/types/database";
-import {
-  Plus,
-  ExternalLink,
-  Calendar,
-} from "lucide-react";
+import { Plus, ExternalLink, Calendar } from "lucide-react";
 import Image from "next/image";
 
 interface AmbassadorPortfolioProps {
@@ -16,7 +12,11 @@ interface AmbassadorPortfolioProps {
   onAddContent: () => void;
 }
 
-export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: AmbassadorPortfolioProps) {
+export function AmbassadorPortfolio({
+  portfolioItems,
+  loading,
+  onAddContent,
+}: AmbassadorPortfolioProps) {
   if (loading) {
     return (
       <div className="lg:col-span-2">
@@ -25,7 +25,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
             <h3 className="text-xl font-semibold text-gray-900">Portfolio</h3>
             <Button
               onClick={onAddContent}
-              className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]"
+              className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Content
@@ -56,7 +56,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
           <h3 className="text-xl font-semibold text-gray-900">Portfolio</h3>
           <Button
             onClick={onAddContent}
-            className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-2 border-[#f5d82e] hover:border-[#FEE65D]"
+            className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Content
@@ -71,7 +71,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
           <div className="md:col-span-2 xl:col-span-3">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {/* Mock chat cards for empty state */}
-              <Card className="bg-white border border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer group">
+              <Card className="bg-white border border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer group">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold">
@@ -99,7 +99,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
                 </CardContent>
               </Card>
 
-              <Card className="bg-white border border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer group">
+              <Card className="bg-white border border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer group">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold">
@@ -109,9 +109,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
                       <h4 className="font-semibold text-gray-900 text-sm">
                         Adidas
                       </h4>
-                      <p className="text-xs text-gray-600">
-                        Fall Campaign
-                      </p>
+                      <p className="text-xs text-gray-600">Fall Campaign</p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -127,7 +125,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
                 </CardContent>
               </Card>
 
-              <Card className="bg-white border border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer group">
+              <Card className="bg-white border border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer group">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold">
@@ -137,9 +135,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
                       <h4 className="font-semibold text-gray-900 text-sm">
                         Puma
                       </h4>
-                      <p className="text-xs text-gray-600">
-                        Winter Collection
-                      </p>
+                      <p className="text-xs text-gray-600">Winter Collection</p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -230,9 +226,7 @@ export function AmbassadorPortfolio({ portfolioItems, loading, onAddContent }: A
                       </p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <div className="text-xs text-gray-500">
-                        {item.date}
-                      </div>
+                      <div className="text-xs text-gray-500">{item.date}</div>
                       {item.likes && (
                         <div className="text-xs text-gray-500">
                           ❤️ {item.likes}

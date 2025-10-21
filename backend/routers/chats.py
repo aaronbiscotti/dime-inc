@@ -166,6 +166,29 @@ def get_participant_info(user_id: str) -> Optional[ParticipantResponse]:
         return None
 
 
+# Cleanup helper
+async def mark_chat_for_cleanup(chat_room_id: str):
+    """Mark a chat room for cleanup due to orphaned data.
+    Performs best-effort cleanup of messages, participants, chat room record,
+    and clears any campaign_ambassadors references to this chat.
+    """
+    try:
+        # Delete messages for this chat
+        admin_client.table("messages").delete().eq("chat_room_id", chat_room_id).execute()
+
+        # Delete participants for this chat
+        admin_client.table("chat_participants").delete().eq("chat_room_id", chat_room_id).execute()
+
+        # Delete the chat room itself
+        admin_client.table("chat_rooms").delete().eq("id", chat_room_id).execute()
+
+        # Clear any campaign_ambassadors references to this chat
+        admin_client.table("campaign_ambassadors").update({
+            "chat_room_id": None
+        }).eq("chat_room_id", chat_room_id).execute()
+    except Exception as e:
+        print(f"Error cleaning up chat {chat_room_id}: {e}")
+
 # ============================================================================
 # ENDPOINTS
 # ============================================================================
@@ -541,9 +564,11 @@ async def get_other_participant(
             .execute()
         
         if not participants.data or len(participants.data) == 0:
+            # Orphaned/private chat without another participant – clean it up
+            await mark_chat_for_cleanup(chat_room_id)
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No other participant found in this chat"
+                status_code=status.HTTP_410_GONE,
+                detail="Chat participant no longer exists"
             )
         
         # For private chats, there should be exactly one other participant
@@ -553,12 +578,52 @@ async def get_other_participant(
         participant_info = get_participant_info(other_user_id)
         
         if not participant_info:
+            # Profile missing; clean up chat
+            await mark_chat_for_cleanup(chat_room_id)
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Participant profile not found"
+                status_code=status.HTTP_410_GONE,
+                detail="Participant profile no longer exists"
             )
         
         return {"participant": participant_info}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching other participant: {str(e)}"
+        )
+
+
+# Endpoint to proactively cleanup orphaned chats (idempotent)
+@router.post("/cleanup-orphaned")
+async def cleanup_orphaned_chats(
+    current_user: dict = Depends(get_current_user)
+):
+    """Best-effort cleanup for chats that have become orphaned.
+    This scans for chat rooms with < 1 participants and removes them.
+    """
+    try:
+        # Find chat rooms with 0 or 1 participants
+        chats = admin_client.table("chat_rooms").select("id").execute()
+        removed = 0
+        if chats and chats.data:
+            for chat in chats.data:
+                chat_id = chat.get("id")
+                if not chat_id:
+                    continue
+                parts = admin_client.table("chat_participants").select("id").eq("chat_room_id", chat_id).execute()
+                count = len(parts.data or [])
+                if count <= 1:
+                    await mark_chat_for_cleanup(chat_id)
+                    removed += 1
+        return {"success": True, "removed": removed}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error cleaning orphaned chats: {str(e)}"
+        )
         
     except HTTPException:
         raise

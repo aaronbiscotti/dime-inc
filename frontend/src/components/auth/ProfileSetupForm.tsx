@@ -17,7 +17,6 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-
   // Client form fields
   const [companyName, setCompanyName] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
@@ -124,7 +123,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   placeholder="Describe your company"
                   disabled={loading}
                   rows={3}
-                  className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl resize-none focus:border-blue-500 outline-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl resize-none focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -184,7 +183,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
                   placeholder="Tell us about yourself"
                   disabled={loading}
                   rows={3}
-                  className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-xl resize-none focus:border-blue-500 outline-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl resize-none focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -250,7 +249,7 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Creating profile...' : 'Complete Setup'}
+            {loading ? "Creating profile..." : "Complete Setup"}
           </Button>
         </form>
       </CardContent>

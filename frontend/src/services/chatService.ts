@@ -3,8 +3,13 @@
  * NO direct Supabase calls - all operations go through FastAPI backend
  */
 
-import { API_URL } from '@/config/api';
-import { authFetch, authPost, authDelete, handleApiResponse } from '@/utils/fetch';
+import { API_URL } from "@/config/api";
+import {
+  authFetch,
+  authPost,
+  authDelete,
+  handleApiResponse,
+} from "@/utils/fetch";
 
 const API_BASE_URL = API_URL;
 
@@ -14,7 +19,7 @@ const API_BASE_URL = API_URL;
 
 export interface ChatParticipant {
   user_id: string;
-  role: 'client' | 'ambassador';
+  role: "client" | "ambassador";
   name: string;
   profile_photo?: string | null;
   // Ambassador-specific fields
@@ -52,7 +57,7 @@ export interface Message {
 export interface CreateChatParams {
   participant_id: string;
   participant_name?: string;
-  participant_role: 'client' | 'ambassador';
+  participant_role: "client" | "ambassador";
 }
 
 export interface CreateGroupChatParams {
@@ -91,17 +96,18 @@ interface ErrorResponse {
  */
 function handleError(error: unknown, context: string): ErrorResponse {
   console.error(`[ChatService] ${context}:`, error);
-  
-  const message = error instanceof Error 
-    ? error.message 
-    : typeof error === 'string' 
-    ? error 
-    : 'An unexpected error occurred';
-  
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+      ? error
+      : "An unexpected error occurred";
+
   // Propagate error to UI layer - don't just log it!
   return {
     data: null,
-    error: { message }
+    error: { message },
   };
 }
 
@@ -119,18 +125,21 @@ class ChatService {
       const response = await authPost(`${API_BASE_URL}/api/chats/create`, {
         participant_id: params.participant_id,
         participant_name: params.participant_name,
-        participant_role: params.participant_role
+        participant_role: params.participant_role,
       });
 
-      const data = await handleApiResponse<{ chat: ChatRoom; existed: boolean }>(response);
+      const data = await handleApiResponse<{
+        chat: ChatRoom;
+        existed: boolean;
+      }>(response);
 
       return {
         data: data.chat,
         existed: data.existed,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'createChat');
+      return handleError(error, "createChat");
     }
   }
 
@@ -141,17 +150,17 @@ class ChatService {
     try {
       const response = await authPost(`${API_BASE_URL}/api/chats/group`, {
         name: params.name,
-        participant_ids: params.participant_ids
+        participant_ids: params.participant_ids,
       });
 
       const data = await handleApiResponse<{ chat: ChatRoom }>(response);
 
       return {
         data: data.chat,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'createGroupChat');
+      return handleError(error, "createGroupChat");
     }
   }
 
@@ -160,15 +169,17 @@ class ChatService {
    */
   async getChatRoom(chatRoomId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/chats/${chatRoomId}`);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/chats/${chatRoomId}`
+      );
       const data = await handleApiResponse<ChatRoom>(response);
 
       return {
         data: data as ChatRoom,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'getChatRoom');
+      return handleError(error, "getChatRoom");
     }
   }
 
@@ -177,40 +188,50 @@ class ChatService {
    */
   async sendMessage(chatRoomId: string, params: SendMessageParams) {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/chats/${chatRoomId}/messages`, {
-        content: params.content.trim(),
-        file_url: params.file_url
-      });
+      const response = await authPost(
+        `${API_BASE_URL}/api/chats/${chatRoomId}/messages`,
+        {
+          content: params.content.trim(),
+          file_url: params.file_url,
+        }
+      );
 
       const data = await handleApiResponse<{ message: Message }>(response);
 
       return {
         data: data.message as Message,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'sendMessage');
+      return handleError(error, "sendMessage");
     }
   }
 
   /**
    * Get messages from a chat room
    */
-  async getMessages(chatRoomId: string, limit: number = 50, offset: number = 0) {
+  async getMessages(
+    chatRoomId: string,
+    limit: number = 50,
+    offset: number = 0
+  ) {
     try {
       const response = await authFetch(
         `${API_BASE_URL}/api/chats/${chatRoomId}/messages?limit=${limit}&offset=${offset}`
       );
 
-      const data = await handleApiResponse<{ messages: Message[]; count: number }>(response);
+      const data = await handleApiResponse<{
+        messages: Message[];
+        count: number;
+      }>(response);
 
       return {
         data: data.messages as Message[],
         count: data.count,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'getMessages');
+      return handleError(error, "getMessages");
     }
   }
 
@@ -219,15 +240,19 @@ class ChatService {
    */
   async getParticipants(chatRoomId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/chats/${chatRoomId}/participants`);
-      const data = await handleApiResponse<{ participants: ChatParticipant[] }>(response);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/chats/${chatRoomId}/participants`
+      );
+      const data = await handleApiResponse<{ participants: ChatParticipant[] }>(
+        response
+      );
 
       return {
         data: data.participants as ChatParticipant[],
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'getParticipants');
+      return handleError(error, "getParticipants");
     }
   }
 
@@ -237,15 +262,41 @@ class ChatService {
    */
   async getOtherParticipant(chatRoomId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/chats/${chatRoomId}/other-participant`);
-      const data = await handleApiResponse<{ participant: ChatParticipant }>(response);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/chats/${chatRoomId}/other-participant`
+      );
 
-      return {
-        data: data.participant as ChatParticipant,
-        error: null
-      };
+      if (response.status === 410) {
+        // Orphaned chat; trigger local cleanup hint
+        await this.handleOrphanedChat(chatRoomId);
+        return {
+          data: null,
+          error: {
+            message: "Chat no longer available",
+            shouldRemove: true,
+          } as any,
+        };
+      }
+
+      const data = await handleApiResponse<{ participant: ChatParticipant }>(
+        response
+      );
+      return { data: data.participant as ChatParticipant, error: null };
     } catch (error) {
-      return handleError(error, 'getOtherParticipant');
+      return handleError(error, "getOtherParticipant");
+    }
+  }
+
+  private async handleOrphanedChat(chatRoomId: string) {
+    try {
+      const raw = localStorage.getItem("cached_chats") || "[]";
+      const chats = JSON.parse(raw);
+      const filtered = Array.isArray(chats)
+        ? chats.filter((c: any) => c?.id !== chatRoomId)
+        : [];
+      localStorage.setItem("cached_chats", JSON.stringify(filtered));
+    } catch (e) {
+      console.warn("Could not clean local chat cache", e);
     }
   }
 
@@ -254,18 +305,21 @@ class ChatService {
    */
   async addParticipant(chatRoomId: string, userId: string) {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/chats/${chatRoomId}/participants`, {
-        user_id: userId
-      });
+      const response = await authPost(
+        `${API_BASE_URL}/api/chats/${chatRoomId}/participants`,
+        {
+          user_id: userId,
+        }
+      );
 
       await handleApiResponse(response);
 
       return {
         data: true,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'addParticipant');
+      return handleError(error, "addParticipant");
     }
   }
 
@@ -274,15 +328,17 @@ class ChatService {
    */
   async removeParticipant(chatRoomId: string, userId: string) {
     try {
-      const response = await authDelete(`${API_BASE_URL}/api/chats/${chatRoomId}/participants/${userId}`);
+      const response = await authDelete(
+        `${API_BASE_URL}/api/chats/${chatRoomId}/participants/${userId}`
+      );
       await handleApiResponse(response);
 
       return {
         data: true,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'removeParticipant');
+      return handleError(error, "removeParticipant");
     }
   }
 
@@ -291,15 +347,17 @@ class ChatService {
    */
   async deleteChat(chatRoomId: string) {
     try {
-      const response = await authDelete(`${API_BASE_URL}/api/chats/${chatRoomId}`);
+      const response = await authDelete(
+        `${API_BASE_URL}/api/chats/${chatRoomId}`
+      );
       await handleApiResponse(response);
 
       return {
         data: { success: true },
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'deleteChat');
+      return handleError(error, "deleteChat");
     }
   }
 
@@ -313,10 +371,10 @@ class ChatService {
 
       return {
         data: data.chats as ChatRoom[],
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'getUserChats');
+      return handleError(error, "getUserChats");
     }
   }
 
@@ -325,15 +383,19 @@ class ChatService {
    */
   async getContractByChatId(chatRoomId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/chats/${chatRoomId}/contract`);
-      const data = await handleApiResponse<{ contract: Contract | null }>(response);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/chats/${chatRoomId}/contract`
+      );
+      const data = await handleApiResponse<{ contract: Contract | null }>(
+        response
+      );
 
       return {
         data: data.contract as Contract | null,
-        error: null
+        error: null,
       };
     } catch (error) {
-      return handleError(error, 'getContractByChatId');
+      return handleError(error, "getContractByChatId");
     }
   }
 
@@ -346,10 +408,12 @@ class ChatService {
   async checkExistingChat(userId1: string, userId2: string) {
     // This functionality is now handled by createChat
     // If a chat exists, createChat will return it with existed: true
-    console.warn('checkExistingChat is deprecated. Use createChat instead which handles existing chats.');
+    console.warn(
+      "checkExistingChat is deprecated. Use createChat instead which handles existing chats."
+    );
     return {
       data: null,
-      error: { message: 'Use createChat instead' }
+      error: { message: "Use createChat instead" },
     };
   }
 
@@ -361,10 +425,12 @@ class ChatService {
   async isMember(chatRoomId: string, userId: string) {
     // Membership is checked server-side on all endpoints
     // This method is kept for backwards compatibility
-    console.warn('isMember is deprecated. Membership is checked server-side automatically.');
+    console.warn(
+      "isMember is deprecated. Membership is checked server-side automatically."
+    );
     return {
       data: true,
-      error: null
+      error: null,
     };
   }
 }
@@ -385,5 +451,5 @@ export const {
   deleteChat,
   getUserChats,
   getContractByChatId,
-  getChatRoom
+  getChatRoom,
 } = chatService;

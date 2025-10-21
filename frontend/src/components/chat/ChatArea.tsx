@@ -10,7 +10,11 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { chatService, type Message as ChatMessage, type ChatParticipant } from "@/services/chatService";
+import {
+  chatService,
+  type Message as ChatMessage,
+  type ChatParticipant,
+} from "@/services/chatService";
 
 interface Message extends ChatMessage {
   sender_name?: string;
@@ -23,19 +27,26 @@ interface ChatAreaProps {
   onChatDeleted?: (chatId: string) => void;
 }
 
-export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdate, onChatDeleted }: ChatAreaProps) {
+export function ChatArea({
+  selectedChatId,
+  onOpenMobileMenu,
+  onParticipantsUpdate,
+  onChatDeleted,
+}: ChatAreaProps) {
   const { user } = useAuth();
-  
+
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [chatDisplayName, setChatDisplayName] = useState<string>("Unknown Chat");
+  const [chatDisplayName, setChatDisplayName] =
+    useState<string>("Unknown Chat");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isGroupChat, setIsGroupChat] = useState(false);
-  const [otherParticipant, setOtherParticipant] = useState<ChatParticipant | null>(null);
+  const [otherParticipant, setOtherParticipant] =
+    useState<ChatParticipant | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -49,7 +60,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
       setOtherParticipant(null);
       setIsGroupChat(false);
       setErrorMessage(null);
-      
+
       // Clear polling when no chat selected
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
@@ -61,23 +72,25 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     const fetchChatData = async () => {
       setLoading(true);
       setErrorMessage(null);
-      
+
       try {
         // Fetch chat room details
         const chatRoomResult = await chatService.getChatRoom(selectedChatId);
-        
+
         if (chatRoomResult.error) {
           setErrorMessage(chatRoomResult.error.message);
           return;
         }
-        
+
         const chatRoom = chatRoomResult.data;
         setIsGroupChat(chatRoom?.is_group || false);
-        
+
         // For private chats, get the other participant's info
         if (!chatRoom?.is_group) {
-          const participantResult = await chatService.getOtherParticipant(selectedChatId);
-          
+          const participantResult = await chatService.getOtherParticipant(
+            selectedChatId
+          );
+
           if (participantResult.data) {
             setOtherParticipant(participantResult.data);
             setChatDisplayName(`Chat with ${participantResult.data.name}`);
@@ -87,15 +100,14 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
         } else {
           setChatDisplayName(chatRoom?.name || "Group Chat");
         }
-        
+
         // Fetch initial messages
         await fetchMessages();
-        
+
         // Notify parent about participants update
         if (onParticipantsUpdate) {
           onParticipantsUpdate();
         }
-        
       } catch (error) {
         console.error("Error fetching chat data:", error);
         setErrorMessage("Failed to load chat. Please try again.");
@@ -105,12 +117,12 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     };
 
     fetchChatData();
-    
+
     // Set up polling for new messages every 3 seconds
     pollingIntervalRef.current = setInterval(async () => {
       await fetchMessages(true); // Silent fetch, don't show loading
     }, 3000);
-    
+
     // Cleanup polling on unmount or chat change
     return () => {
       if (pollingIntervalRef.current) {
@@ -124,21 +136,21 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
   // Fetch messages function
   const fetchMessages = async (silent: boolean = false) => {
     if (!selectedChatId) return;
-    
+
     if (!silent) {
       setLoading(true);
     }
-    
+
     try {
       const result = await chatService.getMessages(selectedChatId, 100);
-      
+
       if (result.error) {
         if (!silent) {
           console.error("Error fetching messages:", result.error.message);
         }
         return;
       }
-      
+
       // Enrich messages with sender names
       const enrichedMessages = await Promise.all(
         (result.data || []).map(async (msg) => {
@@ -146,29 +158,28 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           if (otherParticipant && msg.sender_id !== user?.id) {
             return {
               ...msg,
-              sender_name: otherParticipant.name
+              sender_name: otherParticipant.name,
             };
           }
-          
+
           // For current user's messages
           if (msg.sender_id === user?.id) {
             return {
               ...msg,
-              sender_name: "You"
+              sender_name: "You",
             };
           }
-          
+
           // For group chats or unknown senders, would need to fetch
           // For now, return with generic name
           return {
             ...msg,
-            sender_name: "Unknown"
+            sender_name: "Unknown",
           };
         })
       );
-      
+
       setMessages(enrichedMessages);
-      
     } catch (error) {
       if (!silent) {
         console.error("Error fetching messages:", error);
@@ -196,11 +207,11 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
     };
 
     if (showOptionsMenu) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [showOptionsMenu]);
 
@@ -208,10 +219,14 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    const diffInHours =
+      Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
     if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } else {
       return date.toLocaleDateString();
     }
@@ -222,12 +237,12 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
     setSending(true);
     setErrorMessage(null);
-    
+
     try {
       const result = await chatService.sendMessage(selectedChatId, {
-        content: messageInput.trim()
+        content: messageInput.trim(),
       });
-      
+
       if (result.error) {
         setErrorMessage(`Failed to send message: ${result.error.message}`);
         return;
@@ -235,10 +250,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
       // Clear input on success
       setMessageInput("");
-      
+
       // Immediately fetch messages to show the new one
       await fetchMessages(true);
-      
     } catch (error) {
       console.error("Error sending message:", error);
       setErrorMessage("Failed to send message. Please try again.");
@@ -264,25 +278,24 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
     try {
       const result = await chatService.deleteChat(selectedChatId);
-      
+
       if (result.error) {
         setErrorMessage(`Failed to delete chat: ${result.error.message}`);
         return;
       }
 
-      console.log('Chat deleted successfully');
-      
+      console.log("Chat deleted successfully");
+
       // Notify parent component
       if (onChatDeleted) {
         onChatDeleted(selectedChatId);
       }
-      
+
       // Clear local state
       setMessages([]);
       setChatDisplayName("Unknown Chat");
-      
     } catch (error) {
-      console.error('Error deleting chat:', error);
+      console.error("Error deleting chat:", error);
       setErrorMessage("Failed to delete chat. Please try again.");
     } finally {
       setDeleting(false);
@@ -314,9 +327,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
   }
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-200">
+    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-300">
       {/* Chat Header */}
-      <div className="border-b border-gray-200 p-4 rounded-t-xl">
+      <div className="border-b border-gray-300 p-4 rounded-t-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Mobile menu button */}
@@ -351,7 +364,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                       : "rounded-full"
                   }`}
                 >
-                  {chatDisplayName.split(' ').pop()?.charAt(0) || '?'}
+                  {chatDisplayName.split(" ").pop()?.charAt(0) || "?"}
                 </div>
               )}
             </div>
@@ -367,8 +380,8 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
 
           {/* Options Menu */}
           <div className="relative">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
@@ -377,16 +390,16 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             >
               <EllipsisVerticalIcon className="w-5 h-5" />
             </Button>
-            
+
             {showOptionsMenu && (
-              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[150px]">
+              <div className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[150px]">
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   disabled={deleting}
                   className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <TrashIcon className="w-4 h-4" />
-                  {deleting ? 'Deleting...' : 'Delete Chat'}
+                  {deleting ? "Deleting..." : "Delete Chat"}
                 </button>
               </div>
             )}
@@ -406,21 +419,28 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
         {loading ? (
           <div className="space-y-4">
             {/* Message skeletons */}
-            {Array(3).fill(0).map((_, i) => (
-              <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
-                <div className="max-w-xs lg:max-w-md xl:max-w-lg animate-pulse">
-                  <div className={`px-4 py-2 rounded-2xl ${
-                    i % 2 === 0
-                      ? 'bg-gray-200'
-                      : 'bg-gray-200'
-                  }`}>
-                    <div className="h-4 bg-gray-300 rounded w-32 mb-1"></div>
-                    <div className="h-4 bg-gray-300 rounded w-24"></div>
+            {Array(3)
+              .fill(0)
+              .map((_, i) => (
+                <div
+                  key={i}
+                  className={`flex ${
+                    i % 2 === 0 ? "justify-start" : "justify-end"
+                  }`}
+                >
+                  <div className="max-w-xs lg:max-w-md xl:max-w-lg animate-pulse">
+                    <div
+                      className={`px-4 py-2 rounded-2xl ${
+                        i % 2 === 0 ? "bg-gray-200" : "bg-gray-200"
+                      }`}
+                    >
+                      <div className="h-4 bg-gray-300 rounded w-32 mb-1"></div>
+                      <div className="h-4 bg-gray-300 rounded w-24"></div>
+                    </div>
+                    <div className="h-3 bg-gray-200 rounded w-16 mt-1 mx-3"></div>
                   </div>
-                  <div className="h-3 bg-gray-200 rounded w-16 mt-1 mx-3"></div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8 text-gray-600">
@@ -430,7 +450,7 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           messages.map((message) => {
             const isCurrentUser = message.sender_id === user?.id;
             const senderName = message.sender_name || "Unknown";
-            
+
             return (
               <div key={message.id}>
                 <div
@@ -458,13 +478,17 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
                           : "bg-gray-100 text-gray-900 rounded-bl-md"
                       }`}
                     >
-                      <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{message.content}</p>
+                      <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+                        {message.content}
+                      </p>
                     </div>
-                    <p className={`text-xs mt-1 ${
-                      isCurrentUser 
-                        ? "text-gray-400 text-right pr-3" 
-                        : "text-gray-500 pl-3"
-                    }`}>
+                    <p
+                      className={`text-xs mt-1 ${
+                        isCurrentUser
+                          ? "text-gray-400 text-right pr-3"
+                          : "text-gray-500 pl-3"
+                      }`}
+                    >
                       {formatTimestamp(message.created_at)}
                     </p>
                   </div>
@@ -478,9 +502,13 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-gray-200 p-4 bg-white rounded-b-xl">
+      <div className="border-t border-gray-300 p-4 bg-white rounded-b-xl">
         <div className="flex items-end gap-2">
-          <Button variant="ghost" size="sm" className="flex-shrink-0 text-gray-400 hover:text-gray-600">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+          >
             <PaperClipIcon className="w-5 h-5" />
           </Button>
 
@@ -511,7 +539,9 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
             className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-300 rounded-lg h-[42px] w-[42px] p-0"
             size="sm"
           >
-            <PaperAirplaneIcon className={`w-5 h-5 ${sending ? 'opacity-50' : ''}`} />
+            <PaperAirplaneIcon
+              className={`w-5 h-5 ${sending ? "opacity-50" : ""}`}
+            />
           </Button>
         </div>
       </div>
@@ -523,20 +553,23 @@ export function ChatArea({ selectedChatId, onOpenMobileMenu, onParticipantsUpdat
           <div
             className="fixed inset-0"
             style={{
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              background: "rgba(0, 0, 0, 0.5)",
             }}
             onClick={() => setShowDeleteConfirm(false)}
           />
-          
+
           {/* Modal content */}
           <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Delete Chat</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-3">
+              Delete Chat
+            </h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this chat? This action cannot be undone and will delete all messages in this conversation.
+              Are you sure you want to delete this chat? This action cannot be
+              undone and will delete all messages in this conversation.
             </p>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}

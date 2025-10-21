@@ -29,18 +29,18 @@ export function ExploreGrid({
         if (userRole === "client") {
           // Client is looking for ambassadors
           const params = new URLSearchParams();
-          if (searchQuery) params.append('search', searchQuery);
+          if (searchQuery) params.append("search", searchQuery);
           if (filters.niches && filters.niches.length > 0) {
-            filters.niches.forEach(niche => params.append('niches', niche));
+            filters.niches.forEach((niche) => params.append("niches", niche));
           }
           if (filters.location && filters.location.length > 0) {
-            params.append('location', filters.location[0]);
+            params.append("location", filters.location[0]);
           }
 
           const response = await fetch(
             `${API_BASE_URL}/api/explore/ambassadors?${params.toString()}`,
             {
-              credentials: 'include' // Use cookie-based auth
+              credentials: "include", // Use cookie-based auth
             }
           );
 
@@ -51,15 +51,15 @@ export function ExploreGrid({
         } else {
           // Ambassador is looking for clients
           const params = new URLSearchParams();
-          if (searchQuery) params.append('search', searchQuery);
+          if (searchQuery) params.append("search", searchQuery);
           if (filters.industry && filters.industry.length > 0) {
-            params.append('industry', filters.industry[0]);
+            params.append("industry", filters.industry[0]);
           }
 
           const response = await fetch(
             `${API_BASE_URL}/api/explore/clients?${params.toString()}`,
             {
-              credentials: 'include' // Use cookie-based auth
+              credentials: "include", // Use cookie-based auth
             }
           );
 
@@ -76,7 +76,13 @@ export function ExploreGrid({
     };
 
     fetchData();
-  }, [userRole, searchQuery, filters.niches, filters.location, filters.industry]);
+  }, [
+    userRole,
+    searchQuery,
+    filters.niches,
+    filters.location,
+    filters.industry,
+  ]);
 
   // Apply search filtering
   const filteredData = data.filter((item) => {
@@ -123,7 +129,7 @@ export function ExploreGrid({
             .map((_, i) => (
               <div
                 key={i}
-                className="bg-white border border-gray-200 rounded-xl p-6 animate-pulse"
+                className="bg-white border border-gray-300 rounded-xl p-6 animate-pulse"
               >
                 <div className="flex flex-col items-center text-center">
                   <div className="w-16 h-16 bg-gray-200 rounded-full mb-3"></div>

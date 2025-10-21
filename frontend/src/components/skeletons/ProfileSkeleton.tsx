@@ -1,10 +1,10 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function ProfileSkeleton() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar Skeleton */}
-      <nav className="bg-white border-b-2 border-gray-300 w-full">
+      <nav className="bg-white border-b border-gray-300 w-full">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center space-x-8">
@@ -22,11 +22,11 @@ export function ProfileSkeleton() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Sidebar Skeleton */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl border-2 border-gray-300 sticky top-6">
+            <div className="bg-white rounded-xl border border-gray-300 sticky top-6">
               <div className="p-6">
                 {/* Banner */}
                 <div className="h-32 bg-gradient-to-r from-[#f5d82e] to-[#FEE65D] rounded-xl mb-6 relative">
@@ -69,7 +69,7 @@ export function ProfileSkeleton() {
 
             {/* Empty State Skeleton */}
             <div className="md:col-span-2 xl:col-span-3">
-              <div className="bg-white rounded-xl border-2 border-dashed border-gray-300">
+              <div className="bg-white rounded-xl border border-dashed border-gray-300">
                 <div className="p-12 text-center">
                   <div className="w-16 h-16 bg-[#f5d82e] rounded-full mx-auto mb-4"></div>
                   <Skeleton className="h-6 w-32 mx-auto mb-2" />
@@ -81,5 +81,5 @@ export function ProfileSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }

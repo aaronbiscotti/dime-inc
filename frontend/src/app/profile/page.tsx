@@ -56,8 +56,10 @@ export default function Profile() {
         if (profile.role === "ambassador" && ambassadorProfile) {
           // Fetch portfolio items for ambassador using API
           try {
-            const portfolios = await portfolioService.getAmbassadorPortfolio(ambassadorProfile.id);
-            
+            const portfolios = await portfolioService.getAmbassadorPortfolio(
+              ambassadorProfile.id
+            );
+
             // Convert database portfolios to PortfolioItem format
             const items: PortfolioItem[] = portfolios.map((portfolio) => ({
               id: portfolio.id,
@@ -74,9 +76,18 @@ export default function Profile() {
               date: new Date(
                 portfolio.campaign_date || portfolio.created_at || new Date()
               ).toLocaleDateString(),
-              views: (portfolio.results as Record<string, unknown>)?.views?.toString() || undefined,
-              likes: (portfolio.results as Record<string, unknown>)?.likes?.toString() || undefined,
-              engagement: (portfolio.results as Record<string, unknown>)?.engagement?.toString() || undefined,
+              views:
+                (
+                  portfolio.results as Record<string, unknown>
+                )?.views?.toString() || undefined,
+              likes:
+                (
+                  portfolio.results as Record<string, unknown>
+                )?.likes?.toString() || undefined,
+              engagement:
+                (
+                  portfolio.results as Record<string, unknown>
+                )?.engagement?.toString() || undefined,
             }));
             setPortfolioItems(items);
           } catch (error) {
@@ -85,23 +96,35 @@ export default function Profile() {
         } else if (profile.role === "client" && clientProfile) {
           // Fetch campaigns for client using campaign service
           try {
-            const result = await campaignService.getCampaignsForClient(clientProfile.id);
-            
+            const result = await campaignService.getCampaignsForClient(
+              clientProfile.id
+            );
+
             if (result.error || !result.data) {
               console.error("Error fetching campaigns:", result.error);
               return;
             }
-            
+
             // Convert database campaigns to UI Campaign format
-            const clientCampaigns: CampaignDisplay[] = result.data.map((campaign) => ({
-              id: campaign.id,
-              title: campaign.title,
-              status: campaign.status as "draft" | "active" | "completed" | "cancelled",
-              budgetRange: `$${campaign.budget_min.toFixed(2)} - $${campaign.budget_max.toFixed(2)}`,
-              ambassadorCount: 0,
-              timeline: campaign.deadline ? new Date(campaign.deadline).toLocaleDateString() : "TBD",
-              coverImage: undefined,
-            }));
+            const clientCampaigns: CampaignDisplay[] = result.data.map(
+              (campaign) => ({
+                id: campaign.id,
+                title: campaign.title,
+                status: campaign.status as
+                  | "draft"
+                  | "active"
+                  | "completed"
+                  | "cancelled",
+                budgetRange: `$${campaign.budget_min.toFixed(
+                  2
+                )} - $${campaign.budget_max.toFixed(2)}`,
+                ambassadorCount: 0,
+                timeline: campaign.deadline
+                  ? new Date(campaign.deadline).toLocaleDateString()
+                  : "TBD",
+                coverImage: undefined,
+              })
+            );
             setCampaigns(clientCampaigns);
           } catch (error) {
             console.error("Error fetching campaigns:", error);
@@ -125,12 +148,18 @@ export default function Profile() {
       // Save each selected media item to portfolio using API
       for (const media of mediaItems) {
         // Fetch insights for the media
-        const insightsResponse = await fetch(`/api/instagram/insights/${media.id}`);
+        const insightsResponse = await fetch(
+          `/api/instagram/insights/${media.id}`
+        );
         const { data: insights } = await insightsResponse.json();
 
         // Create portfolio item via API
         await portfolioService.createPortfolio({
-          title: media.caption || `Instagram Reel - ${new Date(media.timestamp).toLocaleDateString()}`,
+          title:
+            media.caption ||
+            `Instagram Reel - ${new Date(
+              media.timestamp
+            ).toLocaleDateString()}`,
           description: media.caption || undefined,
           instagram_url: media.permalink,
           media_urls: [media.media_url],
@@ -144,7 +173,9 @@ export default function Profile() {
       }
 
       // Refresh portfolio items
-      const portfolios = await portfolioService.getAmbassadorPortfolio(ambassadorProfile.id);
+      const portfolios = await portfolioService.getAmbassadorPortfolio(
+        ambassadorProfile.id
+      );
 
       const items: PortfolioItem[] = portfolios.map((portfolio) => ({
         id: portfolio.id,
@@ -156,9 +187,16 @@ export default function Profile() {
         date: new Date(
           portfolio.campaign_date || portfolio.created_at || new Date()
         ).toLocaleDateString(),
-        views: (portfolio.results as Record<string, unknown>)?.views?.toString() || undefined,
-        likes: (portfolio.results as Record<string, unknown>)?.likes?.toString() || undefined,
-        engagement: (portfolio.results as Record<string, unknown>)?.engagement?.toString() || undefined,
+        views:
+          (portfolio.results as Record<string, unknown>)?.views?.toString() ||
+          undefined,
+        likes:
+          (portfolio.results as Record<string, unknown>)?.likes?.toString() ||
+          undefined,
+        engagement:
+          (
+            portfolio.results as Record<string, unknown>
+          )?.engagement?.toString() || undefined,
       }));
       setPortfolioItems(items);
     } catch (error) {
@@ -173,7 +211,7 @@ export default function Profile() {
 
         {/* Only render profile content if profile exists */}
         {profile && (
-          <div className="max-w-7xl mx-auto p-6">
+          <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Sidebar - Profile Info */}
               <ProfileSidebar
@@ -195,7 +233,7 @@ export default function Profile() {
                 <ClientCampaigns
                   campaigns={campaigns}
                   loading={loading}
-                  onCreateCampaign={() => router.push('/campaigns')}
+                  onCreateCampaign={() => router.push("/campaigns")}
                 />
               )}
             </div>
@@ -208,7 +246,7 @@ export default function Profile() {
             isOpen={showProfileEditModal}
             onClose={() => setShowProfileEditModal(false)}
             onSave={(data) => {
-              console.log('Profile updated successfully:', data);
+              console.log("Profile updated successfully:", data);
             }}
           />
         )}

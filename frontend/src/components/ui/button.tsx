@@ -5,21 +5,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none transform-gpu active:translate-y-1 relative cursor-pointer",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none transform-gpu active:translate-y-1 relative cursor-pointer border border-gray-300",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground rounded-xl border-2 border-primary hover:bg-gray-200 border-b-4 border-b-secondary hover:border-b-gray-300 active:border-b-0 active:border-2 active:border-primary",
+          "bg-primary text-primary-foreground rounded-xl hover:bg-gray-200",
         destructive:
-          "bg-destructive text-destructive-foreground rounded-xl border-2 border-destructive hover:bg-red-500 border-b-4 border-b-red-700 hover:border-b-red-800 active:border-b-0 active:border-2 active:border-destructive",
-        outline:
-          "border-2 border-gray-300 bg-background hover:bg-gray-50 rounded-xl border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300",
-        secondary:
-          "bg-gray-100 text-gray-900 rounded-xl border-2 border-gray-300 hover:bg-gray-200 hover:border-gray-400 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300",
-        ghost:
-          "rounded-xl border-2 border-transparent hover:bg-gray-50 hover:text-gray-800 border-b-4 border-b-transparent hover:border-b-gray-300 active:border-b-0 active:border-2 active:border-transparent",
-        link: "text-gray-600 underline-offset-4 hover:underline hover:text-gray-800",
+          "bg-destructive text-destructive-foreground rounded-xl hover:bg-red-500",
+        outline: "bg-background hover:bg-gray-50 rounded-xl",
+        secondary: "bg-gray-100 text-gray-900 rounded-xl hover:bg-gray-200",
+        ghost: "rounded-xl hover:bg-gray-50 hover:text-gray-800",
+        link: "text-gray-600 underline-offset-4 hover:underline hover:text-gray-800 border-0",
       },
       size: {
         default: "h-10 px-4 py-2 has-[>svg]:px-3",

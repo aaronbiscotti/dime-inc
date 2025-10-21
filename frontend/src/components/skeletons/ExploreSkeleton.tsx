@@ -1,12 +1,12 @@
-import { Skeleton } from "@/components/ui/skeleton"
-import { Navbar } from "@/components/layout/Navbar"
+import { Skeleton } from "@/components/ui/skeleton";
+import { Navbar } from "@/components/layout/Navbar";
 
 export function ExploreSkeleton() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Header */}
         <div className="mb-8">
           <Skeleton className="h-8 w-48 mb-2" />
@@ -14,7 +14,7 @@ export function ExploreSkeleton() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-xl border border-gray-300 p-6 mb-6">
           <div className="flex flex-wrap gap-4">
             <Skeleton className="h-10 w-64" />
             <Skeleton className="h-10 w-32" />
@@ -26,7 +26,10 @@ export function ExploreSkeleton() {
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[...Array(12)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-6">
+            <div
+              key={i}
+              className="bg-white rounded-xl border border-gray-300 p-6"
+            >
               <div className="text-center mb-4">
                 <Skeleton className="w-16 h-16 rounded-full mx-auto mb-3" />
                 <Skeleton className="h-5 w-32 mx-auto mb-1" />
@@ -49,5 +52,5 @@ export function ExploreSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }

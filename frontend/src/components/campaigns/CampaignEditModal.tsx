@@ -32,8 +32,8 @@ export function CampaignEditModal({
     budget_min: campaign.budget_min,
     budget_max: campaign.budget_max,
     max_ambassadors: campaign.max_ambassadors,
-    deadline: campaign.deadline ? campaign.deadline.split('T')[0] : '',
-    requirements: campaign.requirements || '',
+    deadline: campaign.deadline ? campaign.deadline.split("T")[0] : "",
+    requirements: campaign.requirements || "",
   });
 
   // Reset form when campaign changes
@@ -44,8 +44,8 @@ export function CampaignEditModal({
       budget_min: campaign.budget_min,
       budget_max: campaign.budget_max,
       max_ambassadors: campaign.max_ambassadors,
-      deadline: campaign.deadline ? campaign.deadline.split('T')[0] : '',
-      requirements: campaign.requirements || '',
+      deadline: campaign.deadline ? campaign.deadline.split("T")[0] : "",
+      requirements: campaign.requirements || "",
     });
   }, [campaign]);
 
@@ -112,7 +112,9 @@ export function CampaignEditModal({
       }, 1500);
     } catch (err: unknown) {
       console.error("Error updating campaign:", err);
-      setError(err instanceof Error ? err.message : "Failed to update campaign");
+      setError(
+        err instanceof Error ? err.message : "Failed to update campaign"
+      );
     } finally {
       setLoading(false);
     }
@@ -126,17 +128,17 @@ export function CampaignEditModal({
       <div
         className="fixed inset-0"
         style={{
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          background: "rgba(0, 0, 0, 0.5)",
         }}
         onClick={handleClose}
       />
-      
+
       {/* Modal content */}
       <div className="relative z-10 bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">Edit Campaign</h2>
           <button
             onClick={handleClose}
@@ -200,7 +202,10 @@ export function CampaignEditModal({
                 step="0.01"
                 value={formData.budget_min}
                 onChange={(e) =>
-                  handleInputChange("budget_min", parseFloat(e.target.value) || 0)
+                  handleInputChange(
+                    "budget_min",
+                    parseFloat(e.target.value) || 0
+                  )
                 }
                 placeholder="0.00"
                 className="mt-1"
@@ -216,7 +221,10 @@ export function CampaignEditModal({
                 step="0.01"
                 value={formData.budget_max}
                 onChange={(e) =>
-                  handleInputChange("budget_max", parseFloat(e.target.value) || 0)
+                  handleInputChange(
+                    "budget_max",
+                    parseFloat(e.target.value) || 0
+                  )
                 }
                 placeholder="0.00"
                 className="mt-1"
@@ -234,7 +242,10 @@ export function CampaignEditModal({
               min="1"
               value={formData.max_ambassadors ?? 1}
               onChange={(e) =>
-                handleInputChange("max_ambassadors", parseInt(e.target.value) || 1)
+                handleInputChange(
+                  "max_ambassadors",
+                  parseInt(e.target.value) || 1
+                )
               }
               placeholder="1"
               className="mt-1"
@@ -260,7 +271,9 @@ export function CampaignEditModal({
             <Textarea
               id="requirements"
               value={formData.requirements}
-              onChange={(e) => handleInputChange("requirements", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("requirements", e.target.value)
+              }
               placeholder="Add any specific requirements for ambassadors"
               rows={4}
               className="mt-1"
@@ -269,12 +282,8 @@ export function CampaignEditModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
-          <Button
-            onClick={handleClose}
-            variant="outline"
-            disabled={loading}
-          >
+        <div className="sticky bottom-0 bg-white border-t border-gray-300 px-6 py-4 flex justify-end gap-3">
+          <Button onClick={handleClose} variant="outline" disabled={loading}>
             Cancel
           </Button>
           <Button

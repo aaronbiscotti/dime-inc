@@ -7,7 +7,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
 import { Campaign } from "@/types/database";
-import { ArrowLeft, Calendar, DollarSign, Users, Building2, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  DollarSign,
+  Users,
+  Building2,
+  Send,
+} from "lucide-react";
 
 interface CampaignWithClient extends Campaign {
   client_profiles?: {
@@ -81,12 +88,17 @@ export default function AmbassadorCampaignDetails() {
 
     setIsApplying(true);
     try {
-      console.log("Applying to campaign:", campaign.id, "with message:", applicationMessage);
-      
+      console.log(
+        "Applying to campaign:",
+        campaign.id,
+        "with message:",
+        applicationMessage
+      );
+
       // For now, just show success
       setShowApplyModal(false);
       setShowSuccessModal(true);
-      
+
       // Navigate after a delay
       setTimeout(() => {
         setShowSuccessModal(false);
@@ -104,7 +116,7 @@ export default function AmbassadorCampaignDetails() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b border-[#f5d82e]"></div>
       </div>
     );
   }
@@ -117,7 +129,7 @@ export default function AmbassadorCampaignDetails() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="pt-16">
-        <div className="max-w-5xl mx-auto p-6">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           {/* Back Button */}
           <button
             onClick={() => router.push("/explore")}
@@ -128,7 +140,7 @@ export default function AmbassadorCampaignDetails() {
           </button>
 
           {/* Client Header */}
-          <div className="bg-white rounded-xl border border-gray-200 p-8 mb-6">
+          <div className="bg-white rounded-xl border border-gray-300 p-8 mb-6">
             <div className="flex items-start gap-6 mb-6">
               {/* Client Logo */}
               {campaign.client_profiles?.logo_url ? (
@@ -165,7 +177,7 @@ export default function AmbassadorCampaignDetails() {
           </div>
 
           {/* Campaign Header */}
-          <div className="bg-white rounded-xl border border-gray-200 p-8 mb-6">
+          <div className="bg-white rounded-xl border border-gray-300 p-8 mb-6">
             <div className="flex items-start justify-between mb-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
@@ -181,7 +193,7 @@ export default function AmbassadorCampaignDetails() {
             </div>
 
             {/* Apply Button */}
-            <div className="pt-6 border-t border-gray-200">
+            <div className="pt-6 border-t border-gray-300">
               <button
                 onClick={() => setShowApplyModal(true)}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-[#f5d82e] text-black font-medium rounded-lg hover:bg-[#e5c820] transition-colors"
@@ -195,38 +207,46 @@ export default function AmbassadorCampaignDetails() {
           {/* Campaign Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             {/* Budget */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-300 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-[#f5d82e] bg-opacity-20 rounded-lg flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-[#f5d82e]" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Budget Range</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Budget Range
+                </h3>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                ${campaign.budget_min.toFixed(0)} - ${campaign.budget_max.toFixed(0)}
+                ${campaign.budget_min.toFixed(0)} - $
+                {campaign.budget_max.toFixed(0)}
               </p>
             </div>
 
             {/* Max Ambassadors */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-300 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Users className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Positions</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Positions
+                </h3>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {campaign.max_ambassadors} spot{campaign.max_ambassadors !== 1 ? 's' : ''}
+                {campaign.max_ambassadors} spot
+                {campaign.max_ambassadors !== 1 ? "s" : ""}
               </p>
             </div>
 
             {/* Deadline */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-300 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-purple-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Deadline</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Deadline
+                </h3>
               </div>
               <p className="text-xl font-bold text-gray-900">
                 {campaign.deadline
@@ -242,7 +262,7 @@ export default function AmbassadorCampaignDetails() {
 
           {/* Requirements */}
           {campaign.requirements && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-300 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Campaign Requirements
               </h3>
@@ -261,13 +281,13 @@ export default function AmbassadorCampaignDetails() {
           <div
             className="fixed inset-0"
             style={{
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              background: "rgba(0, 0, 0, 0.5)",
             }}
             onClick={() => setShowApplyModal(false)}
           />
-          
+
           {/* Modal content */}
           <div className="relative z-10 bg-white rounded-xl p-6 max-w-lg w-full">
             <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -276,12 +296,12 @@ export default function AmbassadorCampaignDetails() {
             <p className="text-gray-600 mb-6">
               Tell the client why you&apos;re a great fit for this campaign.
             </p>
-            
+
             <textarea
               value={applicationMessage}
               onChange={(e) => setApplicationMessage(e.target.value)}
               placeholder="Share your relevant experience, audience demographics, and why you're interested in this campaign..."
-              className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent resize-none mb-6"
+              className="w-full h-40 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent resize-none mb-6"
             />
 
             <div className="flex gap-3">
@@ -311,22 +331,35 @@ export default function AmbassadorCampaignDetails() {
           <div
             className="fixed inset-0"
             style={{
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              background: "rgba(0, 0, 0, 0.5)",
             }}
           />
-          
+
           {/* Modal content */}
           <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Application Submitted!</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Application Submitted!
+            </h3>
             <p className="text-gray-600">
-              Your application has been sent to the client. They&apos;ll review it and get back to you soon.
+              Your application has been sent to the client. They&apos;ll review
+              it and get back to you soon.
             </p>
           </div>
         </div>
@@ -339,21 +372,33 @@ export default function AmbassadorCampaignDetails() {
           <div
             className="fixed inset-0"
             style={{
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              background: "rgba(0, 0, 0, 0.5)",
             }}
             onClick={() => setShowErrorModal(false)}
           />
-          
+
           {/* Modal content */}
           <div className="relative z-10 bg-white rounded-xl p-6 max-w-md w-full text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Application Failed</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Application Failed
+            </h3>
             <p className="text-gray-600 mb-6">
               There was an error submitting your application. Please try again.
             </p>

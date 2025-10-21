@@ -1,6 +1,6 @@
-import * as React from "react"
+import * as React from "react";
 
-export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>
+export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className = "", children, ...props }, ref) => (
@@ -12,24 +12,31 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       {children}
     </select>
   )
-)
-Select.displayName = "Select"
+);
+Select.displayName = "Select";
 
 // For compatibility with the CampaignForm
-const SelectTrigger = ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div {...props}>{children}</div>
-)
+const SelectTrigger = ({
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>;
 
 const SelectValue = ({ placeholder }: { placeholder?: string }) => (
-  <option value="" disabled>{placeholder}</option>
-)
+  <option value="" disabled>
+    {placeholder}
+  </option>
+);
 
 const SelectContent = ({ children }: { children: React.ReactNode }) => (
   <>{children}</>
-)
+);
 
-const SelectItem = ({ value, children }: { value: string; children: React.ReactNode }) => (
-  <option value={value}>{children}</option>
-)
+const SelectItem = ({
+  value,
+  children,
+}: {
+  value: string;
+  children: React.ReactNode;
+}) => <option value={value}>{children}</option>;
 
-export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem }
+export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem };

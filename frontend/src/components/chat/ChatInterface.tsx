@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { ChatSidebar } from './ChatSidebar'
-import { ChatArea } from './ChatArea'
-import { ContextPanel } from './ContextPanel'
-import { UserRole } from '@/types/database'
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { ChatSidebar } from "./ChatSidebar";
+import { ChatArea } from "./ChatArea";
+import { ContextPanel } from "./ContextPanel";
+import { UserRole } from "@/types/database";
 
 interface ChatInterfaceProps {
-  userRole: UserRole
+  userRole: UserRole;
 }
 
 export function ChatInterface({ userRole }: ChatInterfaceProps) {
@@ -16,14 +16,16 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
   const router = useRouter();
 
   // Initialize state from URL immediately (before first render)
-  const chatIdFromUrl = searchParams.get('chat');
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(chatIdFromUrl);
+  const chatIdFromUrl = searchParams.get("chat");
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(
+    chatIdFromUrl
+  );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [chatsChanged, setChatsChanged] = useState(0); // NEW: track chat list changes
 
   // Sync with URL changes
   useEffect(() => {
-    const chatId = searchParams.get('chat');
+    const chatId = searchParams.get("chat");
     if (chatId && chatId !== selectedChatId) {
       setSelectedChatId(chatId);
       setIsMobileMenuOpen(false); // Close sidebar on mobile to show chat
@@ -40,16 +42,18 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
   const handleChatDeleted = () => {
     setSelectedChatId(null);
     setChatsChanged((v) => v + 1); // trigger sidebar refresh
-    window.location.replace('/chats'); // Force full page reload to /chats only
+    window.location.replace("/chats"); // Force full page reload to /chats only
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto px-6 py-6">
       <div className="h-[calc(100vh-145px)] flex gap-6">
         {/* Left Sidebar - Chat List */}
-        <div className={`w-72 flex-shrink-0 ${
-          isMobileMenuOpen ? 'block' : 'hidden'
-        } lg:block`}>
+        <div
+          className={`w-72 flex-shrink-0 ${
+            isMobileMenuOpen ? "block" : "hidden"
+          } lg:block`}
+        >
           <ChatSidebar
             selectedChatId={selectedChatId}
             onSelectChat={handleSelectChat}
@@ -68,13 +72,12 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
         </div>
 
         {/* Right Sidebar - Context Panel */}
-        <div className={`w-80 flex-shrink-0 ${
-          selectedChatId ? 'block' : 'hidden'
-        } lg:block`}>
-          <ContextPanel
-            selectedChatId={selectedChatId}
-            userRole={userRole}
-          />
+        <div
+          className={`w-80 flex-shrink-0 ${
+            selectedChatId ? "block" : "hidden"
+          } lg:block`}
+        >
+          <ContextPanel selectedChatId={selectedChatId} userRole={userRole} />
         </div>
       </div>
     </div>

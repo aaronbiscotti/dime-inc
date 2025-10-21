@@ -38,7 +38,7 @@ export default function SignupFlow() {
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
     score: 0,
     feedback: [],
-    isValid: false
+    isValid: false,
   });
 
   // Redirect if already authenticated
@@ -92,7 +92,7 @@ export default function SignupFlow() {
     return {
       score,
       feedback,
-      isValid: score >= 4 && password.length >= 8
+      isValid: score >= 4 && password.length >= 8,
     };
   };
 
@@ -113,7 +113,10 @@ export default function SignupFlow() {
     }
 
     if (!validateEmail(email.trim())) {
-      setError({ message: "Please enter a valid email address", field: "email" });
+      setError({
+        message: "Please enter a valid email address",
+        field: "email",
+      });
       return;
     }
 
@@ -131,8 +134,11 @@ export default function SignupFlow() {
     } catch (err: unknown) {
       console.error("Email check error:", err);
       setError({
-        message: err instanceof Error ? err.message : "Unable to verify email. Please try again.",
-        field: "email"
+        message:
+          err instanceof Error
+            ? err.message
+            : "Unable to verify email. Please try again.",
+        field: "email",
       });
     } finally {
       setLoading(false);
@@ -157,7 +163,10 @@ export default function SignupFlow() {
     }
 
     if (formData.fullName.trim().length < 2) {
-      setError({ message: "Full name must be at least 2 characters", field: "fullName" });
+      setError({
+        message: "Full name must be at least 2 characters",
+        field: "fullName",
+      });
       return;
     }
 
@@ -167,7 +176,10 @@ export default function SignupFlow() {
     }
 
     if (!passwordStrength.isValid) {
-      setError({ message: "Password does not meet requirements", field: "password" });
+      setError({
+        message: "Password does not meet requirements",
+        field: "password",
+      });
       return;
     }
 
@@ -188,8 +200,15 @@ export default function SignupFlow() {
 
       if (authError) {
         // Handle specific auth errors
-        if (authError.includes("already registered") || authError.includes("already exists")) {
-          setError({ message: "An account with this email already exists. Please sign in instead.", field: "email" });
+        if (
+          authError.includes("already registered") ||
+          authError.includes("already exists")
+        ) {
+          setError({
+            message:
+              "An account with this email already exists. Please sign in instead.",
+            field: "email",
+          });
           setStep("signin");
           return;
         } else if (authError.includes("Password")) {
@@ -199,7 +218,9 @@ export default function SignupFlow() {
           setError({ message: authError, field: "email" });
           return;
         } else {
-          setError({ message: authError || "Signup failed. Please try again." });
+          setError({
+            message: authError || "Signup failed. Please try again.",
+          });
           return;
         }
       }
@@ -207,17 +228,26 @@ export default function SignupFlow() {
       // Check if email confirmation is required (you'll need to handle this in your backend)
       // For now, redirect to verify step
       setStep("verify");
-
     } catch (err: unknown) {
       console.error("Signup error:", err);
 
       // Handle network errors
       if (!navigator.onLine) {
-        setError({ message: "No internet connection. Please check your network and try again." });
+        setError({
+          message:
+            "No internet connection. Please check your network and try again.",
+        });
       } else if (err instanceof Error && err.message?.includes("fetch")) {
-        setError({ message: "Unable to connect to our servers. Please try again later." });
+        setError({
+          message: "Unable to connect to our servers. Please try again later.",
+        });
       } else {
-        setError({ message: err instanceof Error ? err.message : "An unexpected error occurred. Please try again." });
+        setError({
+          message:
+            err instanceof Error
+              ? err.message
+              : "An unexpected error occurred. Please try again.",
+        });
       }
     } finally {
       setLoading(false);
@@ -243,31 +273,51 @@ export default function SignupFlow() {
 
       if (authError) {
         // Handle specific signin errors
-        if (authError.includes("Invalid login credentials") || authError.includes("Incorrect")) {
-          setError({ message: "Incorrect email or password. Please try again.", field: "password" });
+        if (
+          authError.includes("Invalid login credentials") ||
+          authError.includes("Incorrect")
+        ) {
+          setError({
+            message: "Incorrect email or password. Please try again.",
+            field: "password",
+          });
         } else if (authError.includes("Email not confirmed")) {
-          setError({ message: "Please check your email and click the confirmation link before signing in." });
+          setError({
+            message:
+              "Please check your email and click the confirmation link before signing in.",
+          });
           setStep("verify");
         } else if (authError.includes("Too many requests")) {
-          setError({ message: "Too many login attempts. Please wait a moment and try again." });
+          setError({
+            message:
+              "Too many login attempts. Please wait a moment and try again.",
+          });
         } else {
-          setError({ message: authError || "Unable to sign in. Please try again." });
+          setError({
+            message: authError || "Unable to sign in. Please try again.",
+          });
         }
         return;
       }
 
       // Success - redirect to profile page
       router.push("/profile");
-
     } catch (err: unknown) {
       console.error("Signin error:", err);
 
       if (!navigator.onLine) {
-        setError({ message: "No internet connection. Please check your network and try again." });
+        setError({
+          message:
+            "No internet connection. Please check your network and try again.",
+        });
       } else if (err instanceof Error && err.message?.includes("fetch")) {
-        setError({ message: "Unable to connect to our servers. Please try again later." });
+        setError({
+          message: "Unable to connect to our servers. Please try again later.",
+        });
       } else {
-        setError({ message: "An unexpected error occurred. Please try again." });
+        setError({
+          message: "An unexpected error occurred. Please try again.",
+        });
       }
     } finally {
       setLoading(false);
@@ -280,25 +330,37 @@ export default function SignupFlow() {
 
     try {
       // Note: You'll need to implement this endpoint in your FastAPI backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/resend-verification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-        }),
-      });
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        }/api/auth/resend-verification`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+          }),
+        }
+      );
 
-      const error = response.ok ? null : { message: "Failed to resend confirmation email" };
+      const error = response.ok
+        ? null
+        : { message: "Failed to resend confirmation email" };
 
       if (error) {
         setError({ message: error.message });
       } else {
-        setError({ message: "Confirmation email sent! Please check your inbox.", field: "success" });
+        setError({
+          message: "Confirmation email sent! Please check your inbox.",
+          field: "success",
+        });
       }
     } catch {
-      setError({ message: "Unable to resend confirmation email. Please try again." });
+      setError({
+        message: "Unable to resend confirmation email. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -332,11 +394,13 @@ export default function SignupFlow() {
         <CardContent>
           {/* Error Display */}
           {error && (
-            <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${
-              error.field === "success"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-red-50 text-red-700 border border-red-200"
-            }`}>
+            <div
+              className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${
+                error.field === "success"
+                  ? "bg-green-50 text-green-700 border border-green-200"
+                  : "bg-red-50 text-red-700 border border-red-200"
+              }`}
+            >
               {error.field === "success" ? (
                 <CheckCircle className="w-4 h-4 flex-shrink-0" />
               ) : (
@@ -358,7 +422,9 @@ export default function SignupFlow() {
                     if (error?.field === "email") setError(null);
                   }}
                   className={`w-full ${
-                    error?.field === "email" ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
+                    error?.field === "email"
+                      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                      : ""
                   }`}
                   disabled={loading}
                   required
@@ -381,7 +447,7 @@ export default function SignupFlow() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card
-                  className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-gray-300 bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300"
+                  className="cursor-pointer transition-all duration-150 rounded-xl border border-gray-300 bg-background hover:bg-gray-50"
                   onClick={() => handleRoleSelect("ambassador")}
                 >
                   <CardContent className="p-6 text-center">
@@ -396,12 +462,14 @@ export default function SignupFlow() {
                 </Card>
 
                 <Card
-                  className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-gray-300 bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300"
+                  className="cursor-pointer transition-all duration-150 rounded-xl border border-gray-300 bg-background hover:bg-gray-50"
                   onClick={() => handleRoleSelect("client")}
                 >
                   <CardContent className="p-6 text-center">
                     <div className="text-4xl mb-4">🏢</div>
-                    <h3 className="font-semibold text-lg mb-2">I&apos;m a Client</h3>
+                    <h3 className="font-semibold text-lg mb-2">
+                      I&apos;m a Client
+                    </h3>
                     <p className="text-gray-600 text-sm">
                       I&apos;m looking for talent for my brand.
                     </p>
@@ -423,7 +491,9 @@ export default function SignupFlow() {
                     if (error?.field === "fullName") setError(null);
                   }}
                   className={`w-full ${
-                    error?.field === "fullName" ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
+                    error?.field === "fullName"
+                      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                      : ""
                   }`}
                   disabled={loading}
                   required
@@ -442,7 +512,9 @@ export default function SignupFlow() {
                       if (error?.field === "password") setError(null);
                     }}
                     className={`w-full pr-10 ${
-                      error?.field === "password" ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
+                      error?.field === "password"
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                        : ""
                     }`}
                     disabled={loading}
                     required
@@ -454,7 +526,11 @@ export default function SignupFlow() {
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     disabled={loading}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
 
@@ -487,14 +563,19 @@ export default function SignupFlow() {
               </div>
 
               <div className="text-xs text-gray-500">
-                By creating an account, you agree to our Terms of Service and Privacy Policy.
+                By creating an account, you agree to our Terms of Service and
+                Privacy Policy.
               </div>
 
               <Button
                 type="submit"
                 variant="secondary"
                 className="w-full"
-                disabled={loading || !formData.fullName.trim() || !passwordStrength.isValid}
+                disabled={
+                  loading ||
+                  !formData.fullName.trim() ||
+                  !passwordStrength.isValid
+                }
               >
                 {loading ? "Creating Account..." : "Complete Sign Up"}
               </Button>
@@ -517,7 +598,9 @@ export default function SignupFlow() {
                       if (error?.field === "password") setError(null);
                     }}
                     className={`w-full pr-10 ${
-                      error?.field === "password" ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
+                      error?.field === "password"
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                        : ""
                     }`}
                     disabled={loading}
                     required
@@ -530,7 +613,11 @@ export default function SignupFlow() {
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     disabled={loading}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -550,10 +637,12 @@ export default function SignupFlow() {
               <div className="text-4xl mb-4">📧</div>
               <p className="text-sm text-gray-600 mb-4">
                 We&apos;ve sent a confirmation link to <strong>{email}</strong>.
-                Please check your email and click the link to verify your account.
+                Please check your email and click the link to verify your
+                account.
               </p>
               <div className="text-xs text-gray-500 mb-4">
-                Don&apos;t see the email? Check your spam folder or wait a few minutes.
+                Don&apos;t see the email? Check your spam folder or wait a few
+                minutes.
               </div>
               <Button
                 type="button"
@@ -583,4 +672,3 @@ export default function SignupFlow() {
     </div>
   );
 }
-

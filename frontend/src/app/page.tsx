@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
-  const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth();
+  const { user, profile, ambassadorProfile, clientProfile, loading } =
+    useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -41,9 +42,9 @@ export default function Home() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Link href="/login/brand-ambassador">
-              <Card className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-gray-300 bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300">
-                <CardContent className="p-8 text-center">
+            <Link href="/login/brand-ambassador" className="block h-full">
+              <Card className="cursor-pointer transition-all duration-150 rounded-xl border border-gray-300 bg-background hover:bg-gray-50 h-full">
+                <CardContent className="p-8 text-center h-full flex flex-col justify-center">
                   <div className="text-4xl mb-4">📸</div>
                   <h3 className="text-xl font-semibold mb-2">
                     I&apos;m a Brand Ambassador
@@ -55,11 +56,13 @@ export default function Home() {
               </Card>
             </Link>
 
-            <Link href="/login/client">
-              <Card className="cursor-pointer transition-all duration-150 rounded-xl border-2 border-gray-300 bg-background hover:bg-gray-50 transform-gpu active:translate-y-1 border-b-4 border-b-gray-300 hover:border-b-gray-400 active:border-b-0 active:border-2 active:border-gray-300">
-                <CardContent className="p-8 text-center">
+            <Link href="/login/client" className="block h-full">
+              <Card className="cursor-pointer transition-all duration-150 rounded-xl border border-gray-300 bg-background hover:bg-gray-50 h-full">
+                <CardContent className="p-8 text-center h-full flex flex-col justify-center">
                   <div className="text-4xl mb-4">🏢</div>
-                  <h3 className="text-xl font-semibold mb-2">I&apos;m a Client</h3>
+                  <h3 className="text-xl font-semibold mb-2">
+                    I&apos;m a Client
+                  </h3>
                   <p className="text-muted-foreground">
                     I&apos;m looking for talent for my brand.
                   </p>
