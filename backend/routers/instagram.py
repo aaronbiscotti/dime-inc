@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from supabase_client import admin_client
 from core.security import get_current_user
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import httpx
 
 router = APIRouter()
@@ -91,7 +91,7 @@ async def connect_instagram(
             username = user_data["username"]
         
         # Calculate expiration date
-        expires_at = (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat()
+        expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
         
         # Save connection to database
         result = admin_client.table("instagram_connections").upsert({
@@ -100,7 +100,8 @@ async def connect_instagram(
             "instagram_username": username,
             "access_token": long_lived_token,
             "token_expires_at": expires_at,
-            "updated_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }, on_conflict="ambassador_id").execute()
         
         return {
@@ -183,7 +184,7 @@ async def get_instagram_media(
         
         # Check if token needs refresh (within 7 days of expiration)
         token_expires_at = datetime.fromisoformat(connection["token_expires_at"].replace('Z', '+00:00'))
-        days_until_expiry = (token_expires_at - datetime.utcnow()).days
+        days_until_expiry = (token_expires_at - datetime.now(timezone.utc)).days
         
         access_token = connection["access_token"]
         
@@ -202,13 +203,13 @@ async def get_instagram_media(
                     refresh_data = refresh_response.json()
                     access_token = refresh_data["access_token"]
                     expires_in = refresh_data["expires_in"]
-                    new_expires_at = (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat()
+                    new_expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
                     
                     # Update token in database
                     admin_client.table("instagram_connections").update({
                         "access_token": access_token,
                         "token_expires_at": new_expires_at,
-                        "updated_at": datetime.utcnow().isoformat()
+                        "updated_at": datetime.now(timezone.utc).isoformat()
                     }).eq("id", connection["id"]).execute()
         
         # Fetch media

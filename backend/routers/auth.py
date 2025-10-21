@@ -181,9 +181,7 @@ async def signup(request: SignUpRequest, response: Response):
         # Create profile record
         profile_data = {
             "id": user_id,
-            "email": request.email,
-            "role": request.role,
-            "profile_completed": False
+            "role": request.role
         }
         
         admin_client.table("profiles").insert(profile_data).execute()

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 from typing import List, Optional, Literal
+from datetime import datetime, timezone
 from supabase_client import admin_client
 from core.security import get_current_user
 
@@ -92,7 +93,11 @@ def check_chat_membership(chat_room_id: str, user_id: str) -> bool:
             .eq("user_id", user_id) \
             .maybe_single() \
             .execute()
-        return result.data is not None
+        
+        # Check if result exists and has data
+        if result and result.data is not None:
+            return True
+        return False
     except Exception as e:
         print(f"Error checking chat membership: {e}")
         return False
@@ -108,7 +113,7 @@ def get_participant_info(user_id: str) -> Optional[ParticipantResponse]:
             .maybe_single() \
             .execute()
         
-        if not profile.data:
+        if not profile or not profile.data:
             return None
         
         role = profile.data["role"]
@@ -121,7 +126,7 @@ def get_participant_info(user_id: str) -> Optional[ParticipantResponse]:
                 .maybe_single() \
                 .execute()
             
-            if not ambassador.data:
+            if not ambassador or not ambassador.data:
                 return None
             
             return ParticipantResponse(
@@ -143,7 +148,7 @@ def get_participant_info(user_id: str) -> Optional[ParticipantResponse]:
                 .maybe_single() \
                 .execute()
             
-            if not client.data:
+            if not client or not client.data:
                 return None
             
             return ParticipantResponse(
@@ -226,7 +231,9 @@ async def create_private_chat(
             .insert({
                 "name": chat_name,
                 "is_group": False,
-                "created_by": user_id
+                "created_by": user_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }) \
             .execute()
         
@@ -241,8 +248,8 @@ async def create_private_chat(
         # Add both participants
         participants = admin_client.table("chat_participants") \
             .insert([
-                {"chat_room_id": chat_room_id, "user_id": user_id},
-                {"chat_room_id": chat_room_id, "user_id": request.participant_id}
+                {"chat_room_id": chat_room_id, "user_id": user_id, "joined_at": datetime.now(timezone.utc).isoformat()},
+                {"chat_room_id": chat_room_id, "user_id": request.participant_id, "joined_at": datetime.now(timezone.utc).isoformat()}
             ]) \
             .execute()
         
@@ -289,7 +296,9 @@ async def create_group_chat(
             .insert({
                 "name": request.name,
                 "is_group": True,
-                "created_by": user_id
+                "created_by": user_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }) \
             .execute()
         
@@ -302,9 +311,9 @@ async def create_group_chat(
         chat_room_id = chat_room.data[0]["id"]
         
         # Add creator + all participants
-        participant_records = [{"chat_room_id": chat_room_id, "user_id": user_id}]
+        participant_records = [{"chat_room_id": chat_room_id, "user_id": user_id, "joined_at": datetime.now(timezone.utc).isoformat()}]
         participant_records.extend([
-            {"chat_room_id": chat_room_id, "user_id": pid}
+            {"chat_room_id": chat_room_id, "user_id": pid, "joined_at": datetime.now(timezone.utc).isoformat()}
             for pid in request.participant_ids
         ])
         
@@ -614,7 +623,8 @@ async def add_participant(
         participant = admin_client.table("chat_participants") \
             .insert({
                 "chat_room_id": chat_room_id,
-                "user_id": request.user_id
+                "user_id": request.user_id,
+                "joined_at": datetime.now(timezone.utc).isoformat()
             }) \
             .execute()
         
@@ -734,14 +744,30 @@ async def delete_chat(
                 detail="Only the chat creator can delete the chat"
             )
         
-        # Delete campaign_ambassadors rows linked to this chat (if any)
+        # Delete contracts that reference campaign_ambassadors linked to this chat
         try:
-            admin_client.table("campaign_ambassadors") \
-                .delete() \
+            # First, get all campaign_ambassadors linked to this chat
+            campaign_ambassadors = admin_client.table("campaign_ambassadors") \
+                .select("id") \
                 .eq("chat_room_id", chat_room_id) \
                 .execute()
+            
+            if campaign_ambassadors.data:
+                campaign_ambassador_ids = [ca["id"] for ca in campaign_ambassadors.data]
+                
+                # Delete contracts that reference these campaign_ambassadors
+                admin_client.table("contracts") \
+                    .delete() \
+                    .in_("campaign_ambassador_id", campaign_ambassador_ids) \
+                    .execute()
+                
+                # Now delete the campaign_ambassadors
+                admin_client.table("campaign_ambassadors") \
+                    .delete() \
+                    .eq("chat_room_id", chat_room_id) \
+                    .execute()
         except Exception as e:
-            print(f"Note: No campaign_ambassadors to delete: {e}")
+            print(f"Note: No campaign_ambassadors or contracts to delete: {e}")
         
         # Delete messages (cascade should handle this, but be explicit)
         admin_client.table("messages") \
@@ -827,32 +853,32 @@ async def get_chat_contract(
             )
         
         # Find campaign_ambassador for this chat
-        ca = admin_client.table("campaign_ambassadors") \
+        ca_result = admin_client.table("campaign_ambassadors") \
             .select("id") \
             .eq("chat_room_id", chat_room_id) \
             .maybe_single() \
             .execute()
         
-        if not ca.data:
+        if not ca_result or not ca_result.data:
             return {
                 "contract": None,
                 "message": "No campaign associated with this chat"
             }
         
         # Find contract for this campaign_ambassador
-        contract = admin_client.table("contracts") \
+        contract_result = admin_client.table("contracts") \
             .select("*") \
-            .eq("campaign_ambassador_id", ca.data["id"]) \
+            .eq("campaign_ambassador_id", ca_result.data["id"]) \
             .maybe_single() \
             .execute()
         
-        if not contract.data:
+        if not contract_result or not contract_result.data:
             return {
                 "contract": None,
                 "message": "No contract found for this chat"
             }
         
-        return {"contract": contract.data}
+        return {"contract": contract_result.data}
         
     except HTTPException:
         raise
@@ -860,5 +886,66 @@ async def get_chat_contract(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching chat contract: {str(e)}"
+        )
+
+
+@router.get("/{chat_room_id}/campaign-info")
+async def get_chat_campaign_info(
+    chat_room_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get campaign and ambassador information for a chat room (for contract creation)."""
+    try:
+        user_id = current_user["id"]
+        
+        # Check membership
+        if not check_chat_membership(chat_room_id, user_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this chat"
+            )
+        
+        # Find campaign_ambassador for this chat
+        ca_result = admin_client.table("campaign_ambassadors") \
+            .select("id, campaign_id, ambassador_id") \
+            .eq("chat_room_id", chat_room_id) \
+            .maybe_single() \
+            .execute()
+        
+        if not ca_result or not ca_result.data:
+            return {
+                "campaign": None,
+                "ambassador": None,
+                "message": "No campaign associated with this chat"
+            }
+        
+        ca_data = ca_result.data
+        
+        # Get campaign details
+        campaign_result = admin_client.table("campaigns") \
+            .select("id, title, client_id") \
+            .eq("id", ca_data["campaign_id"]) \
+            .maybe_single() \
+            .execute()
+        
+        # Get ambassador details
+        ambassador_result = admin_client.table("ambassador_profiles") \
+            .select("id, user_id, full_name, instagram_handle") \
+            .eq("id", ca_data["ambassador_id"]) \
+            .maybe_single() \
+            .execute()
+        
+        return {
+            "campaign": campaign_result.data if campaign_result.data else None,
+            "ambassador": ambassador_result.data if ambassador_result.data else None,
+            "campaign_ambassador_id": ca_data["id"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching chat campaign info: {str(e)}"
         )
 

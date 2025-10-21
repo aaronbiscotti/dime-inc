@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings
-from routers import auth, users, profiles, instagram, campaigns, portfolios, explore, chats
+from routers import auth, users, profiles, instagram, campaigns, portfolios, explore, chats, contracts
 
 settings = get_settings()
 
@@ -31,6 +31,7 @@ app.include_router(campaigns.router, prefix="/api/campaigns", tags=["campaigns"]
 app.include_router(portfolios.router, prefix="/api/portfolios", tags=["portfolios"])
 app.include_router(explore.router, prefix="/api/explore", tags=["explore"])
 app.include_router(chats.router, prefix="/api/chats", tags=["chats"])
+app.include_router(contracts.router, prefix="/api/contracts", tags=["contracts"])
 
 
 @app.get("/")

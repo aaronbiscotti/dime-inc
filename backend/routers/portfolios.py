@@ -118,8 +118,8 @@ async def create_portfolio_item(
             "media_urls": portfolio.media_urls,
             "campaign_date": portfolio.campaign_date,
             "results": portfolio.results,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }).execute()
         
         if not result.data:

@@ -53,6 +53,9 @@ async def get_ambassadors(
                 "completedCampaigns": 0,
                 "avgEngagement": "N/A",
                 "profilePhotoUrl": ambassador.get("profile_photo_url"),
+                "instagramHandle": ambassador.get("instagram_handle"),
+                "tiktokHandle": ambassador.get("tiktok_handle"),
+                "twitterHandle": ambassador.get("twitter_handle"),
             })
         
         return {"data": ambassadors}

@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     supabase_anon_key: str
     frontend_url: str = "http://localhost:3000"
+    ig_app_id: str
+    ig_app_secret: str
+    instagram_redirect_uri: str
 
     class Config:
         env_file = ".env"
