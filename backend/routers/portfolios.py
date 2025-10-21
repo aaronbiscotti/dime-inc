@@ -1,39 +1,25 @@
 """Portfolio management routes for ambassadors to showcase their campaign work."""
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from supabase_client import admin_client
 from core.security import get_current_user
+from core.validation import SecureStringField
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-import re
 
 router = APIRouter()
 
 
 class CreatePortfolioRequest(BaseModel):
     """Input model for creating a new portfolio item - ONLY fields users can provide."""
-    title: str = Field(..., max_length=200)
-    description: Optional[str] = Field(None, max_length=1000)
-    instagram_url: Optional[str] = Field(None, max_length=500)
-    tiktok_url: Optional[str] = Field(None, max_length=500)
-    media_urls: List[str] = Field(..., max_length=20)
-    campaign_date: Optional[str] = Field(None, max_length=50)
+    title: SecureStringField = Field(..., max_length=200)
+    description: Optional[SecureStringField] = Field(None, max_length=1000)
+    instagram_url: Optional[SecureStringField] = Field(None, max_length=500)
+    tiktok_url: Optional[SecureStringField] = Field(None, max_length=500)
+    media_urls: List[SecureStringField] = Field(..., max_length=20)
+    campaign_date: Optional[SecureStringField] = Field(None, max_length=50)
     results: Optional[Dict[str, Any]] = None
-    
-    @field_validator('*', mode='before')
-    @classmethod
-    def sanitize_strings(cls, v):
-        if isinstance(v, str):
-            # Remove potentially dangerous characters
-            v = re.sub(r'[<>"\']', '', v)
-            # Prevent XSS patterns
-            if '<script' in v.lower() or 'javascript:' in v.lower():
-                raise ValueError('Invalid characters detected')
-        elif isinstance(v, list):
-            # Sanitize list items
-            return [re.sub(r'[<>"\']', '', item) if isinstance(item, str) else item for item in v]
-        return v
     
     class Config:
         # Prevent any additional fields from being accepted
@@ -42,27 +28,13 @@ class CreatePortfolioRequest(BaseModel):
 
 class UpdatePortfolioRequest(BaseModel):
     """Input model for updating portfolio item - ONLY fields users can modify."""
-    title: Optional[str] = Field(None, max_length=200)
-    description: Optional[str] = Field(None, max_length=1000)
-    instagram_url: Optional[str] = Field(None, max_length=500)
-    tiktok_url: Optional[str] = Field(None, max_length=500)
-    media_urls: Optional[List[str]] = Field(None, max_length=20)
-    campaign_date: Optional[str] = Field(None, max_length=50)
+    title: Optional[SecureStringField] = Field(None, max_length=200)
+    description: Optional[SecureStringField] = Field(None, max_length=1000)
+    instagram_url: Optional[SecureStringField] = Field(None, max_length=500)
+    tiktok_url: Optional[SecureStringField] = Field(None, max_length=500)
+    media_urls: Optional[List[SecureStringField]] = Field(None, max_length=20)
+    campaign_date: Optional[SecureStringField] = Field(None, max_length=50)
     results: Optional[Dict[str, Any]] = None
-    
-    @field_validator('*', mode='before')
-    @classmethod
-    def sanitize_strings(cls, v):
-        if isinstance(v, str):
-            # Remove potentially dangerous characters
-            v = re.sub(r'[<>"\']', '', v)
-            # Prevent XSS patterns
-            if '<script' in v.lower() or 'javascript:' in v.lower():
-                raise ValueError('Invalid characters detected')
-        elif isinstance(v, list):
-            # Sanitize list items
-            return [re.sub(r'[<>"\']', '', item) if isinstance(item, str) else item for item in v]
-        return v
     
     class Config:
         # Prevent any additional fields from being accepted

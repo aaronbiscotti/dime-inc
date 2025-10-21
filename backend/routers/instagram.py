@@ -4,13 +4,28 @@ from fastapi import APIRouter, HTTPException, status, Depends, Query
 from pydantic import BaseModel
 from supabase_client import admin_client
 from core.security import get_current_user
+from config import get_settings
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 import httpx
+from urllib.parse import urlencode
 
 router = APIRouter()
 
 INSTAGRAM_GRAPH_API_URL = "https://graph.instagram.com"
+
+
+@router.get("/auth-url")
+async def get_instagram_auth_url():
+    settings = get_settings()
+    base_url = "https://api.instagram.com/oauth/authorize"
+    params = {
+        "client_id": settings.ig_app_id,
+        "redirect_uri": settings.instagram_redirect_uri,
+        "scope": "user_profile,user_media",
+        "response_type": "code"
+    }
+    return {"url": f"{base_url}?{urlencode(params)}"}
 
 
 class InstagramConnectRequest(BaseModel):

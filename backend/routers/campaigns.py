@@ -61,6 +61,9 @@ class CreateCampaignRequest(BaseModel):
     budget: str
     timeline: str
     requirements: str  # Changed from List[str] to str to match database
+    target_niches: List[str] = []
+    campaign_type: str = ""
+    deliverables: List[str] = []
 
 
 class CampaignRead(BaseModel):
@@ -104,10 +107,17 @@ async def create_campaign(
                 detail="Client profile not found"
             )
         
-        # Prepare campaign metadata (store additional info in requirements field)
+        # Prepare campaign metadata (store structured data in requirements field)
+        import json
         campaign_metadata = {
-            "requirements": campaign.requirements
+            "requirements": campaign.requirements,
+            "target_niches": campaign.target_niches,
+            "campaign_type": campaign.campaign_type,
+            "deliverables": campaign.deliverables
         }
+        
+        # Store structured metadata as JSON in requirements field
+        requirements_json = json.dumps(campaign_metadata)
         
         # Parse budget range (e.g., "$100 - $200" or "$500")
         try:
@@ -134,7 +144,7 @@ async def create_campaign(
             "budget_min": budget_min,
             "budget_max": budget_max,
             "deadline": campaign.timeline if campaign.timeline != "No deadline" else None,
-            "requirements": campaign.requirements,  # Store as string
+            "requirements": requirements_json,  # Store structured data as JSON
             "status": CAMPAIGN_STATUS_DRAFT,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
@@ -170,13 +180,12 @@ async def get_campaigns_for_client(
     """
     try:
         # Verify user is authorized (must be the client or an admin)
-        if current_user["id"] != client_id:
-            client_profile = current_user.get("client_profile")
-            if not client_profile or client_profile["id"] != client_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Not authorized to view these campaigns"
-                )
+        client_profile = current_user.get("client_profile")
+        if not client_profile or client_profile["id"] != client_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to view these campaigns"
+            )
         
         # Fetch campaigns for this client
         result = admin_client.table("campaigns").select("*").eq("client_id", client_id).order("created_at", desc=True).execute()
@@ -243,6 +252,102 @@ async def get_campaign(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching campaign: {str(e)}"
         )
+
+
+@router.get("/{campaign_id}/ambassadors")
+async def get_campaign_ambassadors(
+    campaign_id: str, 
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all ambassadors for a specific campaign."""
+    try:
+        # Verify the campaign exists
+        campaign_result = admin_client.table("campaigns").select("id").eq("id", campaign_id).maybe_single().execute()
+        if not campaign_result or not campaign_result.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+
+        # Efficiently fetch campaign ambassadors with their profiles in one query
+        ca_result = admin_client.table("campaign_ambassadors").select("""
+            *,
+            ambassador_profiles(*)
+        """).eq("campaign_id", campaign_id).execute()
+
+        if not ca_result.data:
+            return {"data": []}
+
+        ambassadors = []
+        for ca in ca_result.data:
+            ambassador_profile = ca.get("ambassador_profiles")
+            if ambassador_profile:
+                ambassadors.append({
+                    "id": ambassador_profile["id"],
+                    "user_id": ambassador_profile["user_id"], 
+                    "full_name": ambassador_profile.get("full_name", "Unknown"),
+                    "username": ambassador_profile.get("instagram_handle", ""),
+                    "bio": ambassador_profile.get("bio", ""),
+                    "niche": ambassador_profile.get("niche", []),
+                    "status": ca.get("status", "pending"),
+                    "chatroom_id": ca.get("chat_room_id")
+                })
+
+        return {"data": ambassadors}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error fetching campaign ambassadors: {str(e)}")
+
+
+@router.get("/{campaign_id}/ambassador-rows")
+async def get_campaign_ambassador_rows(
+    campaign_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get campaign-ambassador join table rows for a specific campaign."""
+    try:
+        # Verify the campaign exists
+        campaign_result = admin_client.table("campaigns").select("*").eq("id", campaign_id).maybe_single().execute()
+        if not campaign_result or not campaign_result.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+        
+        # Get campaign ambassador rows
+        ca_result = admin_client.table("campaign_ambassadors").select("*").eq("campaign_id", campaign_id).execute()
+        
+        return {"rows": ca_result.data or []}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error fetching campaign ambassador rows: {str(e)}")
+
+
+@router.get("/ambassador/{ambassador_id}")
+async def get_campaigns_for_ambassador(
+    ambassador_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all campaigns for a specific ambassador."""
+    try:
+        # Verify the ambassador exists
+        ambassador_result = admin_client.table("ambassador_profiles").select("*").eq("id", ambassador_id).maybe_single().execute()
+        if not ambassador_result or not ambassador_result.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ambassador not found")
+        
+        # Get campaign-ambassador relationships for this ambassador
+        ca_result = admin_client.table("campaign_ambassadors").select("*, campaigns(*)").eq("ambassador_id", ambassador_id).execute()
+        
+        # Extract campaigns from the relationships
+        campaigns = []
+        for ca in ca_result.data or []:
+            if ca.get("campaigns"):
+                campaigns.append(ca["campaigns"])
+        
+        return {"data": campaigns}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error fetching ambassador campaigns: {str(e)}")
 
 
 @router.post("/{campaign_id}/ambassadors/{ambassador_id}")
@@ -370,6 +475,30 @@ async def add_ambassador_to_campaign(
                 detail="Failed to create campaign-ambassador relationship"
             )
         
+        # Send automatic welcome message to notify the ambassador
+        try:
+            campaign_title = campaign_result.data.get("title", "Campaign")
+            ambassador_name = ambassador_result.data.get("full_name", "Ambassador")
+            
+            # Send automatic welcome message with proper error handling
+            welcome_message = f"Welcome to {campaign_title}! You've been invited to participate in this campaign. Please review the details and let us know if you're interested!"
+            
+            message_data = {
+                "chat_room_id": chat_room_id,
+                "sender_id": current_user["id"],  # System/client sending the message
+                "content": welcome_message,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            message_result = admin_client.table("messages").insert(message_data).execute()
+            
+            if not message_result.data:
+                print(f"Warning: Failed to send welcome message to ambassador {ambassador_name}")
+                
+        except Exception as e:
+            print(f"Error: Failed to send welcome message: {e}")
+            # Don't fail the entire process, just log the error
+        
         return {
             "message": "Ambassador added to campaign successfully",
             "campaign_ambassador_id": ca_id,
@@ -382,6 +511,73 @@ async def add_ambassador_to_campaign(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error adding ambassador to campaign: {str(e)}"
+        )
+
+
+@router.put("/{campaign_id}/status")
+async def update_campaign_status(
+    campaign_id: str,
+    status_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update campaign status. Only the client who owns the campaign can update it.
+    """
+    try:
+        # Verify user is a client
+        if not current_user.get("profile") or current_user["profile"]["role"] != "client":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only clients can update campaign status"
+            )
+        
+        client_profile = current_user.get("client_profile")
+        if not client_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Client profile not found"
+            )
+        
+        # Verify the campaign exists and belongs to this client
+        campaign_result = admin_client.table("campaigns").select("*").eq("id", campaign_id).eq("client_id", client_profile["id"]).maybe_single().execute()
+        
+        if not campaign_result or not campaign_result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Campaign not found or you don't have permission to modify it"
+            )
+        
+        # Get the new status from the request
+        new_status = status_data.get("status")
+        if not new_status or new_status not in [CAMPAIGN_STATUS_DRAFT, CAMPAIGN_STATUS_ACTIVE, CAMPAIGN_STATUS_COMPLETED, CAMPAIGN_STATUS_CANCELLED]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid status value"
+            )
+        
+        # Update the campaign status
+        result = admin_client.table("campaigns").update({
+            "status": new_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", campaign_id).execute()
+        
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update campaign status"
+            )
+        
+        return {
+            "success": True,
+            "message": f"Campaign status updated to {new_status}"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating campaign status: {str(e)}"
         )
 
 
@@ -455,5 +651,61 @@ async def delete_campaign(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting campaign: {str(e)}"
+        )
+
+
+@router.put("/{campaign_id}")
+async def update_campaign(
+    campaign_id: str,
+    campaign_updates: CreateCampaignRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update a campaign. Only the client who created it can update it.
+    """
+    try:
+        # Verify user is a client
+        if not current_user.get("profile") or current_user["profile"]["role"] != "client":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only clients can update campaigns"
+            )
+        
+        client_profile = current_user.get("client_profile")
+        if not client_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Client profile not found"
+            )
+        
+        # Verify the campaign exists and belongs to this client
+        campaign_result = admin_client.table("campaigns").select("*").eq("id", campaign_id).eq("client_id", client_profile["id"]).maybe_single().execute()
+        
+        if not campaign_result or not campaign_result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Campaign not found or you don't have permission to update it"
+            )
+        
+        # Update the campaign
+        update_data = campaign_updates.model_dump(exclude_unset=True)
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        result = admin_client.table("campaigns").update(update_data).eq("id", campaign_id).execute()
+        
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update campaign"
+            )
+        
+        return {"campaign": result.data[0]}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating campaign: {str(e)}"
         )
 

@@ -1,36 +1,25 @@
 """Profile update routes for ambassador and client profile management."""
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from supabase_client import admin_client
 from core.security import get_current_user
+from core.validation import SecureStringField
 from typing import Optional
 from datetime import datetime, timezone
-import re
 
 router = APIRouter()
 
 
 class AmbassadorProfileUpdate(BaseModel):
     """Input model for updating ambassador profile - ONLY fields users can modify."""
-    full_name: Optional[str] = Field(None, max_length=100)
-    bio: Optional[str] = Field(None, max_length=500)
-    location: Optional[str] = Field(None, max_length=100)
-    instagram_handle: Optional[str] = Field(None, max_length=50)
-    tiktok_handle: Optional[str] = Field(None, max_length=50)
-    twitter_handle: Optional[str] = Field(None, max_length=50)
-    profile_photo_url: Optional[str] = Field(None, max_length=500)
-    
-    @field_validator('*', mode='before')
-    @classmethod
-    def sanitize_strings(cls, v):
-        if isinstance(v, str):
-            # Remove potentially dangerous characters
-            v = re.sub(r'[<>"\']', '', v)
-            # Prevent XSS patterns
-            if '<script' in v.lower() or 'javascript:' in v.lower():
-                raise ValueError('Invalid characters detected')
-        return v
+    full_name: Optional[SecureStringField] = Field(None, max_length=100)
+    bio: Optional[SecureStringField] = Field(None, max_length=500)
+    location: Optional[SecureStringField] = Field(None, max_length=100)
+    instagram_handle: Optional[SecureStringField] = Field(None, max_length=50)
+    tiktok_handle: Optional[SecureStringField] = Field(None, max_length=50)
+    twitter_handle: Optional[SecureStringField] = Field(None, max_length=50)
+    profile_photo_url: Optional[SecureStringField] = Field(None, max_length=500)
     
     class Config:
         # Prevent any additional fields from being accepted
@@ -55,22 +44,11 @@ class AmbassadorProfileRead(BaseModel):
 
 class ClientProfileUpdate(BaseModel):
     """Input model for updating client profile - ONLY fields users can modify."""
-    company_name: Optional[str] = Field(None, max_length=100)
-    company_description: Optional[str] = Field(None, max_length=1000)
-    industry: Optional[str] = Field(None, max_length=50)
-    website: Optional[str] = Field(None, max_length=200)
-    logo_url: Optional[str] = Field(None, max_length=500)
-    
-    @field_validator('*', mode='before')
-    @classmethod
-    def sanitize_strings(cls, v):
-        if isinstance(v, str):
-            # Remove potentially dangerous characters
-            v = re.sub(r'[<>"\']', '', v)
-            # Prevent XSS patterns
-            if '<script' in v.lower() or 'javascript:' in v.lower():
-                raise ValueError('Invalid characters detected')
-        return v
+    company_name: Optional[SecureStringField] = Field(None, max_length=100)
+    company_description: Optional[SecureStringField] = Field(None, max_length=1000)
+    industry: Optional[SecureStringField] = Field(None, max_length=50)
+    website: Optional[SecureStringField] = Field(None, max_length=200)
+    logo_url: Optional[SecureStringField] = Field(None, max_length=500)
     
     class Config:
         # Prevent any additional fields from being accepted

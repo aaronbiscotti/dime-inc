@@ -33,7 +33,6 @@ export interface InstagramConnection {
 class InstagramService {
   /**
    * Save Instagram connection after OAuth
-   * TODO: Implement Instagram integration in backend
    */
   async saveConnection(
     shortLivedToken: string,
@@ -44,60 +43,81 @@ class InstagramService {
     expiresIn?: number;
     error?: string;
   }> {
-    console.warn("Instagram API endpoints not yet implemented in backend");
-    return {
-      success: false,
-      error: "Instagram integration coming soon",
-    };
-
-    /* Backend implementation pending
     try {
       const response = await authPost(`${API_BASE_URL}/api/instagram/connect`, {
         short_lived_token: shortLivedToken,
-        instagram_user_id: instagramUserId
+        instagram_user_id: instagramUserId,
       });
 
-      const data = await handleApiResponse<{ username: string; expires_in: number }>(response);
+      const data = await handleApiResponse<{
+        username: string;
+        expires_in: number;
+      }>(response);
 
       return {
         success: true,
         username: data.username,
-        expiresIn: data.expires_in
+        expiresIn: data.expires_in,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to connect Instagram'
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to connect Instagram",
       };
     }
-    */
   }
 
   /**
    * Get Instagram connection status
-   * TODO: Implement Instagram integration in backend
    */
   async getConnection(): Promise<InstagramConnection> {
-    console.warn("Instagram API endpoints not yet implemented in backend");
-    return { connected: false };
+    try {
+      const response = await authFetch(`${API_BASE_URL}/api/instagram/connect`);
+      const data = await handleApiResponse<InstagramConnection>(response);
+      return data;
+    } catch (error) {
+      console.error("Failed to get Instagram connection:", error);
+      return { connected: false };
+    }
   }
 
   /**
    * Fetch user's Instagram media (Reels, posts)
-   * TODO: Implement Instagram integration in backend
    */
   async getUserMedia(limit: number = 25): Promise<InstagramMedia[]> {
-    console.warn("Instagram API endpoints not yet implemented in backend");
-    return [];
+    try {
+      const response = await authFetch(
+        `${API_BASE_URL}/api/instagram/media?limit=${limit}`
+      );
+      const data = await handleApiResponse<{ data: InstagramMedia[] }>(
+        response
+      );
+      return data.data || [];
+    } catch (error) {
+      console.error("Failed to get Instagram media:", error);
+      return [];
+    }
   }
 
   /**
    * Fetch insights for a specific media item
-   * TODO: Implement Instagram integration in backend
    */
   async getMediaInsights(mediaId: string): Promise<InstagramInsights> {
-    console.warn("Instagram API endpoints not yet implemented in backend");
-    return {};
+    try {
+      const response = await authFetch(
+        `${API_BASE_URL}/api/instagram/insights/${mediaId}`
+      );
+      const data = await handleApiResponse<{ data: InstagramInsights }>(
+        response
+      );
+      return data.data || {};
+    } catch (error) {
+      console.error("Failed to get Instagram insights:", error);
+      return {};
+    }
   }
 }
 

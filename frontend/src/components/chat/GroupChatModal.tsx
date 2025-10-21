@@ -117,11 +117,11 @@ export function GroupChatModal({
                         className="rounded border-gray-300"
                       />
                       <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium">
-                        {user.name.charAt(0).toUpperCase()}
+                        {(user.username || user.name).charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">
-                          {user.name}
+                          {user.username || user.name}
                         </div>
                         <div className="text-xs text-gray-500 truncate">
                           {user.email}

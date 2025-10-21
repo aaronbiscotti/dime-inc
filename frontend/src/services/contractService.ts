@@ -155,36 +155,4 @@ export const contractService = {
       handleError(error, "signContract");
     }
   },
-
-  /**
-   * Update a contract
-   */
-  async updateContract(
-    contractId: string,
-    updates: Partial<CreateContractData>
-  ): Promise<Contract> {
-    try {
-      const response = await authPut(
-        `${API_BASE_URL}/api/contracts/${contractId}`,
-        updates
-      );
-      return await handleApiResponse<Contract>(response);
-    } catch (error) {
-      handleError(error, "updateContract");
-    }
-  },
-
-  /**
-   * Delete a contract
-   */
-  async deleteContract(contractId: string): Promise<void> {
-    try {
-      const response = await authDelete(
-        `${API_BASE_URL}/api/contracts/${contractId}`
-      );
-      await handleApiResponse(response);
-    } catch (error) {
-      handleError(error, "deleteContract");
-    }
-  },
 };

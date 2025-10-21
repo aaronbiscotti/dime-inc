@@ -13,6 +13,7 @@ import { AddContentModal } from "@/components/portfolio/AddContentModal";
 import { campaignService } from "@/services/campaignService";
 import { portfolioService } from "@/services/portfolioService";
 import { InstagramMedia } from "@/services/instagramService";
+import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 
 // Display types for UI
 interface PortfolioItem {
@@ -46,6 +47,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [showProfileEditModal, setShowProfileEditModal] = useState(false);
   const [showAddContentModal, setShowAddContentModal] = useState(false);
+  const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
 
   // Fetch real data from database
   useEffect(() => {
@@ -204,6 +206,35 @@ export default function Profile() {
     }
   };
 
+  const handleCampaignCreated = async (campaign: Record<string, unknown>) => {
+    // Refresh campaigns list after creation
+    if (clientProfile) {
+      try {
+        const result = await campaignService.getCampaignsForClient(
+          clientProfile.id
+        );
+        if (result.data) {
+          const clientCampaigns: CampaignDisplay[] = result.data.map((c) => ({
+            id: c.id,
+            title: c.title,
+            status: c.status as "draft" | "active" | "completed" | "cancelled",
+            budgetRange: `$${c.budget_min.toFixed(2)} - $${c.budget_max.toFixed(
+              2
+            )}`,
+            ambassadorCount: 0,
+            timeline: c.deadline
+              ? new Date(c.deadline).toLocaleDateString()
+              : "TBD",
+            coverImage: undefined,
+          }));
+          setCampaigns(clientCampaigns);
+        }
+      } catch (error) {
+        console.error("Error refreshing campaigns:", error);
+      }
+    }
+  };
+
   return (
     <ProfileGuard>
       <div className="min-h-screen bg-gray-50">
@@ -233,7 +264,7 @@ export default function Profile() {
                 <ClientCampaigns
                   campaigns={campaigns}
                   loading={loading}
-                  onCreateCampaign={() => router.push("/campaigns")}
+                  onCreateCampaign={() => setShowCreateCampaignModal(true)}
                 />
               )}
             </div>
@@ -259,6 +290,13 @@ export default function Profile() {
             onContentSelected={handleContentSelected}
           />
         )}
+
+        {/* Create Campaign Modal */}
+        <CreateCampaignModal
+          isOpen={showCreateCampaignModal}
+          onClose={() => setShowCreateCampaignModal(false)}
+          onCampaignCreated={handleCampaignCreated}
+        />
       </div>
     </ProfileGuard>
   );

@@ -3,8 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CampaignDisplay } from "@/types/database";
-import { Plus, Calendar, Users, DollarSign, Clock } from "lucide-react";
+import { Plus, DollarSign, Users, Clock } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface ClientCampaignsProps {
   campaigns: CampaignDisplay[];
@@ -17,6 +18,8 @@ export function ClientCampaigns({
   loading,
   onCreateCampaign,
 }: ClientCampaignsProps) {
+  const router = useRouter();
+
   if (loading) {
     return (
       <div className="lg:col-span-2">
@@ -99,68 +102,64 @@ export function ClientCampaigns({
           campaigns.map((campaign: CampaignDisplay) => (
             <Card
               key={campaign.id}
-              className="group cursor-pointer hover:scale-105 hover:shadow-lg transition-all duration-200"
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => router.push(`/campaigns/${campaign.id}`)}
             >
               <CardContent className="p-0">
-                <div className="relative">
-                  {/* Campaign Cover */}
-                  <div className="h-48 bg-gray-200 rounded-t-xl overflow-hidden relative">
-                    {campaign.coverImage ? (
-                      <Image
-                        src={campaign.coverImage}
-                        alt={campaign.title}
-                        width={300}
-                        height={192}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                        <span className="text-gray-500 text-4xl">📸</span>
-                      </div>
-                    )}
+                {/* Campaign Cover */}
+                <div className="h-40 bg-gray-200 rounded-t-lg overflow-hidden relative">
+                  {campaign.coverImage ? (
+                    <Image
+                      src={campaign.coverImage}
+                      alt={campaign.title}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                      <span className="text-gray-500 text-4xl">📸</span>
+                    </div>
+                  )}
 
-                    {/* Status Badge */}
-                    <div className="absolute top-3 right-3">
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          campaign.status === "active"
-                            ? "bg-green-100 text-green-800 border border-green-300"
-                            : campaign.status === "draft"
-                            ? "bg-gray-100 text-gray-800 border border-gray-300"
-                            : campaign.status === "completed"
-                            ? "bg-blue-100 text-blue-800 border border-blue-300"
-                            : "bg-red-100 text-red-800 border border-red-200"
-                        }`}
-                      >
-                        {campaign.status.charAt(0).toUpperCase() +
-                          campaign.status.slice(1)}
-                      </span>
+                  {/* Status Badge */}
+                  <div className="absolute top-2 right-2">
+                    <span
+                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        campaign.status === "active"
+                          ? "bg-green-100 text-green-800 border border-green-300"
+                          : campaign.status === "draft"
+                          ? "bg-gray-100 text-gray-800 border border-gray-300"
+                          : campaign.status === "completed"
+                          ? "bg-blue-100 text-blue-800 border border-blue-300"
+                          : "bg-red-100 text-red-800 border border-red-200"
+                      }`}
+                    >
+                      {campaign.status.charAt(0).toUpperCase() +
+                        campaign.status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Campaign Info */}
+                <div className="p-4 space-y-2">
+                  <h4 className="font-semibold text-gray-900 line-clamp-1">
+                    {campaign.title}
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <div className="flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" />
+                      <span>{campaign.budgetRange}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      <span>{campaign.ambassadorCount} ambassadors</span>
                     </div>
                   </div>
 
-                  {/* Campaign Info */}
-                  <div className="p-4 space-y-3">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 line-clamp-1">
-                        {campaign.title}
-                      </h4>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" />
-                        <span>{campaign.budgetRange}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        <span>{campaign.ambassadorCount} ambassadors</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      <Clock className="w-3 h-3" />
-                      <span>{campaign.timeline}</span>
-                    </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <Clock className="w-3 h-3" />
+                    <span>{campaign.timeline}</span>
                   </div>
                 </div>
               </CardContent>

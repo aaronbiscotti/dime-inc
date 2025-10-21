@@ -81,22 +81,4 @@ async def get_current_user(
         )
 
 
-async def get_current_user_optional(
-    request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
-) -> Optional[dict]:
-    """
-    Optional authentication dependency.
-    Returns user data if token is valid, None otherwise.
-    """
-    # Check if we have a token in cookie or header
-    token = request.cookies.get("auth_token") or (credentials.credentials if credentials else None)
-    
-    if not token:
-        return None
-    
-    try:
-        return await get_current_user(request, credentials)
-    except HTTPException:
-        return None
 

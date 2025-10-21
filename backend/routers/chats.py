@@ -320,7 +320,6 @@ async def create_private_chat(
 
 
 @router.post("/groups")
-@router.post("/group")  # Keep old endpoint for backwards compatibility
 async def create_group_chat(
     request: CreateGroupChatRequest,
     current_user: dict = Depends(get_current_user)
@@ -560,13 +559,57 @@ async def get_chat_participants(
         if not participants.data:
             return {"participants": []}
         
-        # Get detailed info for each participant
+        # Get detailed info for all participants in a single query
+        user_ids = [p["user_id"] for p in participants.data]
+        
+        # Get all profiles and role-specific profiles in one query
+        profiles_result = admin_client.table("profiles").select("id, role").in_("id", user_ids).execute()
+        
+        if not profiles_result.data:
+            return {"participants": []}
+        
+        # Group by role
+        ambassador_ids = []
+        client_ids = []
+        for profile in profiles_result.data:
+            if profile["role"] == "ambassador":
+                ambassador_ids.append(profile["id"])
+            else:
+                client_ids.append(profile["id"])
+        
         participant_details = []
-        for participant in participants.data:
-            participant_id = participant["user_id"]
-            info = get_participant_info(participant_id)
-            if info:
-                participant_details.append(info)
+        
+        # Get ambassador profiles
+        if ambassador_ids:
+            ambassadors = admin_client.table("ambassador_profiles").select("*").in_("user_id", ambassador_ids).execute()
+            for ambassador in ambassadors.data or []:
+                participant_details.append(ParticipantResponse(
+                    user_id=ambassador["user_id"],
+                    role="ambassador",
+                    name=ambassador.get("full_name", ""),
+                    profile_photo=ambassador.get("profile_photo_url"),
+                    bio=ambassador.get("bio"),
+                    location=ambassador.get("location"),
+                    niche=ambassador.get("niche"),
+                    instagram_handle=ambassador.get("instagram_handle"),
+                    tiktok_handle=ambassador.get("tiktok_handle"),
+                    twitter_handle=ambassador.get("twitter_handle")
+                ))
+        
+        # Get client profiles
+        if client_ids:
+            clients = admin_client.table("client_profiles").select("*").in_("user_id", client_ids).execute()
+            for client in clients.data or []:
+                participant_details.append(ParticipantResponse(
+                    user_id=client["user_id"],
+                    role="client",
+                    name=client.get("company_name", ""),
+                    profile_photo=client.get("logo_url"),
+                    company_description=client.get("company_description"),
+                    industry=client.get("industry"),
+                    logo_url=client.get("logo_url"),
+                    website=client.get("website")
+                ))
         
         return {"participants": participant_details}
         
@@ -606,11 +649,9 @@ async def get_other_participant(
             .execute()
         
         if not participants.data or len(participants.data) == 0:
-            # Orphaned/private chat without another participant – clean it up
-            await mark_chat_for_cleanup(chat_room_id)
             raise HTTPException(
-                status_code=status.HTTP_410_GONE,
-                detail="Chat participant no longer exists"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Other participant not found in this chat."
             )
         
         # For private chats, there should be exactly one other participant
@@ -620,11 +661,9 @@ async def get_other_participant(
         participant_info = get_participant_info(other_user_id)
         
         if not participant_info:
-            # Profile missing; clean up chat
-            await mark_chat_for_cleanup(chat_room_id)
             raise HTTPException(
-                status_code=status.HTTP_410_GONE,
-                detail="Participant profile no longer exists"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Participant profile not found"
             )
         
         return {"participant": participant_info}
@@ -674,150 +713,6 @@ async def cleanup_orphaned_chats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching other participant: {str(e)}"
         )
-
-
-@router.post("/{chat_room_id}/participants")
-async def add_participant(
-    chat_room_id: str,
-    request: AddParticipantRequest,
-    current_user: dict = Depends(get_current_user)
-):
-    """Add a participant to a group chat (only group chats allow this)."""
-    try:
-        user_id = current_user["id"]
-        
-        # Check membership
-        if not check_chat_membership(chat_room_id, user_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this chat"
-            )
-        
-        # Check if it's a group chat
-        chat_room = admin_client.table("chat_rooms") \
-            .select("is_group, created_by") \
-            .eq("id", chat_room_id) \
-            .maybe_single() \
-            .execute()
-        
-        if not chat_room.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chat room not found"
-            )
-        
-        if not chat_room.data["is_group"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot add participants to private chats"
-            )
-        
-        # Check if user is already a participant
-        existing = admin_client.table("chat_participants") \
-            .select("id") \
-            .eq("chat_room_id", chat_room_id) \
-            .eq("user_id", request.user_id) \
-            .maybe_single() \
-            .execute()
-        
-        if existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is already a participant"
-            )
-        
-        # Add participant
-        participant = admin_client.table("chat_participants") \
-            .insert({
-                "chat_room_id": chat_room_id,
-                "user_id": request.user_id,
-                "joined_at": datetime.now(timezone.utc).isoformat()
-            }) \
-            .execute()
-        
-        if not participant.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to add participant"
-            )
-        
-        return {
-            "success": True,
-            "message": "Participant added successfully"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error adding participant: {str(e)}"
-        )
-
-
-@router.delete("/{chat_room_id}/participants/{user_id}")
-async def remove_participant(
-    chat_room_id: str,
-    user_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Remove a participant from a group chat."""
-    try:
-        current_user_id = current_user["id"]
-        
-        # Check membership
-        if not check_chat_membership(chat_room_id, current_user_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this chat"
-            )
-        
-        # Check if it's a group chat
-        chat_room = admin_client.table("chat_rooms") \
-            .select("is_group, created_by") \
-            .eq("id", chat_room_id) \
-            .maybe_single() \
-            .execute()
-        
-        if not chat_room.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chat room not found"
-            )
-        
-        if not chat_room.data["is_group"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot remove participants from private chats"
-            )
-        
-        # Only chat creator or the user themselves can remove the participant
-        if current_user_id != chat_room.data["created_by"] and current_user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only chat creator or the user themselves can remove participants"
-            )
-        
-        # Remove participant
-        result = admin_client.table("chat_participants") \
-            .delete() \
-            .eq("chat_room_id", chat_room_id) \
-            .eq("user_id", user_id) \
-            .execute()
-        
-        return {
-            "success": True,
-            "message": "Participant removed successfully"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error removing participant: {str(e)}"
-        )
-
 
 @router.delete("/{chat_room_id}")
 async def delete_chat(
@@ -934,55 +829,78 @@ async def get_user_chats(
             .order("updated_at", desc=True) \
             .execute()
         
-        enriched_chats = []
-        for chat in chats.data or []:
-            # Get latest message for this chat
-            latest_message = admin_client.table("messages") \
-                .select("id, content, created_at, sender_id") \
-                .eq("chat_room_id", chat["id"]) \
+        # Get all latest messages for all chats in one query
+        chat_ids = [chat["id"] for chat in chats.data or []]
+        if chat_ids:
+            # Get latest messages for all chats
+            latest_messages = admin_client.table("messages") \
+                .select("chat_room_id, id, content, created_at, sender_id") \
+                .in_("chat_room_id", chat_ids) \
                 .order("created_at", desc=True) \
-                .limit(1) \
                 .execute()
             
-            chat["latest_message"] = latest_message.data[0] if latest_message.data else None
+            # Group messages by chat_room_id and get the latest for each
+            messages_by_chat = {}
+            for message in latest_messages.data or []:
+                chat_id = message["chat_room_id"]
+                if chat_id not in messages_by_chat:
+                    messages_by_chat[chat_id] = message
+        
+        # Get all participants for private chats in one query
+        private_chat_ids = [chat["id"] for chat in chats.data or [] if not chat.get("is_group")]
+        other_participants = {}
+        if private_chat_ids:
+            participants_result = admin_client.table("chat_participants") \
+                .select("chat_room_id, user_id") \
+                .in_("chat_room_id", private_chat_ids) \
+                .neq("user_id", user_id) \
+                .execute()
+            
+            for participant in participants_result.data or []:
+                other_participants[participant["chat_room_id"]] = participant["user_id"]
+        
+        # Get all participant profiles in one query
+        participant_ids = list(other_participants.values())
+        participant_profiles = {}
+        if participant_ids:
+            profiles_result = admin_client.table("profiles").select("id, role").in_("id", participant_ids).execute()
+            for profile in profiles_result.data or []:
+                participant_profiles[profile["id"]] = profile["role"]
+        
+        # Get ambassador names
+        ambassador_ids = [pid for pid, role in participant_profiles.items() if role == "ambassador"]
+        ambassador_names = {}
+        if ambassador_ids:
+            ambassadors = admin_client.table("ambassador_profiles").select("user_id, full_name").in_("user_id", ambassador_ids).execute()
+            for ambassador in ambassadors.data or []:
+                ambassador_names[ambassador["user_id"]] = ambassador["full_name"]
+        
+        # Get client names
+        client_ids = [pid for pid, role in participant_profiles.items() if role == "client"]
+        client_names = {}
+        if client_ids:
+            clients = admin_client.table("client_profiles").select("user_id, company_name").in_("user_id", client_ids).execute()
+            for client in clients.data or []:
+                client_names[client["user_id"]] = client["company_name"]
+        
+        enriched_chats = []
+        for chat in chats.data or []:
+            # Add latest message
+            chat["latest_message"] = messages_by_chat.get(chat["id"])
             
             # For private chats, get display name from other participant
             if not chat.get("is_group"):
-                other_participant = admin_client.table("chat_participants") \
-                    .select("user_id") \
-                    .eq("chat_room_id", chat["id"]) \
-                    .neq("user_id", user_id) \
-                    .maybe_single() \
-                    .execute()
-                
-                if other_participant.data:
-                    participant_id = other_participant.data["user_id"]
-                    
-                    # Get user role and profile
-                    profile = admin_client.table("profiles") \
-                        .select("role") \
-                        .eq("id", participant_id) \
-                        .maybe_single() \
-                        .execute()
-                    
-                    if profile.data:
-                        role = profile.data["role"]
-                        if role == "ambassador":
-                            ambassador = admin_client.table("ambassador_profiles") \
-                                .select("full_name") \
-                                .eq("user_id", participant_id) \
-                                .maybe_single() \
-                                .execute()
-                            if ambassador.data:
-                                chat["display_name"] = f"Chat with {ambassador.data['full_name']}"
-                        elif role == "client":
-                            client = admin_client.table("client_profiles") \
-                                .select("company_name") \
-                                .eq("user_id", participant_id) \
-                                .maybe_single() \
-                                .execute()
-                            if client.data:
-                                chat["display_name"] = f"Chat with {client.data['company_name']}"
+                other_user_id = other_participants.get(chat["id"])
+                if other_user_id:
+                    role = participant_profiles.get(other_user_id)
+                    if role == "ambassador":
+                        name = ambassador_names.get(other_user_id)
+                        if name:
+                            chat["display_name"] = f"Chat with {name}"
+                    elif role == "client":
+                        name = client_names.get(other_user_id)
+                        if name:
+                            chat["display_name"] = f"Chat with {name}"
                 
                 if "display_name" not in chat:
                     chat["display_name"] = "Private Chat"
@@ -1050,65 +968,4 @@ async def get_chat_contract(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching chat contract: {str(e)}"
-        )
-
-
-@router.get("/{chat_room_id}/campaign-info")
-async def get_chat_campaign_info(
-    chat_room_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get campaign and ambassador information for a chat room (for contract creation)."""
-    try:
-        user_id = current_user["id"]
-        
-        # Check membership
-        if not check_chat_membership(chat_room_id, user_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this chat"
-            )
-        
-        # Find campaign_ambassador for this chat
-        ca_result = admin_client.table("campaign_ambassadors") \
-            .select("id, campaign_id, ambassador_id") \
-            .eq("chat_room_id", chat_room_id) \
-            .maybe_single() \
-            .execute()
-        
-        if not ca_result or not ca_result.data:
-            return {
-                "campaign": None,
-                "ambassador": None,
-                "message": "No campaign associated with this chat"
-            }
-        
-        ca_data = ca_result.data
-        
-        # Get campaign details
-        campaign_result = admin_client.table("campaigns") \
-            .select("id, title, client_id") \
-            .eq("id", ca_data["campaign_id"]) \
-            .maybe_single() \
-            .execute()
-        
-        # Get ambassador details
-        ambassador_result = admin_client.table("ambassador_profiles") \
-            .select("id, user_id, full_name, instagram_handle") \
-            .eq("id", ca_data["ambassador_id"]) \
-            .maybe_single() \
-            .execute()
-        
-        return {
-            "campaign": campaign_result.data if campaign_result.data else None,
-            "ambassador": ambassador_result.data if ambassador_result.data else None,
-            "campaign_ambassador_id": ca_data["id"]
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching chat campaign info: {str(e)}"
         )

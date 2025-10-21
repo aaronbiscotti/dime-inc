@@ -13,7 +13,7 @@ async def get_ambassadors(
     search: Optional[str] = Query(None),
     niches: Optional[List[str]] = Query(None),
     location: Optional[str] = Query(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Get all ambassadors for exploration/discovery.
@@ -21,71 +21,59 @@ async def get_ambassadors(
     Includes user emails for proper identification.
     """
     try:
-        # Start with base query
-        query = admin_client.table("ambassador_profiles").select("*")
-        
+        # Start with a base query that joins with the profiles table to get the email
+        query = admin_client.table("ambassador_profiles").select("*, profiles(email)")
+
         # Apply filters if provided
         if niches and len(niches) > 0:
             query = query.contains("niche", niches)
-        
+
         if location:
             query = query.ilike("location", f"%{location}%")
-        
+
         if search:
             query = query.or_(f"full_name.ilike.%{search}%,bio.ilike.%{search}%")
-        
+
         result = query.order("created_at", desc=True).execute()
 
         if not result.data:
             return {"data": []}
 
-        # Get user IDs from the profiles to fetch their emails
-        user_ids = [ambassador["user_id"] for ambassador in result.data]
-
-        # Fetch corresponding users from auth.users to get their emails.
-        # Note: admin.list_users() can be inefficient for a large number of users.
-        # For production at scale, a database view or function that joins
-        # ambassador_profiles with auth.users would be more performant.
-        email_map = {}
-        try:
-            auth_users_response = admin_client.auth.admin.list_users()
-            all_auth_users = auth_users_response if isinstance(auth_users_response, list) else []
-            
-            # Create a map of user_id -> email for quick lookup
-            email_map = {str(user.id): user.email for user in all_auth_users if str(user.id) in user_ids}
-        except Exception as e:
-            print(f"Warning: Could not fetch user emails from Auth: {e}")
-
-        
-        # Format ambassadors for frontend, now including the email
+        # Format ambassadors for frontend, now including the email from the join
         ambassadors = []
-        for ambassador in result.data or []:
+        for ambassador in result.data:
             user_id = ambassador["user_id"]
-            ambassadors.append({
-                "id": user_id, # This is the user_id
-                "profileId": ambassador["id"], # This is the ambassador_profiles primary key
-                "name": ambassador.get("full_name", "Unknown"),
-                "email": email_map.get(user_id), # Include the actual email
-                "username": ambassador.get("full_name", "unknown").lower().replace(" ", ""),
-                "bio": ambassador.get("bio", "Ambassador on Dime"),
-                "location": ambassador.get("location", "Location not specified"),
-                "followers": "N/A",
-                "niche": ambassador.get("niche", []),
-                "rating": 4.8,
-                "completedCampaigns": 0,
-                "avgEngagement": "N/A",
-                "profilePhotoUrl": ambassador.get("profile_photo_url"),
-                "instagramHandle": ambassador.get("instagram_handle"),
-                "tiktokHandle": ambassador.get("tiktok_handle"),
-                "twitterHandle": ambassador.get("twitter_handle"),
-            })
-        
+            email = ambassador.get("profiles", {}).get("email") # Get email from nested profiles object
+
+            ambassadors.append(
+                {
+                    "id": user_id,
+                    "profileId": ambassador["id"],
+                    "name": ambassador.get("full_name", "Unknown"),
+                    "email": email, # Include the actual email
+                    "username": ambassador.get("full_name", "unknown")
+                    .lower()
+                    .replace(" ", ""),
+                    "bio": ambassador.get("bio", "Ambassador on Dime"),
+                    "location": ambassador.get("location", "Location not specified"),
+                    "followers": "N/A",
+                    "niche": ambassador.get("niche", []),
+                    "rating": 4.8,
+                    "completedCampaigns": 0,
+                    "avgEngagement": "N/A",
+                    "profilePhotoUrl": ambassador.get("profile_photo_url"),
+                    "instagramHandle": ambassador.get("instagram_handle"),
+                    "tiktokHandle": ambassador.get("tiktok_handle"),
+                    "twitterHandle": ambassador.get("twitter_handle"),
+                }
+            )
+
         return {"data": ambassadors}
-    
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching ambassadors: {str(e)}"
+            detail=f"Error fetching ambassadors: {str(e)}",
         )
 
 

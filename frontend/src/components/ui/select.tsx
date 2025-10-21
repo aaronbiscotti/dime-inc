@@ -15,28 +15,4 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 );
 Select.displayName = "Select";
 
-// For compatibility with the CampaignForm
-const SelectTrigger = ({
-  children,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>;
-
-const SelectValue = ({ placeholder }: { placeholder?: string }) => (
-  <option value="" disabled>
-    {placeholder}
-  </option>
-);
-
-const SelectContent = ({ children }: { children: React.ReactNode }) => (
-  <>{children}</>
-);
-
-const SelectItem = ({
-  value,
-  children,
-}: {
-  value: string;
-  children: React.ReactNode;
-}) => <option value={value}>{children}</option>;
-
-export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem };
+export { Select };

@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -11,7 +9,7 @@ import {
   ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/contexts/AuthContext";
-import { chatService } from "@/services/chatService";
+import { useChatInitiation } from "@/hooks/useChatInitiation";
 
 interface ClientCardProps {
   client: {
@@ -28,51 +26,12 @@ interface ClientCardProps {
 }
 
 export function ClientCard({ client }: ClientCardProps) {
-  const [isApplying, setIsApplying] = useState(false);
-  const { profile, ambassadorProfile } = useAuth();
-  const router = useRouter();
-
-  const handleApply = async () => {
-    if (!profile || !ambassadorProfile || profile.role !== 'ambassador') {
-      console.error('Only ambassadors can apply to clients');
-      return;
-    }
-
-    setIsApplying(true);
-    try {
-      // Check if chat already exists
-      const { data: existingChat } = await chatService.checkExistingChat(
-        ambassadorProfile.user_id,
-        client.id
-      );
-
-      if (existingChat && typeof existingChat === 'object' && 'id' in existingChat) {
-        // Redirect to existing chat
-        const chat = existingChat as { id: string };
-        router.push(`/chats?chat=${chat.id}`);
-        return;
-      }
-
-      // Create new chat
-      const { data: newChat, error } = await chatService.createChat({
-        participant_id: client.id,
-        participant_name: client.companyName,
-        participant_role: 'client'
-      });
-
-      if (error || !newChat) {
-        console.error('Error creating chat:', error);
-        return;
-      }
-
-      // Redirect to new chat
-      router.push(`/chats?chat=${newChat.id}`);
-    } catch (error) {
-      console.error('Error handling application:', error);
-    } finally {
-      setIsApplying(false);
-    }
-  };
+  const { profile } = useAuth();
+  const { initiateChat, isLoading, canInitiate } = useChatInitiation({
+    participantId: client.id,
+    participantName: client.companyName,
+    participantRole: "client",
+  });
 
   return (
     <Card className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden !py-0">
@@ -119,12 +78,12 @@ export function ClientCard({ client }: ClientCardProps) {
             </div>
 
             <Button
-              onClick={handleApply}
-              disabled={isApplying || profile?.role !== 'ambassador'}
+              onClick={initiateChat}
+              disabled={isLoading || !canInitiate}
               className="w-full bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-0 disabled:bg-gray-300 disabled:text-gray-500"
             >
               <ChatBubbleLeftRightIcon className="w-4 h-4 mr-2" />
-              {isApplying ? 'Applying...' : 'Apply'}
+              {isLoading ? "Applying..." : "Apply"}
             </Button>
           </div>
         </div>

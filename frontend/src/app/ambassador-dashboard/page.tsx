@@ -18,14 +18,10 @@ export default function AmbassadorDashboard() {
   const loadCampaigns = useCallback(async () => {
     if (!ambassadorProfile) return;
     try {
-      // This is a placeholder for a new service method
-      // You would need a backend endpoint that gets all campaigns for an ambassador
-      // For now, we'll assume a method `getCampaignsForAmbassador` exists.
-      // const { data } = await campaignService.getCampaignsForAmbassador(ambassadorProfile.id);
-      // setCampaigns(data || []);
-      console.log(
-        "Need to implement getCampaignsForAmbassador in backend and service."
+      const { data } = await campaignService.getCampaignsForAmbassador(
+        ambassadorProfile.id
       );
+      setCampaigns(data || []);
     } catch (e) {
       console.error("Failed to load ambassador campaigns", e);
     }

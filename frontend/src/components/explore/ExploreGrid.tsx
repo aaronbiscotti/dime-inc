@@ -25,6 +25,7 @@ export function ExploreGrid({
   // Fetch real data from FastAPI using cookie-based auth
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         if (userRole === "client") {
           // Client is looking for ambassadors
@@ -76,43 +77,7 @@ export function ExploreGrid({
     };
 
     fetchData();
-  }, [
-    userRole,
-    searchQuery,
-    filters.niches,
-    filters.location,
-    filters.industry,
-  ]);
-
-  // Apply search filtering
-  const filteredData = data.filter((item) => {
-    const searchText = searchQuery.toLowerCase();
-    if (!searchText) return true;
-
-    const itemData = item as Record<string, string | string[] | undefined>;
-
-    if (userRole === "client") {
-      // Searching ambassadors
-      const name = itemData.name as string | undefined;
-      const bio = itemData.bio as string | undefined;
-      const niche = itemData.niche as string[] | undefined;
-      return (
-        name?.toLowerCase().includes(searchText) ||
-        bio?.toLowerCase().includes(searchText) ||
-        niche?.some((n: string) => n.toLowerCase().includes(searchText))
-      );
-    } else {
-      // Searching clients
-      const companyName = itemData.companyName as string | undefined;
-      const description = itemData.description as string | undefined;
-      const industry = itemData.industry as string | undefined;
-      return (
-        companyName?.toLowerCase().includes(searchText) ||
-        description?.toLowerCase().includes(searchText) ||
-        industry?.toLowerCase().includes(searchText)
-      );
-    }
-  });
+  }, [userRole, searchQuery, filters]);
 
   if (loading) {
     return (
@@ -152,7 +117,7 @@ export function ExploreGrid({
     );
   }
 
-  if (filteredData.length === 0) {
+  if (data.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 bg-[#f5d82e] rounded-full flex items-center justify-center mx-auto mb-4">
@@ -175,14 +140,14 @@ export function ExploreGrid({
       {/* Results Header */}
       <div className="flex items-center justify-between mb-6">
         <p className="text-gray-600">
-          Showing {filteredData.length}{" "}
+          Showing {data.length}{" "}
           {userRole === "client" ? "ambassadors" : "clients"}
         </p>
       </div>
 
       {/* Grid */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredData.map((item) =>
+        {data.map((item) =>
           userRole === "client" ? (
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             <AmbassadorCard key={item.id as string} ambassador={item as any} />

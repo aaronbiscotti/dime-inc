@@ -26,47 +26,20 @@ async def get_contracts_for_client(
                     detail="Not authorized to view these contracts"
                 )
 
-        # Fetch contracts for this client
-        contracts_result = admin_client.table("contracts").select("*").eq("client_id", client_id).order("created_at", desc=True).execute()
+        # Fetch contracts with related data in a single query using joins
+        contracts_result = admin_client.table("contracts").select("""
+            *,
+            campaign_ambassadors!inner(
+                id,
+                campaigns(id, title),
+                ambassador_profiles(id, full_name, instagram_handle)
+            )
+        """).eq("client_id", client_id).order("created_at", desc=True).execute()
 
         print(f"Found {len(contracts_result.data or [])} contracts for client {client_id}")
 
-        # Enrich each contract with campaign and ambassador data
-        enriched_contracts = []
-        for contract in contracts_result.data or []:
-            # Get campaign_ambassador details
-            ca_result = admin_client.table("campaign_ambassadors").select("campaign_id, ambassador_id").eq("id", contract["campaign_ambassador_id"]).maybe_single().execute()
-
-            if ca_result and ca_result.data:
-                ca_data = ca_result.data
-                
-                # Get campaign details
-                campaign_result = admin_client.table("campaigns").select("id, title").eq("id", ca_data["campaign_id"]).maybe_single().execute()
-                
-                # Get ambassador details
-                ambassador_result = admin_client.table("ambassador_profiles").select("id, full_name, instagram_handle").eq("id", ca_data["ambassador_id"]).maybe_single().execute()
-                
-                # Enrich contract with campaign and ambassador data
-                enriched_contract = {
-                    **contract,
-                    "campaign_ambassadors": {
-                        "id": contract["campaign_ambassador_id"],
-                        "campaigns": campaign_result.data if campaign_result.data else None,
-                        "ambassador_profiles": ambassador_result.data if ambassador_result.data else None
-                    }
-                }
-
-                campaign_title = campaign_result.data.get("title", "Unknown") if campaign_result.data else "Unknown"
-                ambassador_name = ambassador_result.data.get("full_name", "Unknown") if ambassador_result.data else "Unknown"
-                print(f"Contract ID: {contract.get('id')}, Campaign: {campaign_title}, Ambassador: {ambassador_name}")
-
-                enriched_contracts.append(enriched_contract)
-            else:
-                print(f"Contract ID: {contract.get('id')}, Campaign: Unknown (no campaign_ambassador), Ambassador: Unknown")
-                enriched_contracts.append(contract)
-
         return {
-            "contracts": enriched_contracts
+            "contracts": contracts_result.data or []
         }
 
     except HTTPException:
@@ -127,8 +100,15 @@ async def get_contract(
     Get details for a specific contract.
     """
     try:
-        # Get the contract
-        contract_result = admin_client.table("contracts").select("*").eq("id", contract_id).maybe_single().execute()
+        # Get the contract with related data in a single query
+        contract_result = admin_client.table("contracts").select("""
+            *,
+            campaign_ambassadors!inner(
+                id,
+                campaigns(id, title, description),
+                ambassador_profiles(id, full_name, instagram_handle)
+            )
+        """).eq("id", contract_id).maybe_single().execute()
 
         if not contract_result or not contract_result.data:
             raise HTTPException(
@@ -136,33 +116,7 @@ async def get_contract(
                 detail="Contract not found"
             )
 
-        contract = contract_result.data
-
-        # Get campaign_ambassador details
-        ca_result = admin_client.table("campaign_ambassadors").select("campaign_id, ambassador_id").eq("id", contract["campaign_ambassador_id"]).maybe_single().execute()
-
-        if ca_result and ca_result.data:
-            ca_data = ca_result.data
-
-            # Get campaign details
-            campaign_result = admin_client.table("campaigns").select("id, title, description").eq("id", ca_data["campaign_id"]).maybe_single().execute()
-
-            # Get ambassador details
-            ambassador_result = admin_client.table("ambassador_profiles").select("id, full_name, instagram_handle").eq("id", ca_data["ambassador_id"]).maybe_single().execute()
-
-            # Enrich contract with campaign and ambassador data
-            enriched_contract = {
-                **contract,
-                "campaign_ambassadors": {
-                    "id": contract["campaign_ambassador_id"],
-                    "campaigns": campaign_result.data if campaign_result.data else None,
-                    "ambassador_profiles": ambassador_result.data if ambassador_result.data else None
-                }
-            }
-
-            return enriched_contract
-        else:
-            return contract
+        return contract_result.data
 
     except HTTPException:
         raise
@@ -273,76 +227,4 @@ async def sign_contract(
         )
 
 
-@router.put("/{contract_id}")
-async def update_contract(
-    contract_id: str,
-    contract: ContractUpdate,
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Update a contract.
-    """
-    try:
-        # Verify contract exists
-        existing = admin_client.table("contracts").select("*").eq("id", contract_id).maybe_single().execute()
-
-        if not existing or not existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Contract not found"
-            )
-
-        # Update contract
-        update_data = contract.model_dump(exclude_unset=True)
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        result = admin_client.table("contracts").update(update_data).eq("id", contract_id).execute()
-
-        if not result.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update contract"
-            )
-
-        return result.data[0]
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating contract: {str(e)}"
-        )
-
-
-@router.delete("/{contract_id}")
-async def delete_contract(
-    contract_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Delete a contract.
-    """
-    try:
-        # Verify contract exists
-        existing = admin_client.table("contracts").select("*").eq("id", contract_id).maybe_single().execute()
-
-        if not existing or not existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Contract not found"
-            )
-
-        # Delete contract
-        admin_client.table("contracts").delete().eq("id", contract_id).execute()
-
-        return {"message": "Contract deleted successfully"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting contract: {str(e)}"
-        )
 

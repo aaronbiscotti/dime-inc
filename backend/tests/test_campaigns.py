@@ -45,12 +45,12 @@ class TestCreateCampaign:
                     mock_chain.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_profile
                 elif table_name == "client_profiles":
                     mock_chain.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_client_profile
-                elif table_name == "bids":
+                elif table_name == "campaigns":
                     mock_result = MagicMock()
                     mock_result.data = [{
                         "id": "campaign-id",
-                        "campaign_title": "Test Campaign",
-                        "status": "pending"
+                        "title": "Test Campaign",
+                        "status": "draft"
                     }]
                     mock_chain.insert.return_value.execute.return_value = mock_result
                 return mock_chain
@@ -73,7 +73,7 @@ class TestCreateCampaign:
 
             assert response.status_code == 200
             assert response.json()["success"] is True
-            assert response.json()["campaign"]["campaign_title"] == "Test Campaign"
+            assert response.json()["campaign"]["title"] == "Test Campaign"
 
     def test_ambassador_cannot_create_campaign(self):
         """Tests that authenticated ambassador cannot create a campaign (403)."""
@@ -157,16 +157,16 @@ class TestGetCampaigns:
                 return mock_chain
             mock_auth_table.side_effect = mock_auth_table_fn
             
-            # Mock campaigns from bids table
+            # Mock campaigns from campaigns table
             def mock_campaigns_table_fn(table_name):
                 mock_chain = MagicMock()
-                if table_name == "bids":
+                if table_name == "campaigns":
                     mock_campaigns = MagicMock()
                     mock_campaigns.data = [
-                        {"id": "campaign-1", "campaign_title": "Campaign 1"},
-                        {"id": "campaign-2", "campaign_title": "Campaign 2"}
+                        {"id": "campaign-1", "title": "Campaign 1"},
+                        {"id": "campaign-2", "title": "Campaign 2"}
                     ]
-                    mock_chain.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = mock_campaigns
+                    mock_chain.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_campaigns
                 return mock_chain
             mock_campaigns_table.side_effect = mock_campaigns_table_fn
 
@@ -239,16 +239,16 @@ class TestGetCampaigns:
             mock_profile.data = {"id": "ambassador-user-id", "role": "ambassador"}
             mock_auth_table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_profile
             
-            # Mock open campaigns from bids table
+            # Mock open campaigns from campaigns table
             def mock_campaigns_table_fn(table_name):
                 mock_chain = MagicMock()
-                if table_name == "bids":
+                if table_name == "campaigns":
                     mock_campaigns = MagicMock()
                     mock_campaigns.data = [
-                        {"id": "campaign-1", "campaign_title": "Open Campaign 1", "status": "pending"},
-                        {"id": "campaign-2", "campaign_title": "Open Campaign 2", "status": "pending"}
+                        {"id": "campaign-1", "title": "Open Campaign 1", "status": "active"},
+                        {"id": "campaign-2", "title": "Open Campaign 2", "status": "active"}
                     ]
-                    mock_chain.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = mock_campaigns
+                    mock_chain.select.return_value.eq.return_value.order.return_value.execute.return_value = mock_campaigns
                 return mock_chain
             mock_campaigns_table.side_effect = mock_campaigns_table_fn
 
@@ -293,15 +293,15 @@ class TestGetCampaignDetails:
                 return mock_chain
             mock_auth_table.side_effect = mock_auth_table_fn
             
-            # Mock campaign details from bids table
+            # Mock campaign details from campaigns table
             def mock_campaigns_table_fn(table_name):
                 mock_chain = MagicMock()
-                if table_name == "bids":
+                if table_name == "campaigns":
                     mock_campaign = MagicMock()
                     mock_campaign.data = {
                         "id": "campaign-id",
-                        "campaign_title": "Test Campaign",
-                        "campaign_description": "Description"
+                        "title": "Test Campaign",
+                        "description": "Description"
                     }
                     mock_chain.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_campaign
                 return mock_chain
@@ -313,7 +313,7 @@ class TestGetCampaignDetails:
             )
 
             assert response.status_code == 200
-            assert response.json()["campaign_title"] == "Test Campaign"
+            assert response.json()["title"] == "Test Campaign"
 
     def test_get_campaign_not_found(self):
         """Tests that fetching non-existent campaign returns 404."""
@@ -342,10 +342,10 @@ class TestGetCampaignDetails:
                 return mock_chain
             mock_auth_table.side_effect = mock_auth_table_fn
             
-            # Mock campaign not found from bids table
+            # Mock campaign not found from campaigns table
             def mock_campaigns_table_fn(table_name):
                 mock_chain = MagicMock()
-                if table_name == "bids":
+                if table_name == "campaigns":
                     mock_campaign = MagicMock()
                     mock_campaign.data = None
                     mock_chain.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_campaign

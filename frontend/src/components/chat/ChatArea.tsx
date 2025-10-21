@@ -22,7 +22,6 @@ import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 import { MessageStatus } from "./MessageStatus";
 import { Modal } from "@/components/ui/modal";
-import { uuidv4 } from "@/lib/uuid";
 
 interface Message extends ChatMessage {
   sender_name?: string;
@@ -88,8 +87,11 @@ export function ChatArea({
       setErrorMessage(null);
 
       try {
-        // Fetch chat room details
-        const chatRoomResult = await chatService.getChatRoom(selectedChatId);
+        // Fetch all data in parallel for better performance
+        const [chatRoomResult, messagesResult] = await Promise.all([
+          chatService.getChatRoom(selectedChatId),
+          chatService.getMessages(selectedChatId, 100),
+        ]);
 
         if (chatRoomResult.error) {
           setErrorMessage(chatRoomResult.error.message);
@@ -99,12 +101,11 @@ export function ChatArea({
         const chatRoom = chatRoomResult.data;
         setIsGroupChat(chatRoom?.is_group || false);
 
-        // For private chats, get the other participant's info
+        // Handle participant info
         if (!chatRoom?.is_group) {
           const participantResult = await chatService.getOtherParticipant(
             selectedChatId
           );
-
           if (participantResult.data) {
             setOtherParticipant(participantResult.data);
             setChatDisplayName(`Chat with ${participantResult.data.name}`);
@@ -115,8 +116,18 @@ export function ChatArea({
           setChatDisplayName(chatRoom?.name || "Group Chat");
         }
 
-        // Fetch initial messages
-        await fetchMessages();
+        // Process messages
+        if (!messagesResult.error && messagesResult.data) {
+          const enrichedMessages = messagesResult.data.map((msg) => ({
+            ...msg,
+            sender_name:
+              msg.sender_id === user?.id
+                ? "You"
+                : otherParticipant?.name || "Unknown",
+            reply_to_message_id: msg.reply_to_message_id || undefined,
+          }));
+          setMessages(enrichedMessages);
+        }
 
         // Notify parent about participants update
         if (onParticipantsUpdate) {
@@ -151,12 +162,22 @@ export function ChatArea({
         async (payload) => {
           const newMessage = payload.new as Message;
 
-          // FIX: Ignore messages from the current user, as they are handled optimistically
+          // Don't add optimistic messages from current user (they're handled separately)
           if (newMessage.sender_id === user?.id) {
+            // Instead, update the optimistic message with the real one
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.status === "sending" &&
+                m.sender_id === user.id &&
+                m.content === newMessage.content
+                  ? { ...newMessage, sender_name: "You", status: "sent" }
+                  : m
+              )
+            );
             return;
           }
 
-          // Enrich with sender name
+          // For messages from others, enrich and add
           let senderName = "Unknown";
           if (otherParticipant && newMessage.sender_id !== user?.id) {
             senderName = otherParticipant.name;
@@ -305,18 +326,20 @@ export function ChatArea({
 
     stopTyping();
 
-    const optimisticId = uuidv4();
+    const optimisticId = crypto.randomUUID();
+    const messageContent = messageInput.trim();
     const optimisticMessage: Message = {
       id: optimisticId,
       chat_room_id: selectedChatId,
       sender_id: user.id,
       sender_name: "You",
-      content: messageInput.trim(),
+      content: messageContent,
       created_at: new Date().toISOString(),
       status: "sending",
       reply_to_message_id: replyingTo?.id,
     };
 
+    // Add optimistic message immediately
     setMessages((prev) => [...prev, optimisticMessage]);
     setMessageInput("");
     setReplyingTo(null);
@@ -325,7 +348,7 @@ export function ChatArea({
 
     try {
       const result = await chatService.sendMessage(selectedChatId, {
-        content: optimisticMessage.content!,
+        content: messageContent,
         file_url: optimisticMessage.file_url,
         reply_to_message_id: optimisticMessage.reply_to_message_id,
       });
@@ -334,20 +357,28 @@ export function ChatArea({
         throw new Error(result.error?.message || "Failed to send message");
       }
 
-      const sentMessage = {
-        ...result.data,
-        sender_name: "You",
-        status: "sent",
-      } as Message;
-
+      // Update optimistic message with real message data
       setMessages((prev) =>
-        prev.map((m) => (m.id === optimisticId ? sentMessage : m))
+        prev.map((m) =>
+          m.id === optimisticId
+            ? {
+                ...result.data,
+                sender_name: "You",
+                status: "sent" as const,
+                reply_to_message_id:
+                  result.data.reply_to_message_id || undefined,
+              }
+            : m
+        )
       );
     } catch (error) {
       console.error("Error sending message:", error);
+
+      // Mark optimistic message as failed
       setMessages((prev) =>
         prev.map((m) => (m.id === optimisticId ? { ...m, status: "error" } : m))
       );
+
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to send message."
       );
@@ -560,27 +591,16 @@ export function ChatArea({
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
-          <div className="space-y-4">
-            {/* Message skeletons */}
+          <div className="space-y-3 p-4">
+            {/* Simple message skeletons */}
             {Array(3)
               .fill(0)
               .map((_, i) => (
-                <div
-                  key={i}
-                  className={`flex ${
-                    i % 2 === 0 ? "justify-start" : "justify-end"
-                  }`}
-                >
-                  <div className="max-w-xs lg:max-w-md xl:max-w-lg animate-pulse">
-                    <div
-                      className={`px-4 py-2 rounded-2xl ${
-                        i % 2 === 0 ? "bg-gray-200" : "bg-gray-200"
-                      }`}
-                    >
-                      <div className="h-4 bg-gray-300 rounded w-32 mb-1"></div>
-                      <div className="h-4 bg-gray-300 rounded w-24"></div>
-                    </div>
-                    <div className="h-3 bg-gray-200 rounded w-16 mt-1 mx-3"></div>
+                <div key={i} className="flex gap-3 animate-pulse">
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                   </div>
                 </div>
               ))}

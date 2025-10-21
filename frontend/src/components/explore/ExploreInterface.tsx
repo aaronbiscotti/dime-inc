@@ -158,39 +158,22 @@ export function ExploreInterface() {
       try {
         setLoading(true);
 
-        // TODO: Replace with backend API call instead of direct Supabase access
-        // This should use exploreService to get campaigns through the FastAPI backend
-        console.log(
-          "Campaign fetching not yet implemented through backend API"
-        );
-        setCampaigns([]);
+        const { data: activeCampaigns, error } =
+          await campaignService.getAllOpenCampaigns();
 
-        /* Direct Supabase call disabled - should use backend API
-        const { data: activeCampaigns, error } = await supabase
-          .from('campaigns')
-          .select(`
-            *,
-            client_profiles (
-              company_name,
-              logo_url
-            )
-          `)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(50)
-
-        console.log('Loaded', activeCampaigns?.length || 0, 'active campaigns')
+        console.log("Loaded", activeCampaigns?.length || 0, "active campaigns");
 
         if (error) {
-          console.error('Error fetching campaigns:', error)
-          return
+          console.error("Error fetching campaigns:", error);
+          return;
         }
 
         if (activeCampaigns) {
-          setCampaigns(activeCampaigns as CampaignWithClient[])
-          console.log(`Loaded ${activeCampaigns.length} active campaigns for display`)
+          setCampaigns(activeCampaigns as CampaignWithClient[]);
+          console.log(
+            `Loaded ${activeCampaigns.length} active campaigns for display`
+          );
         }
-        */
       } catch (error) {
         console.error("Error fetching campaigns:", error);
       } finally {

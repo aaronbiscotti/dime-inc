@@ -9,6 +9,7 @@ import { submissionService, Submission } from "@/services/submissionService";
 import { Campaign, CampaignStatus } from "@/types/database";
 import { ClientReviewModal } from "@/components/submissions/ClientReviewModal";
 import { SubmissionsList } from "@/components/submissions/SubmissionsList";
+import { AmbassadorSelection } from "@/components/campaigns/AmbassadorSelection";
 import {
   ArrowLeft,
   Calendar,
@@ -35,6 +36,7 @@ export default function CampaignDetails() {
   const [activeTab, setActiveTab] = useState<Tab>("details");
   const [submissionToReview, setSubmissionToReview] =
     useState<Submission | null>(null);
+  const [showAmbassadorSelection, setShowAmbassadorSelection] = useState(false);
 
   const router = useRouter();
   const params = useParams();
@@ -56,6 +58,7 @@ export default function CampaignDetails() {
   const loadCampaign = useCallback(async () => {
     if (authLoading || !user || !profile || profile.role !== "client") return;
 
+    setLoading(true);
     try {
       const result = await campaignService.getCampaign(campaignId);
       if (result.error || !result.data) {
@@ -144,7 +147,7 @@ export default function CampaignDetails() {
     }
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         Loading...
@@ -158,28 +161,26 @@ export default function CampaignDetails() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="pt-16">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <button
             onClick={() => router.push("/campaigns")}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Campaigns
           </button>
 
-          <div className="bg-white rounded-xl border border-gray-300 p-8 mb-6">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+          <div className="bg-white rounded-xl border border-gray-300 p-6 mb-4">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-gray-900">
                   {campaign.title}
                 </h1>
-                <p className="text-gray-600 text-lg mt-1">
-                  {campaign.description}
-                </p>
+                <p className="text-gray-600 mt-1">{campaign.description}</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 ml-4">
                 <span
-                  className={`px-3 py-1 text-sm font-medium rounded-full ${
+                  className={`px-2 py-1 text-xs font-medium rounded-full ${
                     campaign.status === "active"
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-700"
@@ -191,7 +192,7 @@ export default function CampaignDetails() {
                   onClick={handleEditToggle}
                   className="p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <Edit size={18} />
+                  <Edit size={16} />
                 </button>
               </div>
             </div>
@@ -227,22 +228,22 @@ export default function CampaignDetails() {
           </div>
 
           {activeTab === "details" && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Action Buttons */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
                 {isEditMode ? (
                   <>
                     <button
                       onClick={handleSaveChanges}
                       disabled={isUpdating}
-                      className="flex items-center gap-2 px-6 py-2 bg-[#f5d82e] hover:bg-[#e5c820] text-black rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1 px-4 py-2 bg-[#f5d82e] hover:bg-[#e5c820] text-black rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Check className="w-4 h-4" />
-                      {isUpdating ? "Saving..." : "Save Changes"}
+                      {isUpdating ? "Saving..." : "Save"}
                     </button>
                     <button
                       onClick={handleEditToggle}
-                      className="flex items-center gap-2 px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                     >
                       <X className="w-4 h-4" />
                       Cancel
@@ -251,17 +252,25 @@ export default function CampaignDetails() {
                 ) : (
                   <>
                     <button
+                      onClick={() => setShowAmbassadorSelection(true)}
+                      className="flex items-center gap-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      <Users className="w-4 h-4" />
+                      Find Ambassadors
+                    </button>
+
+                    <button
                       onClick={handleEditToggle}
-                      className="flex items-center gap-2 px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                     >
                       <Edit className="w-4 h-4" />
-                      Edit Campaign
+                      Edit
                     </button>
 
                     <button
                       onClick={handleToggleStatus}
                       disabled={isUpdating}
-                      className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-colors ${
+                      className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                         campaign.status === "active"
                           ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                           : "bg-[#f5d82e] text-black hover:bg-[#e5c820]"
@@ -270,12 +279,12 @@ export default function CampaignDetails() {
                       {campaign.status === "active" ? (
                         <>
                           <XCircle className="w-4 h-4" />
-                          Deactivate Campaign
+                          Deactivate
                         </>
                       ) : (
                         <>
                           <CheckCircle className="w-4 h-4" />
-                          Activate Campaign
+                          Activate
                         </>
                       )}
                     </button>
@@ -283,32 +292,30 @@ export default function CampaignDetails() {
                     <button
                       onClick={() => setShowDeleteConfirm(true)}
                       disabled={isUpdating}
-                      className="flex items-center gap-2 px-6 py-2 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1 px-4 py-2 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Delete Campaign
+                      Delete
                     </button>
                   </>
                 )}
               </div>
 
               {/* Campaign Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Budget */}
-                <div className="bg-white rounded-xl border border-gray-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-[#f5d82e] bg-opacity-20 rounded-lg flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-[#f5d82e]" />
+                <div className="bg-white rounded-lg border border-gray-300 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-[#f5d82e] bg-opacity-20 rounded-lg flex items-center justify-center">
+                      <DollarSign className="w-4 h-4 text-[#f5d82e]" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-sm font-semibold text-gray-900">
                       Budget Range
                     </h3>
                   </div>
                   {isEditMode ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold text-gray-900">
-                        $
-                      </span>
+                    <div className="flex items-center gap-1 text-lg">
+                      <span className="font-bold text-gray-900">$</span>
                       <input
                         type="number"
                         step="0.01"
@@ -320,14 +327,10 @@ export default function CampaignDetails() {
                             parseFloat(e.target.value)
                           )
                         }
-                        className="w-32 text-2xl font-bold text-gray-900 border-b border-[#f5d82e] focus:outline-none bg-transparent"
+                        className="w-24 font-bold text-gray-900 border-b border-[#f5d82e] focus:outline-none bg-transparent"
                       />
-                      <span className="text-2xl font-bold text-gray-900">
-                        -
-                      </span>
-                      <span className="text-2xl font-bold text-gray-900">
-                        $
-                      </span>
+                      <span className="font-bold text-gray-900">-</span>
+                      <span className="font-bold text-gray-900">$</span>
                       <input
                         type="number"
                         step="0.01"
@@ -339,11 +342,11 @@ export default function CampaignDetails() {
                             parseFloat(e.target.value)
                           )
                         }
-                        className="w-32 text-2xl font-bold text-gray-900 border-b border-[#f5d82e] focus:outline-none bg-transparent"
+                        className="w-24 font-bold text-gray-900 border-b border-[#f5d82e] focus:outline-none bg-transparent"
                       />
                     </div>
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-lg font-bold text-gray-900">
                       ${campaign.budget_min.toFixed(2)} - $
                       {campaign.budget_max.toFixed(2)}
                     </p>
@@ -351,12 +354,12 @@ export default function CampaignDetails() {
                 </div>
 
                 {/* Max Ambassadors */}
-                <div className="bg-white rounded-xl border border-gray-300 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-5 h-5 text-blue-600" />
+                <div className="bg-white rounded-lg border border-gray-300 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Users className="w-4 h-4 text-blue-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-sm font-semibold text-gray-900">
                       Max Ambassadors
                     </h3>
                   </div>
@@ -371,23 +374,23 @@ export default function CampaignDetails() {
                           parseInt(e.target.value)
                         )
                       }
-                      className="w-24 text-2xl font-bold text-gray-900 border-b border-[#f5d82e] focus:outline-none bg-transparent"
+                      className="w-20 text-lg font-bold text-gray-900 border-b border-[#f5d82e] focus:outline-none bg-transparent"
                     />
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-lg font-bold text-gray-900">
                       {campaign.max_ambassadors}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Deadline & Requirements */}
-              <div className="bg-white rounded-xl border border-gray-300 p-6 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Deadline & Created */}
+              <div className="bg-white rounded-lg border border-gray-300 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Calendar className="w-5 h-5 text-gray-600" />
-                      <h3 className="text-lg font-semibold text-gray-900">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="w-4 h-4 text-gray-600" />
+                      <h3 className="text-sm font-semibold text-gray-900">
                         Deadline
                       </h3>
                     </div>
@@ -402,32 +405,36 @@ export default function CampaignDetails() {
                         onChange={(e) =>
                           handleFieldChange("deadline", e.target.value || null)
                         }
-                        className="text-gray-600 border-b border-[#f5d82e] focus:outline-none bg-transparent"
+                        className="text-sm text-gray-600 border-b border-[#f5d82e] focus:outline-none bg-transparent"
                       />
                     ) : (
-                      <p className="text-gray-600">
+                      <p className="text-sm text-gray-600">
                         {campaign.deadline
                           ? new Date(campaign.deadline).toLocaleDateString(
                               "en-US",
-                              { year: "numeric", month: "long", day: "numeric" }
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
                             )
-                          : "No deadline set"}
+                          : "No deadline"}
                       </p>
                     )}
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Calendar className="w-5 h-5 text-gray-600" />
-                      <h3 className="text-lg font-semibold text-gray-900">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="w-4 h-4 text-gray-600" />
+                      <h3 className="text-sm font-semibold text-gray-900">
                         Created
                       </h3>
                     </div>
-                    <p className="text-gray-600">
+                    <p className="text-sm text-gray-600">
                       {campaign.created_at
                         ? new Date(campaign.created_at).toLocaleDateString(
                             "en-US",
-                            { year: "numeric", month: "long", day: "numeric" }
+                            { month: "short", day: "numeric", year: "numeric" }
                           )
                         : "Unknown"}
                     </p>
@@ -436,8 +443,8 @@ export default function CampaignDetails() {
               </div>
 
               {/* Requirements */}
-              <div className="bg-white rounded-xl border border-gray-300 p-6 mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              <div className="bg-white rounded-lg border border-gray-300 p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">
                   Requirements
                 </h3>
                 {isEditMode ? (
@@ -447,24 +454,23 @@ export default function CampaignDetails() {
                       handleFieldChange("requirements", e.target.value || null)
                     }
                     placeholder="Add campaign requirements..."
-                    className="w-full text-gray-600 border border-[#f5d82e] focus:outline-none bg-transparent resize-none p-2 rounded-lg"
-                    rows={6}
+                    className="w-full text-sm text-gray-600 border border-[#f5d82e] focus:outline-none bg-transparent resize-none p-2 rounded-lg"
+                    rows={4}
                   />
                 ) : (
-                  <p className="text-gray-600 whitespace-pre-wrap">
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
                     {campaign.requirements || "No requirements specified"}
                   </p>
                 )}
               </div>
 
               {/* Campaign Proposal Message */}
-              <div className="bg-white rounded-xl border border-gray-300 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  Campaign Proposal Message
+              <div className="bg-white rounded-lg border border-gray-300 p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                  Proposal Message
                 </h3>
-                <p className="text-sm text-gray-500 mb-3">
-                  This message will be shown to ambassadors when they view the
-                  campaign details.
+                <p className="text-xs text-gray-500 mb-2">
+                  Shown to ambassadors viewing this campaign
                 </p>
                 {isEditMode ? (
                   <textarea
@@ -476,11 +482,11 @@ export default function CampaignDetails() {
                       )
                     }
                     placeholder="Add a message for ambassadors interested in this campaign..."
-                    className="w-full text-gray-600 border border-[#f5d82e] focus:outline-none bg-transparent resize-none p-2 rounded-lg"
-                    rows={6}
+                    className="w-full text-sm text-gray-600 border border-[#f5d82e] focus:outline-none bg-transparent resize-none p-2 rounded-lg"
+                    rows={4}
                   />
                 ) : (
-                  <p className="text-gray-600 whitespace-pre-wrap">
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
                     {campaign.proposal_message || "No message specified"}
                   </p>
                 )}
@@ -505,6 +511,21 @@ export default function CampaignDetails() {
           loadSubmissions(); // Re-fetch submissions after review
         }}
       />
+
+      {/* Ambassador Selection Modal */}
+      {showAmbassadorSelection && (
+        <AmbassadorSelection
+          campaign={{
+            id: campaign.id,
+            campaign_title: campaign.title,
+            campaign_description: campaign.description,
+            budget: campaign.budget_max, // Use max budget as the main budget value
+            timeline: campaign.deadline,
+            requirements: campaign.requirements,
+          }}
+          onClose={() => setShowAmbassadorSelection(false)}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

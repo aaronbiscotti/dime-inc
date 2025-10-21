@@ -25,7 +25,7 @@ class ContractBase(BaseModel):
 
 class ContractCreate(ContractBase):
     """Model for creating a new contract."""
-    id: str = Field(..., description="Contract ID")
+    # Note: id field removed - database generates UUID automatically
 
 
 class ContractUpdate(BaseModel):

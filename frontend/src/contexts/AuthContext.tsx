@@ -40,7 +40,10 @@ interface AuthContextType extends AuthState {
     expectedRole?: UserRole
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  createProfile: (role: UserRole, profileData: Record<string, unknown>) => Promise<{ error: string | null }>;
+  createProfile: (
+    role: UserRole,
+    profileData: Record<string, unknown>
+  ) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -68,45 +71,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Verify auth cookie with backend and get user data
         // Cookie is automatically sent by browser (httpOnly, secure)
         const response = await fetch(`${API_BASE_URL}/api/users/me`, {
-          credentials: 'include' // Send cookies
+          credentials: "include", // Send cookies
         });
 
         if (response.ok) {
           // Backend confirmed auth cookie is valid, get user data
           const userData = await response.json();
-          
+
           setState({
             user: { id: userData.id, email: userData.email },
-            session: { 
+            session: {
               user: { id: userData.id, email: userData.email },
-              access_token: 'cookie-based' // Token is in httpOnly cookie, not accessible
+              access_token: "cookie-based", // Token is in httpOnly cookie, not accessible
             },
             profile: userData.profile || null,
             ambassadorProfile: userData.ambassador_profile || null,
             clientProfile: userData.client_profile || null,
-            loading: false
+            loading: false,
           });
         } else {
           // Backend said no valid auth cookie found
-          setState({ 
-            user: null, 
-            session: null, 
-            profile: null, 
+          setState({
+            user: null,
+            session: null,
+            profile: null,
             ambassadorProfile: null,
             clientProfile: null,
-            loading: false 
+            loading: false,
           });
         }
       } catch (error) {
         // Network error, backend is down, etc.
         console.error("Failed to authenticate with backend", error);
-        setState({ 
-          user: null, 
-          session: null, 
-          profile: null, 
+        setState({
+          user: null,
+          session: null,
+          profile: null,
           ambassadorProfile: null,
           clientProfile: null,
-          loading: false 
+          loading: false,
         });
       }
     };
@@ -117,9 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, role: UserRole) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, role }),
       });
@@ -127,12 +130,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        return { error: data.detail || 'Signup failed' };
+        return { error: data.detail || "Signup failed" };
       }
 
       return { error: null };
     } catch {
-      return { error: 'Network error during signup' };
+      return { error: "Network error during signup" };
     }
   };
 
@@ -142,70 +145,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     expectedRole?: UserRole
   ) => {
     try {
-      // First validate credentials and role with the validate-login endpoint
-      if (expectedRole) {
-        const validateResponse = await fetch(`${API_BASE_URL}/api/auth/validate-login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password, expected_role: expectedRole }),
-        });
-
-        const validateData = await validateResponse.json();
-
-        if (!validateData.valid) {
-          return { 
-            error: validateData.message
-          };
-        }
-      }
-
-      // Now sign in with the login endpoint (sets httpOnly cookie)
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Allow server to set cookies
-        body: JSON.stringify({ email, password }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, expected_role: expectedRole }),
       });
 
       const data = await response.json();
-
       if (!response.ok) {
-        return { error: data.detail || 'Invalid login credentials' };
+        return { error: data.detail || "Invalid login credentials" };
       }
 
-      // Cookie is set by server (httpOnly, secure)
-      // No need to store token in localStorage (XSS vulnerability)
-
-      // Fetch user profile using the cookie
-      const meResponse = await fetch(`${API_BASE_URL}/api/users/me`, {
-        credentials: 'include' // Send the cookie
-      });
-
-      if (meResponse.ok) {
-        const userData = await meResponse.json();
-        
-        setState({
-          user: { id: userData.id, email: userData.email },
-          session: { 
-            user: { id: userData.id, email: userData.email },
-            access_token: 'cookie-based' // Token is in httpOnly cookie
-          },
-          profile: userData.profile || null,
-          ambassadorProfile: userData.ambassador_profile || null,
-          clientProfile: userData.client_profile || null,
-          loading: false
-        });
-
-        return { error: null };
-      } else {
-        return { error: 'Failed to fetch user data' };
-      }
-    } catch {
-      return { error: 'Network error during login' };
+      await refreshProfile(); // Fetches user data after successful login
+      return { error: null };
+    } catch (err) {
+      return { error: "Network error during login" };
     }
   };
 
@@ -213,15 +168,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Call backend logout endpoint to clear httpOnly cookie
       await fetch(`${API_BASE_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include' // Send cookie to be cleared
+        method: "POST",
+        credentials: "include", // Send cookie to be cleared
       });
-      
+
       // Clear all auth-related storage (if any)
       try {
         sessionStorage.clear();
         // Remove any legacy tokens
-        localStorage.removeItem('auth-token');
+        localStorage.removeItem("auth-token");
       } catch (storageError) {
         console.warn("Could not clear session storage:", storageError);
       }
@@ -249,32 +204,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createProfile = async (role: UserRole, profileData: Record<string, unknown>) => {
+  const createProfile = async (
+    role: UserRole,
+    profileData: Record<string, unknown>
+  ) => {
     if (!state.user) {
       return { error: new Error("No user logged in") };
     }
 
     try {
-      const endpoint = role === "ambassador" 
-        ? `${API_BASE_URL}/api/profiles/ambassador`
-        : `${API_BASE_URL}/api/profiles/client`;
+      const endpoint =
+        role === "ambassador"
+          ? `${API_BASE_URL}/api/profiles/ambassador`
+          : `${API_BASE_URL}/api/profiles/client`;
 
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        credentials: 'include', // Send auth cookie
+        credentials: "include", // Send auth cookie
         body: JSON.stringify({
           user_id: state.user.id,
-          ...profileData
+          ...profileData,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        return { error: data.detail || 'Failed to create profile' };
+        return { error: data.detail || "Failed to create profile" };
       }
 
       // Refresh profile data
@@ -282,22 +241,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error: null };
     } catch {
-      return { error: 'Network error during profile creation' };
+      return { error: "Network error during profile creation" };
     }
   };
 
   const refreshProfile = async () => {
     if (!state.user) return;
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/me`, {
-        credentials: 'include' // Send auth cookie
+        credentials: "include", // Send auth cookie
       });
 
       if (response.ok) {
         const userData = await response.json();
-        
-        setState(prev => ({
+
+        setState((prev) => ({
           ...prev,
           profile: userData.profile || null,
           ambassadorProfile: userData.ambassador_profile || null,

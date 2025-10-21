@@ -3,9 +3,15 @@
  * NO direct Supabase calls - all operations go through FastAPI backend
  */
 
-import { API_URL } from '@/config/api';
-import { authFetch, authPost, authPut, authDelete, handleApiResponse } from '@/utils/fetch';
-import { Campaign as DatabaseCampaign } from '@/types/database';
+import { API_URL } from "@/config/api";
+import {
+  authFetch,
+  authPost,
+  authPut,
+  authDelete,
+  handleApiResponse,
+} from "@/utils/fetch";
+import { Campaign as DatabaseCampaign } from "@/types/database";
 
 const API_BASE_URL = API_URL;
 
@@ -66,17 +72,18 @@ interface ErrorResponse {
  */
 function handleError(error: unknown, context: string): ErrorResponse {
   console.error(`[CampaignService] ${context}:`, error);
-  
-  const message = error instanceof Error 
-    ? error.message 
-    : typeof error === 'string' 
-    ? error 
-    : 'An unexpected error occurred';
-  
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+      ? error
+      : "An unexpected error occurred";
+
   // Propagate error to UI layer
   return {
     data: null,
-    error: { message }
+    error: { message },
   };
 }
 
@@ -98,13 +105,13 @@ class CampaignService {
         requirements: campaignData.requirements,
         target_niches: campaignData.targetNiches,
         campaign_type: campaignData.campaignType,
-        deliverables: campaignData.deliverables
+        deliverables: campaignData.deliverables,
       });
 
       const data = await handleApiResponse<{ campaign: Campaign }>(response);
       return { data: data.campaign, error: null };
     } catch (error) {
-      return handleError(error, 'createCampaign');
+      return handleError(error, "createCampaign");
     }
   }
 
@@ -113,11 +120,13 @@ class CampaignService {
    */
   async getCampaignsForClient(clientId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/campaigns/client/${clientId}`);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/campaigns/client/${clientId}`
+      );
       const result = await handleApiResponse<{ data: Campaign[] }>(response);
       return { data: result.data || [], error: null };
     } catch (error) {
-      return handleError(error, 'getCampaignsForClient');
+      return handleError(error, "getCampaignsForClient");
     }
   }
 
@@ -130,7 +139,7 @@ class CampaignService {
       const result = await handleApiResponse<{ data: Campaign[] }>(response);
       return { data: result.data || [], error: null };
     } catch (error) {
-      return handleError(error, 'getAllOpenCampaigns');
+      return handleError(error, "getAllOpenCampaigns");
     }
   }
 
@@ -139,11 +148,13 @@ class CampaignService {
    */
   async getCampaign(campaignId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/campaigns/${campaignId}`);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/campaigns/${campaignId}`
+      );
       const data = await handleApiResponse<Campaign>(response);
       return { data, error: null };
     } catch (error) {
-      return handleError(error, 'getCampaign');
+      return handleError(error, "getCampaign");
     }
   }
 
@@ -152,11 +163,14 @@ class CampaignService {
    */
   async updateCampaign(campaignId: string, updates: Partial<CampaignData>) {
     try {
-      const response = await authPut(`${API_BASE_URL}/api/campaigns/${campaignId}`, updates);
+      const response = await authPut(
+        `${API_BASE_URL}/api/campaigns/${campaignId}`,
+        updates
+      );
       const data = await handleApiResponse<{ campaign: Campaign }>(response);
       return { data: data.campaign, error: null };
     } catch (error) {
-      return handleError(error, 'updateCampaign');
+      return handleError(error, "updateCampaign");
     }
   }
 
@@ -165,24 +179,13 @@ class CampaignService {
    */
   async deleteCampaign(campaignId: string) {
     try {
-      const response = await authDelete(`${API_BASE_URL}/api/campaigns/${campaignId}`);
+      const response = await authDelete(
+        `${API_BASE_URL}/api/campaigns/${campaignId}`
+      );
       await handleApiResponse(response);
       return { data: { success: true }, error: null };
     } catch (error) {
-      return handleError(error, 'deleteCampaign');
-    }
-  }
-
-  /**
-   * Publish a campaign (change status from draft to active)
-   */
-  async publishCampaign(campaignId: string) {
-    try {
-      const response = await authPost(`${API_BASE_URL}/api/campaigns/${campaignId}/publish`, {});
-      await handleApiResponse(response);
-      return { data: { success: true }, error: null };
-    } catch (error) {
-      return handleError(error, 'publishCampaign');
+      return handleError(error, "deleteCampaign");
     }
   }
 
@@ -191,11 +194,14 @@ class CampaignService {
    */
   async updateCampaignStatus(campaignId: string, status: string) {
     try {
-      const response = await authPut(`${API_BASE_URL}/api/campaigns/${campaignId}/status`, { status });
+      const response = await authPut(
+        `${API_BASE_URL}/api/campaigns/${campaignId}/status`,
+        { status }
+      );
       await handleApiResponse(response);
       return { data: { success: true }, error: null };
     } catch (error) {
-      return handleError(error, 'updateCampaignStatus');
+      return handleError(error, "updateCampaignStatus");
     }
   }
 
@@ -213,7 +219,7 @@ class CampaignService {
       const data = await handleApiResponse(response);
       return { data: data, error: null };
     } catch (error) {
-      return handleError(error, 'addAmbassadorToCampaign');
+      return handleError(error, "addAmbassadorToCampaign");
     }
   }
 
@@ -222,25 +228,15 @@ class CampaignService {
    */
   async getCampaignAmbassadors(campaignId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors`);
-      const data = await handleApiResponse<{ ambassadors: CampaignAmbassador[] }>(response);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors`
+      );
+      const data = await handleApiResponse<{
+        ambassadors: CampaignAmbassador[];
+      }>(response);
       return { data: data.ambassadors || [], error: null };
     } catch (error) {
-      return handleError(error, 'getCampaignAmbassadors');
-    }
-  }
-
-  /**
-   * Delete campaign_ambassadors row by chat_room_id
-   * This is used when deleting a chat to keep data in sync
-   */
-  async deleteCampaignAmbassadorByChatRoomId(chatRoomId: string) {
-    try {
-      const response = await authDelete(`${API_BASE_URL}/api/campaigns/ambassadors/chat/${chatRoomId}`);
-      await handleApiResponse(response);
-      return { data: { success: true }, error: null };
-    } catch (error) {
-      return handleError(error, 'deleteCampaignAmbassadorByChatRoomId');
+      return handleError(error, "getCampaignAmbassadors");
     }
   }
 
@@ -249,11 +245,28 @@ class CampaignService {
    */
   async getCampaignAmbassadorRows(campaignId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/campaigns/${campaignId}/ambassador-rows`);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassador-rows`
+      );
       const data = await handleApiResponse<{ rows: unknown[] }>(response);
       return { data: data.rows || [], error: null };
     } catch (error) {
-      return handleError(error, 'getCampaignAmbassadorRows');
+      return handleError(error, "getCampaignAmbassadorRows");
+    }
+  }
+
+  /**
+   * Get all campaigns for a specific ambassador
+   */
+  async getCampaignsForAmbassador(ambassadorId: string) {
+    try {
+      const response = await authFetch(
+        `${API_BASE_URL}/api/campaigns/ambassador/${ambassadorId}`
+      );
+      const data = await handleApiResponse<{ data: Campaign[] }>(response);
+      return { data: data.data || [], error: null };
+    } catch (error) {
+      return handleError(error, "getCampaignsForAmbassador");
     }
   }
 }
@@ -269,10 +282,8 @@ export const {
   getCampaign,
   updateCampaign,
   deleteCampaign,
-  publishCampaign,
   updateCampaignStatus,
   addAmbassadorToCampaign,
   getCampaignAmbassadors,
-  deleteCampaignAmbassadorByChatRoomId,
-  getCampaignAmbassadorRows
+  getCampaignAmbassadorRows,
 } = campaignService;

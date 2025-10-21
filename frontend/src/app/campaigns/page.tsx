@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
-import { CreateCampaignForm } from "@/components/campaigns/CreateCampaignForm";
 import { campaignService } from "@/services/campaignService";
 import { Campaign } from "@/types/database";
 import { ChevronRight } from "lucide-react";
+import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 
 export default function Campaigns() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, clientProfile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -20,15 +20,17 @@ export default function Campaigns() {
   const loadCampaigns = useCallback(async () => {
     setLoadingCampaigns(true);
     try {
-      if (!profile?.id) return;
-      const { data } = await campaignService.getCampaignsForClient(profile.id);
+      if (!clientProfile?.id) return;
+      const { data } = await campaignService.getCampaignsForClient(
+        clientProfile.id
+      );
       setCampaigns(data || []);
     } catch (error) {
       console.error("Error loading campaigns:", error);
     } finally {
       setLoadingCampaigns(false);
     }
-  }, [profile?.id]);
+  }, [clientProfile?.id]);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -53,8 +55,9 @@ export default function Campaigns() {
     setLoading(false);
   }, [user, profile, authLoading, router, loadCampaigns]);
 
-  const handleCampaignCreated = (campaign: Campaign) => {
-    setCampaigns([campaign, ...campaigns]);
+  const handleCampaignCreated = async () => {
+    // Refresh campaigns list after creation
+    await loadCampaigns();
     setShowForm(false);
   };
 
@@ -82,28 +85,20 @@ export default function Campaigns() {
               Create and manage your campaigns
             </p>
           </div>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="px-6 py-2 bg-[#f5d82e] text-black font-medium rounded-lg hover:bg-[#e5c820]"
-            >
-              + New Campaign
-            </button>
-          )}
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-6 py-2 bg-[#f5d82e] text-black font-medium rounded-lg hover:bg-[#e5c820]"
+          >
+            + New Campaign
+          </button>
         </div>
 
-        {/* Create Campaign Form */}
-        {showForm && (
-          <div className="bg-white rounded-xl border border-gray-300 p-6 mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Create New Campaign
-            </h2>
-            <CreateCampaignForm
-              onSuccess={handleCampaignCreated}
-              onCancel={() => setShowForm(false)}
-            />
-          </div>
-        )}
+        {/* Create Campaign Modal */}
+        <CreateCampaignModal
+          isOpen={showForm}
+          onClose={() => setShowForm(false)}
+          onCampaignCreated={handleCampaignCreated}
+        />
 
         {/* Campaigns List */}
         <div className="space-y-4">

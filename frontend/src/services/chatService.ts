@@ -285,8 +285,7 @@ class ChatService {
       );
 
       if (response.status === 410) {
-        // Orphaned chat; trigger local cleanup hint
-        await this.handleOrphanedChat(chatRoomId);
+        // Orphaned chat; backend handles cleanup
         return {
           data: null,
           error: {
@@ -302,19 +301,6 @@ class ChatService {
       return { data: data.participant as ChatParticipant, error: null };
     } catch (error) {
       return handleError(error, "getOtherParticipant");
-    }
-  }
-
-  private async handleOrphanedChat(chatRoomId: string) {
-    try {
-      const raw = localStorage.getItem("cached_chats") || "[]";
-      const chats = JSON.parse(raw);
-      const filtered = Array.isArray(chats)
-        ? chats.filter((c: any) => c?.id !== chatRoomId)
-        : [];
-      localStorage.setItem("cached_chats", JSON.stringify(filtered));
-    } catch (e) {
-      console.warn("Could not clean local chat cache", e);
     }
   }
 
@@ -415,41 +401,6 @@ class ChatService {
     } catch (error) {
       return handleError(error, "getContractByChatId");
     }
-  }
-
-  /**
-   * Check if a private chat exists between two users
-   * Note: This is now handled by createChat which returns existing chats
-   * Kept for backwards compatibility
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async checkExistingChat(userId1: string, userId2: string) {
-    // This functionality is now handled by createChat
-    // If a chat exists, createChat will return it with existed: true
-    console.warn(
-      "checkExistingChat is deprecated. Use createChat instead which handles existing chats."
-    );
-    return {
-      data: null,
-      error: { message: "Use createChat instead" },
-    };
-  }
-
-  /**
-   * Check if user is a member of a chat
-   * This is now handled server-side automatically
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async isMember(chatRoomId: string, userId: string) {
-    // Membership is checked server-side on all endpoints
-    // This method is kept for backwards compatibility
-    console.warn(
-      "isMember is deprecated. Membership is checked server-side automatically."
-    );
-    return {
-      data: true,
-      error: null,
-    };
   }
 }
 
