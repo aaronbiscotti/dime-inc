@@ -123,15 +123,17 @@ async def login(request: SignInRequest, response: Response):
 
 @router.post("/signup")
 async def signup(request: SignUpRequest, response: Response):
-    """
-    Sign up a new user with Supabase and set secure httpOnly cookie.
-    Creates user account and initial profile record.
-    """
+    """Sign up a new user with Supabase."""
     try:
-        # Create user with Supabase Auth
+        # Supabase will create user + trigger will create profile
         auth_response = admin_client.auth.sign_up({
             "email": request.email,
-            "password": request.password
+            "password": request.password,
+            "options": {
+                "data": {
+                    "role": request.role  # Passed to trigger via raw_user_meta_data
+                }
+            }
         })
         
         if not auth_response.user:
@@ -140,23 +142,11 @@ async def signup(request: SignUpRequest, response: Response):
                 detail="Failed to create user account"
             )
         
-        user_id = auth_response.user.id
-        
-        # Create profile record
-        profile_data = {
-            "id": user_id,
-            "role": request.role
-        }
-        
-        admin_client.table("profiles").insert(profile_data).execute()
-        
-        # If we have a session, set the cookie
+        # Set auth cookie if session exists
         if auth_response.session:
-            access_token = auth_response.session.access_token
-            
             response.set_cookie(
                 key=COOKIE_NAME,
-                value=access_token,
+                value=auth_response.session.access_token,
                 httponly=True,
                 secure=True,
                 samesite="lax",
@@ -166,14 +156,17 @@ async def signup(request: SignUpRequest, response: Response):
         
         return {
             "message": "Signup successful",
-            "user_id": user_id,
+            "user_id": auth_response.user.id,
+            "email": request.email,
             "role": request.role
         }
         
     except Exception as e:
+        error_msg = str(e)
+        print(f"Signup error: {error_msg}")  # Log for debugging
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Signup failed: {str(e)}"
+            detail=f"Signup failed: {error_msg}"
         )
 
 
