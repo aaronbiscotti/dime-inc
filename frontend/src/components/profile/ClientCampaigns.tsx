@@ -71,89 +71,27 @@ export function ClientCampaigns({
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {campaigns.length === 0 ? (
-          /* Empty State - Show existing chat cards */
           <div className="md:col-span-2 xl:col-span-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* Mock chat cards for empty state */}
-              <Card className="bg-white border border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer group">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold">
-                      N
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900 text-sm">
-                        Nike
-                      </h4>
-                      <p className="text-xs text-gray-600">
-                        Summer Collection Launch
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <Calendar className="w-3 h-3" />
-                      <span>2025-09-15 - 2025-10-15</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Active</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer group">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold">
-                      A
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900 text-sm">
-                        Adidas
-                      </h4>
-                      <p className="text-xs text-gray-600">Fall Campaign</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <Calendar className="w-3 h-3" />
-                      <span>2025-10-01 - 2025-11-01</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <span>Pending</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white border border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer group">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-sm font-semibold">
-                      P
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900 text-sm">
-                        Puma
-                      </h4>
-                      <p className="text-xs text-gray-600">Winter Collection</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <Calendar className="w-3 h-3" />
-                      <span>2025-11-15 - 2025-12-15</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                      <span>Draft</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="bg-white rounded-xl border border-dashed border-gray-300">
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 bg-[#f5d82e] bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">🚀</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No Campaigns Yet
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Click the button to create your first campaign and start
+                  finding talent.
+                </p>
+                <Button
+                  onClick={onCreateCampaign}
+                  className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Campaign
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
