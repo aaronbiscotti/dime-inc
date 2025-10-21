@@ -3,14 +3,27 @@
  * NO direct Supabase calls - all operations go through FastAPI backend
  */
 
-import { API_URL } from '@/config/api';
-import { authFetch, authPost, authPut, authDelete, handleApiResponse } from '@/utils/fetch';
+import { API_URL } from "@/config/api";
+import {
+  authFetch,
+  authPost,
+  authPut,
+  authDelete,
+  handleApiResponse,
+} from "@/utils/fetch";
 
 const API_BASE_URL = API_URL;
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
+
+export type ContractStatus =
+  | "draft"
+  | "pending_ambassador_signature"
+  | "active"
+  | "completed"
+  | "terminated";
 
 export interface Contract {
   id: string;
@@ -19,12 +32,20 @@ export interface Contract {
   created_at: string;
   campaign_ambassador_id: string;
   client_id: string;
+  ambassador_signed_at: string | null;
+  client_signed_at: string | null;
+  status: ContractStatus;
   campaign_name?: string;
   ambassador_name?: string;
+  // For detailed view
+  campaign_ambassadors?: {
+    ambassador_profiles?: { id?: string; full_name?: string } | null;
+    campaigns?: { title?: string } | null;
+  } | null;
 }
 
 export interface CreateContractData {
-  payment_type: 'pay_per_post' | 'pay_per_cpm';
+  payment_type: "pay_per_post" | "pay_per_cpm";
   target_impressions?: number;
   cost_per_cpm?: number;
   start_date?: string;
@@ -42,15 +63,16 @@ export interface CreateContractData {
 /**
  * Handle API errors consistently
  */
-function handleError(error: unknown, context: string) {
+function handleError(error: unknown, context: string): never {
   console.error(`[ContractService] ${context}:`, error);
-  
-  const message = error instanceof Error 
-    ? error.message 
-    : typeof error === 'string' 
-    ? error 
-    : 'An unexpected error occurred';
-  
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+      ? error
+      : "An unexpected error occurred";
+
   throw new Error(message);
 }
 
@@ -64,11 +86,10 @@ export const contractService = {
    */
   async createContract(data: CreateContractData): Promise<Contract> {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/contracts/create`, data);
-      const result = await handleApiResponse<{ contract: Contract }>(response);
-      return result.contract;
+      const response = await authPost(`${API_BASE_URL}/api/contracts`, data); // Changed to POST to base URL
+      return await handleApiResponse<Contract>(response);
     } catch (error) {
-      return handleError(error, 'createContract');
+      handleError(error, "createContract");
     }
   },
 
@@ -77,11 +98,15 @@ export const contractService = {
    */
   async getContractsForClient(clientId: string): Promise<Contract[]> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/contracts/client/${clientId}`);
-      const result = await handleApiResponse<{ contracts: Contract[] }>(response);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/contracts/client/${clientId}`
+      );
+      const result = await handleApiResponse<{ contracts: Contract[] }>(
+        response
+      );
       return result.contracts || [];
     } catch (error) {
-      return handleError(error, 'getContractsForClient');
+      handleError(error, "getContractsForClient");
     }
   },
 
@@ -90,11 +115,15 @@ export const contractService = {
    */
   async getContractsForAmbassador(ambassadorId: string): Promise<Contract[]> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/contracts/ambassador/${ambassadorId}`);
-      const result = await handleApiResponse<{ contracts: Contract[] }>(response);
+      const response = await authFetch(
+        `${API_BASE_URL}/api/contracts/ambassador/${ambassadorId}`
+      );
+      const result = await handleApiResponse<{ contracts: Contract[] }>(
+        response
+      );
       return result.contracts || [];
     } catch (error) {
-      return handleError(error, 'getContractsForAmbassador');
+      handleError(error, "getContractsForAmbassador");
     }
   },
 
@@ -103,40 +132,45 @@ export const contractService = {
    */
   async getContract(contractId: string): Promise<Contract> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/contracts/${contractId}`);
-      const result = await handleApiResponse<{ contract: Contract }>(response);
-      return result.contract;
+      const response = await authFetch(
+        `${API_BASE_URL}/api/contracts/${contractId}`
+      );
+      return await handleApiResponse<Contract>(response);
     } catch (error) {
-      return handleError(error, 'getContract');
+      handleError(error, "getContract");
     }
   },
 
   /**
-   * Accept/sign a contract
+   * Accept/sign a contract (for ambassadors)
    */
-  async acceptContract(contractId: string, userRole: 'client' | 'ambassador'): Promise<Contract> {
+  async signContract(contractId: string): Promise<Contract> {
     try {
       const response = await authPost(
-        `${API_BASE_URL}/api/contracts/${contractId}/accept`,
-        { role: userRole }
+        `${API_BASE_URL}/api/contracts/${contractId}/sign`,
+        {}
       );
-      const result = await handleApiResponse<{ contract: Contract }>(response);
-      return result.contract;
+      return await handleApiResponse<Contract>(response);
     } catch (error) {
-      return handleError(error, 'acceptContract');
+      handleError(error, "signContract");
     }
   },
 
   /**
    * Update a contract
    */
-  async updateContract(contractId: string, updates: Partial<CreateContractData>): Promise<Contract> {
+  async updateContract(
+    contractId: string,
+    updates: Partial<CreateContractData>
+  ): Promise<Contract> {
     try {
-      const response = await authPut(`${API_BASE_URL}/api/contracts/${contractId}`, updates);
-      const result = await handleApiResponse<{ contract: Contract }>(response);
-      return result.contract;
+      const response = await authPut(
+        `${API_BASE_URL}/api/contracts/${contractId}`,
+        updates
+      );
+      return await handleApiResponse<Contract>(response);
     } catch (error) {
-      return handleError(error, 'updateContract');
+      handleError(error, "updateContract");
     }
   },
 
@@ -145,10 +179,12 @@ export const contractService = {
    */
   async deleteContract(contractId: string): Promise<void> {
     try {
-      const response = await authDelete(`${API_BASE_URL}/api/contracts/${contractId}`);
+      const response = await authDelete(
+        `${API_BASE_URL}/api/contracts/${contractId}`
+      );
       await handleApiResponse(response);
     } catch (error) {
-      return handleError(error, 'deleteContract');
+      handleError(error, "deleteContract");
     }
-  }
+  },
 };

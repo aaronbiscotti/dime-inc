@@ -8,7 +8,7 @@ import { contractService, Contract } from "@/services/contractService";
 import { useEffect, useState } from "react";
 
 export default function ContractsPage() {
-  const { clientProfile } = useAuth();
+  const { user, clientProfile, ambassadorProfile } = useAuth();
   const router = useRouter();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,22 +16,66 @@ export default function ContractsPage() {
 
   useEffect(() => {
     const fetchContracts = async () => {
-      if (!clientProfile) return;
+      if (!user) return;
       setLoading(true);
       setError(null);
       try {
-        // Fetch all contracts for this client by client_id FK
-        const data = await contractService.getContractsForClient(
-          clientProfile.id
-        );
-        setContracts(data || []);
+        let data: Contract[] = [];
+        if (clientProfile) {
+          data = await contractService.getContractsForClient(
+            clientProfile.user_id
+          );
+        } else if (ambassadorProfile) {
+          data = await contractService.getContractsForAmbassador(
+            ambassadorProfile.user_id
+          );
+        }
+
+        // Enrich data with names for display
+        const enrichedData = data.map((c) => ({
+          ...c,
+          campaign_name: c.campaign_ambassadors?.campaigns?.title || "N/A",
+          ambassador_name:
+            c.campaign_ambassadors?.ambassador_profiles?.full_name || "N/A",
+        }));
+
+        setContracts(enrichedData || []);
       } catch {
         setError("Failed to load contracts");
       }
       setLoading(false);
     };
     fetchContracts();
-  }, [clientProfile]);
+  }, [user, clientProfile, ambassadorProfile]);
+
+  const getStatusChip = (status: string) => {
+    switch (status) {
+      case "active":
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+            Active
+          </span>
+        );
+      case "pending_ambassador_signature":
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
+            Pending Signature
+          </span>
+        );
+      case "draft":
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+            Draft
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+            {status}
+          </span>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -39,12 +83,14 @@ export default function ContractsPage() {
       <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Contracts</h1>
-          <Button
-            className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
-            onClick={() => router.push("/contracts/new")}
-          >
-            Draft Contract
-          </Button>
+          {clientProfile && (
+            <Button
+              className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
+              onClick={() => router.push("/contracts/new")}
+            >
+              Draft Contract
+            </Button>
+          )}
         </div>
         {loading ? (
           <div className="text-center text-gray-500 py-12">
@@ -57,15 +103,16 @@ export default function ContractsPage() {
             <div className="text-2xl mb-2">📄</div>
             <div className="text-lg font-semibold mb-1">No contracts yet</div>
             <div className="text-sm text-gray-500 mb-4">
-              You have not created any contracts. Click &quot;Draft
-              Contract&quot; to get started.
+              You have not created or received any contracts.
             </div>
-            <Button
-              className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
-              onClick={() => router.push("/contracts/new")}
-            >
-              Draft Contract
-            </Button>
+            {clientProfile && (
+              <Button
+                className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
+                onClick={() => router.push("/contracts/new")}
+              >
+                Draft Contract
+              </Button>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-300 overflow-hidden">
@@ -76,7 +123,7 @@ export default function ContractsPage() {
                     Campaign
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ambassador
+                    {clientProfile ? "Ambassador" : "Client"}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -99,15 +146,7 @@ export default function ContractsPage() {
                       {c.ambassador_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {c.terms_accepted ? (
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
-                          Draft
-                        </span>
-                      )}
+                      {getStatusChip(c.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {c.created_at

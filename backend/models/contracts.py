@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from datetime import datetime
 
+# Defines the possible statuses a contract can have.
+ContractStatus = Literal["draft", "pending_ambassador_signature", "active", "completed", "terminated"]
 
 class ContractBase(BaseModel):
     """Base contract model with common fields."""
@@ -18,6 +20,7 @@ class ContractBase(BaseModel):
     pdf_url: Optional[str] = None
     ambassador_signed_at: Optional[str] = None
     client_signed_at: Optional[str] = None
+    status: ContractStatus = "draft"  # Add status field
 
 
 class ContractCreate(ContractBase):
@@ -38,6 +41,7 @@ class ContractUpdate(BaseModel):
     pdf_url: Optional[str] = None
     ambassador_signed_at: Optional[str] = None
     client_signed_at: Optional[str] = None
+    status: Optional[ContractStatus] = None # Allow status updates
 
 
 class Contract(ContractBase):
