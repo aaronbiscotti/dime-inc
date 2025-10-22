@@ -17,7 +17,7 @@ import {
   type Message as ChatMessage,
   type ChatParticipant,
 } from "@/services/chatService";
-import { supabase } from "@/lib/supabase-realtime";
+import { createClient } from "@/lib/supabase/client";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 import { MessageStatus } from "./MessageStatus";
@@ -44,6 +44,7 @@ export function ChatArea({
   onChatDeleted,
 }: ChatAreaProps) {
   const { user } = useAuth();
+  const supabase = createClient();
 
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);

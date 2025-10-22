@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase-realtime'
+import { createClient } from '@/lib/supabase/client'
 
 interface TypingUser {
   user_id: string
@@ -10,6 +10,7 @@ interface TypingUser {
 export function useTypingIndicator(chatRoomId: string | null, currentUserId: string, currentUserName: string) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
   const [isTyping, setIsTyping] = useState(false)
+  const supabase = createClient()
 
   // Broadcast typing status
   const startTyping = useCallback(() => {

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase-realtime'
+import { createClient } from '@/lib/supabase/client'
 
 export function useOnlinePresence(chatRoomId: string | null, userId: string) {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
+  const supabase = createClient()
 
   useEffect(() => {
     if (!chatRoomId || !userId) return
