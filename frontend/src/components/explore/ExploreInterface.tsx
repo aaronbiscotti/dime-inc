@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Heart, ChevronDown } from "lucide-react";
-import { Campaign } from "@/types/database";
+import { Tables } from "@/types/database";
 import { exploreService } from "@/services/exploreService";
 import { chatService } from "@/services/chatService";
 import { campaignService } from "@/services/campaignService";
@@ -26,7 +26,7 @@ interface Influencer {
   associatedWith?: string | null;
 }
 
-interface CampaignWithClient extends Campaign {
+interface CampaignWithClient extends Tables<"campaigns"> {
   client_profiles?: {
     company_name: string;
     logo_url: string | null;
@@ -82,7 +82,7 @@ export function ExploreInterface() {
 
         if (ambassadorProfiles && ambassadorProfiles.length > 0) {
           const mappedInfluencers: Influencer[] = ambassadorProfiles.map(
-            (profile) => {
+            (profile, index) => {
               const prof = profile as Record<string, unknown>;
 
               // Create platforms array from available handles
@@ -101,9 +101,9 @@ export function ExploreInterface() {
               };
 
               return {
-                id: prof.profileId as string, // Use profileId from API
-                userId: prof.id as string, // Use id (user_id) for chat functionality
-                name: prof.name as string,
+                id: (prof.profileId as string) || (prof.id as string) || `ambassador-${index}`, // Ensure unique ID
+                userId: (prof.profiles as any)?.id || prof.id as string, // Use profiles.id for chat functionality
+                name: (prof.name as string) || (prof.full_name as string) || "Unknown Ambassador",
                 handle: formatHandle(prof.instagramHandle as string | null),
                 platforms,
                 followers: null, // We don't have follower data in the current schema
@@ -220,9 +220,7 @@ export function ExploreInterface() {
         setActiveCampaigns([]);
         return;
       }
-      const result = await campaignService.getCampaignsForClient(
-        clientProfile.id
-      );
+      const result = await campaignService.getMyClientCampaigns();
       if (result.error || !result.data) {
         console.error("Error fetching campaigns:", result.error);
         setActiveCampaigns([]);
@@ -259,8 +257,9 @@ export function ExploreInterface() {
       return;
     }
 
-    console.log("Starting invite process:", {
+    console.log("Starting enhanced invite process:", {
       currentUser: user.id,
+      ambassadorId: selectedAmbassador.id,
       ambassadorUserId: selectedAmbassador.userId,
       ambassadorName: selectedAmbassador.name,
       selectedCampaignId,
@@ -269,59 +268,36 @@ export function ExploreInterface() {
     setInvitingId(selectedAmbassador.userId);
 
     try {
-      // Profile verification is handled by the backend when creating the chat
-      console.log("Creating chat with ambassador:", selectedAmbassador.userId);
+      // Use the new enhanced invite workflow
+      const result = await chatService.createEnhancedInvite({
+        ambassador_id: selectedAmbassador.id,
+        ambassador_user_id: selectedAmbassador.userId,
+        campaign_id: selectedCampaignId!,
+        invite_message: inviteMessage?.trim(),
+      });
 
-      const { data: chatRoom, error: chatError } = await chatService.createChat(
-        {
-          participant_id: selectedAmbassador.userId,
-          participant_name: selectedAmbassador.name,
-          participant_role: "ambassador",
+      if (result.error) {
+        console.error("Enhanced invite failed:", result.error);
+        
+        // Handle specific error cases
+        if (result.error.message?.includes("already been added")) {
+          alert("This ambassador has already been added to this campaign. Please select a different ambassador or campaign.");
+        } else {
+          alert(`Failed to send invite: ${result.error.message}`);
         }
-      );
-
-      if (chatError || !chatRoom) {
-        console.error("Error creating chat:", chatError);
         return;
       }
 
-      console.log("Chat created successfully:", chatRoom.id);
-
-      // TODO: Implement sending invite message through chatService
-      // The sendMessage method needs to be implemented in chatService
-      if (inviteMessage) {
-        console.log("Invite message will be sent:", inviteMessage);
-      }
-
-      // Add ambassador to campaign_ambassadors table
-      if (selectedCampaignId && selectedAmbassador?.id) {
-        try {
-          console.log("Adding ambassador to campaign_ambassadors:", {
-            campaignId: selectedCampaignId,
-            ambassadorId: selectedAmbassador.id,
-          });
-          const result = await campaignService.addAmbassadorToCampaign(
-            selectedCampaignId,
-            selectedAmbassador.id
-          );
-          console.log("Ambassador added to campaign_ambassadors:", result);
-        } catch (err) {
-          console.error(
-            "Error adding ambassador to campaign_ambassadors:",
-            err
-          );
-        }
-      } else {
-        console.warn(
-          "No campaign selected or ambassador ID missing, skipping campaign_ambassadors insert."
-        );
-      }
+      console.log("Enhanced invite completed successfully:", result.data);
 
       // Close modal and redirect to the specific chat
       setShowInviteModal(false);
-      router.push(`/chats?chat=${chatRoom.id}`);
+      if (result.data?.chatRoom?.id) {
+        router.push(`/chats?chat=${result.data.chatRoom.id}`);
+      }
     } catch (error) {
-      console.error("Error inviting ambassador:", error);
+      console.error("Unexpected error during invite:", error);
+      alert("An unexpected error occurred. Please try again.");
     } finally {
       setInvitingId(null);
     }
@@ -554,9 +530,8 @@ export function ExploreInterface() {
                           ) : (
                             <span className="text-gray-600 font-medium text-lg">
                               {influencer.name
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")}
+                                ?.split(" ")
+                                ?.reduce((initials: string, name: string) => initials + (name[0] || ""), "") || "?"}
                             </span>
                           )}
                         </div>
@@ -565,19 +540,19 @@ export function ExploreInterface() {
                         <div className="flex-1 min-w-0">
                           <div className="mb-2">
                             <h3 className="font-semibold text-gray-900 text-lg mb-1">
-                              {influencer.name}
+                              {influencer.name || "Unknown Ambassador"}
                             </h3>
                             <div className="flex items-center gap-2 text-sm text-gray-600">
                               {influencer.handle && (
                                 <span>{influencer.handle}</span>
                               )}
                               {influencer.platforms.length > 0 && (
-                                <>
+                                <React.Fragment key="platforms">
                                   <span>•</span>
                                   <span>
                                     {influencer.platforms.join(" | ")}
                                   </span>
-                                </>
+                                </React.Fragment>
                               )}
                             </div>
                           </div>
@@ -590,7 +565,7 @@ export function ExploreInterface() {
                               </span>
                             )}
                             {influencer.engagement && (
-                              <>
+                              <React.Fragment key="engagement">
                                 <span>•</span>
                                 <span>
                                   <span className="font-medium">
@@ -598,13 +573,13 @@ export function ExploreInterface() {
                                   </span>{" "}
                                   {influencer.engagement}
                                 </span>
-                              </>
+                              </React.Fragment>
                             )}
                             {influencer.categories.length > 0 && (
-                              <>
+                              <React.Fragment key="categories">
                                 <span>•</span>
                                 <span>{influencer.categories.join(", ")}</span>
-                              </>
+                              </React.Fragment>
                             )}
                           </div>
 

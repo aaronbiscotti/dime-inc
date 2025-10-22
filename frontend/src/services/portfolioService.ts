@@ -16,16 +16,17 @@ export interface PortfolioItem {
   description?: string | null;
   instagram_url?: string | null;
   tiktok_url?: string | null;
-  media_urls: string[];
+  media_urls?: string[] | null;
   campaign_date?: string | null;
+  client_id?: string | null;
   results?: {
     views?: number;
     likes?: number;
     engagement?: number;
     [key: string]: unknown;
   } | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface CreatePortfolioData {
@@ -33,8 +34,9 @@ export interface CreatePortfolioData {
   description?: string;
   instagram_url?: string;
   tiktok_url?: string;
-  media_urls: string[];
+  media_urls?: string[];
   campaign_date?: string;
+  client_id?: string;
   results?: {
     views?: number;
     likes?: number;
@@ -50,6 +52,7 @@ export interface UpdatePortfolioData {
   tiktok_url?: string;
   media_urls?: string[];
   campaign_date?: string;
+  client_id?: string;
   results?: {
     views?: number;
     likes?: number;
@@ -90,7 +93,7 @@ class PortfolioService {
   async createPortfolio(data: CreatePortfolioData): Promise<PortfolioItem> {
     try {
       const { data: result, error } = await this.supabase
-        .from("portfolio_items")
+        .from("portfolios")
         .insert(data)
         .select()
         .single();
@@ -108,7 +111,7 @@ class PortfolioService {
   async getAmbassadorPortfolio(ambassadorId: string): Promise<PortfolioItem[]> {
     try {
       const { data, error } = await this.supabase
-        .from("portfolio_items")
+        .from("portfolios")
         .select("*")
         .eq("ambassador_id", ambassadorId)
         .order("created_at", { ascending: false });
@@ -126,7 +129,7 @@ class PortfolioService {
   async getPortfolioItem(portfolioId: string): Promise<PortfolioItem> {
     try {
       const { data, error } = await this.supabase
-        .from("portfolio_items")
+        .from("portfolios")
         .select("*")
         .eq("id", portfolioId)
         .single();
@@ -144,7 +147,7 @@ class PortfolioService {
   async updatePortfolio(portfolioId: string, data: UpdatePortfolioData): Promise<PortfolioItem> {
     try {
       const { data: result, error } = await this.supabase
-        .from("portfolio_items")
+        .from("portfolios")
         .update(data)
         .eq("id", portfolioId)
         .select()
@@ -163,7 +166,7 @@ class PortfolioService {
   async deletePortfolio(portfolioId: string): Promise<void> {
     try {
       const { error } = await this.supabase
-        .from("portfolio_items")
+        .from("portfolios")
         .delete()
         .eq("id", portfolioId);
 

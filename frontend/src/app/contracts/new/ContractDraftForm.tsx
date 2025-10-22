@@ -90,7 +90,7 @@ export default function ContractDraftForm({
     if (!clientProfile) return;
     setLoadingCampaigns(true);
     campaignService
-      .getCampaignsForClient(clientProfile.id)
+      .getMyClientCampaigns()
       .then((result) => {
         if (!result.error && result.data) {
           // Only include active campaigns

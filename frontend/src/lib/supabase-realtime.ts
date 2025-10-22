@@ -1,13 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from './supabase/client'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-})
+// Use the singleton client from client.ts to avoid multiple instances
+export const supabase = createClient()
 

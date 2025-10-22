@@ -20,6 +20,7 @@ export interface CampaignData {
   targetNiches?: string[];
   campaignType?: string;
   deliverables?: string[];
+  clientId?: string; // Add client_id
 }
 
 // Type used by the client-side creation form
@@ -90,17 +91,28 @@ class CampaignService {
    */
   async createCampaign(campaignData: CampaignData) {
     try {
+      // Parse budget range (e.g., "$1000 - $5000" -> min: 1000, max: 5000)
+      const budgetRange = campaignData.budget.replace(/[$,]/g, '').split(' - ');
+      const budgetMin = parseFloat(budgetRange[0]) || 0;
+      const budgetMax = parseFloat(budgetRange[1]) || budgetMin;
+
+      // Parse timeline to deadline (assuming timeline is in days)
+      const timelineDays = parseInt(campaignData.timeline) || 30;
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + timelineDays);
+
       const { data, error } = await this.supabase
         .from("campaigns")
         .insert({
           title: campaignData.title,
           description: campaignData.description,
-          budget: campaignData.budget,
-          timeline: campaignData.timeline,
+          budget_min: budgetMin,
+          budget_max: budgetMax,
+          deadline: deadline.toISOString(),
           requirements: campaignData.requirements,
-          target_niches: campaignData.targetNiches,
-          campaign_type: campaignData.campaignType,
-          deliverables: campaignData.deliverables,
+          max_ambassadors: 10, // Default value
+          status: "draft", // Start as draft
+          client_id: campaignData.clientId, // Include client_id
         })
         .select()
         .single();
@@ -226,6 +238,30 @@ class CampaignService {
    */
   async addAmbassadorToCampaign(campaignId: string, ambassadorId: string) {
     try {
+      // First check if the ambassador is already added to this campaign
+      const { data: existing, error: checkError } = await this.supabase
+        .from("campaign_ambassadors")
+        .select("id")
+        .eq("campaign_id", campaignId)
+        .eq("ambassador_id", ambassadorId)
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle no results gracefully
+
+      if (checkError) {
+        throw checkError;
+      }
+
+      if (existing) {
+        // Ambassador already added to campaign - return error to block the attempt
+        return { 
+          data: null, 
+          error: { 
+            message: "This ambassador has already been added to this campaign",
+            code: "DUPLICATE_RELATIONSHIP"
+          }
+        };
+      }
+
+      // Insert new ambassador-campaign relationship
       const { data, error } = await this.supabase
         .from("campaign_ambassadors")
         .insert({

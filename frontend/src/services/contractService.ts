@@ -115,7 +115,7 @@ export const contractService = {
           *,
           campaign_ambassadors(
             campaigns(title),
-            ambassador_profiles(name)
+            ambassador_profiles(full_name)
           )
         `)
         .eq("client_id", clientId)
@@ -142,7 +142,7 @@ export const contractService = {
           campaign_ambassadors!inner(
             ambassador_id,
             campaigns(title),
-            ambassador_profiles(name)
+            ambassador_profiles(full_name)
           )
         `)
         .eq("campaign_ambassadors.ambassador_id", ambassadorId)
@@ -168,7 +168,7 @@ export const contractService = {
           *,
           campaign_ambassadors(
             campaigns(title),
-            ambassador_profiles(name)
+            ambassador_profiles(full_name)
           )
         `)
         .eq("id", contractId)

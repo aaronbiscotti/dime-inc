@@ -66,7 +66,7 @@ class SubmissionService {
   async createSubmission(data: CreateSubmissionData): Promise<Submission> {
     try {
       const { data: result, error } = await this.supabase
-        .from("submissions")
+        .from("campaign_submissions")
         .insert({
           campaign_ambassador_id: data.campaign_ambassador_id,
           content_url: data.content_url,
@@ -85,7 +85,7 @@ class SubmissionService {
   async getSubmissionsForCampaign(campaignId: string): Promise<Submission[]> {
     try {
       const { data, error } = await this.supabase
-        .from("submissions")
+        .from("campaign_submissions")
         .select(`
           *,
           campaign_ambassadors!inner(
@@ -106,7 +106,7 @@ class SubmissionService {
   ): Promise<Submission[]> {
     try {
       const { data, error } = await this.supabase
-        .from("submissions")
+        .from("campaign_submissions")
         .select("*")
         .eq("campaign_ambassador_id", campaignAmbassadorId)
         .order("submitted_at", { ascending: false });
@@ -124,7 +124,7 @@ class SubmissionService {
   ): Promise<Submission> {
     try {
       const { data: result, error } = await this.supabase
-        .from("submissions")
+        .from("campaign_submissions")
         .update({
           status: data.status,
           feedback: data.feedback || null,

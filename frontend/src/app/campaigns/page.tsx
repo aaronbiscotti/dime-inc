@@ -20,17 +20,14 @@ export default function Campaigns() {
   const loadCampaigns = useCallback(async () => {
     setLoadingCampaigns(true);
     try {
-      if (!clientProfile?.id) return;
-      const { data } = await campaignService.getCampaignsForClient(
-        clientProfile.id
-      );
+      const { data } = await campaignService.getMyClientCampaigns();
       setCampaigns(data || []);
     } catch (error) {
       console.error("Error loading campaigns:", error);
     } finally {
       setLoadingCampaigns(false);
     }
-  }, [clientProfile?.id]);
+  }, []);
 
   useEffect(() => {
     // Wait for auth to finish loading

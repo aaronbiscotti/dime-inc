@@ -131,6 +131,7 @@ export function CreateCampaignModal({
         targetNiches: formData.targetNiches,
         campaignType: formData.campaignType,
         deliverables: formData.deliverables.filter((d) => d.trim() !== ""),
+        clientId: clientProfile.id, // Add client_id
       });
 
       if (error || !campaign) {
@@ -174,6 +175,8 @@ export function CreateCampaignModal({
       onClose={onClose}
       title={step === 1 ? "Create New Campaign" : "Campaign Created!"}
       maxWidth="2xl"
+      scrollable={true}
+      maxHeight="85vh"
     >
       {step === 1 ? (
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -48,37 +48,51 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
 
     const loadChatContext = async () => {
       try {
+        console.log("[ContextPanel] Loading chat context for:", selectedChatId);
+        
         const chatRoomRes = await chatService.getChatRoom(selectedChatId);
         if (chatRoomRes.error || !chatRoomRes.data) {
+          console.error("[ContextPanel] Failed to load chat room:", chatRoomRes.error);
           throw new Error("Failed to load chat information");
         }
 
         const isGroup = chatRoomRes.data.is_group;
         setIsGroupChat(isGroup);
+        console.log("[ContextPanel] Chat room loaded, isGroup:", isGroup);
 
         if (isGroup) {
           const participantsRes = await chatService.getParticipants(
             selectedChatId
           );
-          if (participantsRes.error)
+          if (participantsRes.error) {
+            console.error("[ContextPanel] Failed to load participants:", participantsRes.error);
             throw new Error("Failed to load participants");
+          }
           setParticipants(participantsRes.data || []);
+          console.log("[ContextPanel] Participants loaded:", participantsRes.data?.length);
         } else {
           const participantRes = await chatService.getOtherParticipant(
             selectedChatId
           );
-          if (participantRes.error || !participantRes.data)
+          if (participantRes.error || !participantRes.data) {
+            console.error("[ContextPanel] Failed to load other participant:", participantRes.error);
             throw new Error("Failed to load participant information");
+          }
           setOtherParticipant(participantRes.data);
+          console.log("[ContextPanel] Other participant loaded:", participantRes.data.name);
 
           const contractRes = await chatService.getContractByChatId(
             selectedChatId
           );
           if (!contractRes.error && contractRes.data) {
             setContract(contractRes.data);
+            console.log("[ContextPanel] Contract loaded:", contractRes.data.id);
+          } else {
+            console.log("[ContextPanel] No contract found for this chat");
           }
         }
       } catch (err) {
+        console.error("[ContextPanel] Error loading context:", err);
         setError(
           err instanceof Error ? err.message : "Failed to load context data"
         );

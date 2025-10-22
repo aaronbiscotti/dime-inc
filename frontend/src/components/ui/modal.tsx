@@ -8,6 +8,8 @@ interface ModalProps {
   children: ReactNode;
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "4xl";
   showCloseButton?: boolean;
+  scrollable?: boolean;
+  maxHeight?: string;
 }
 
 export function Modal({
@@ -17,6 +19,8 @@ export function Modal({
   children,
   maxWidth = "md",
   showCloseButton = true,
+  scrollable = false,
+  maxHeight = "90vh",
 }: ModalProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -69,10 +73,13 @@ export function Modal({
       <div
         className={`relative z-10 bg-white rounded-xl shadow-xl ${
           maxWidthClasses[maxWidth]
-        } w-full ${isClosing ? "animate-bounce-out" : "animate-bounce-in"}`}
+        } w-full ${isClosing ? "animate-bounce-out" : "animate-bounce-in"} ${
+          scrollable ? `max-h-[${maxHeight}] flex flex-col` : ""
+        }`}
+        style={scrollable ? { maxHeight } : undefined}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
           {showCloseButton && (
             <button
@@ -85,7 +92,9 @@ export function Modal({
         </div>
 
         {/* Body */}
-        <div className="p-6">{children}</div>
+        <div className={`p-6 ${scrollable ? "overflow-y-auto flex-1" : ""}`}>
+          {children}
+        </div>
       </div>
     </div>
   );

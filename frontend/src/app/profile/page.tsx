@@ -98,9 +98,7 @@ export default function Profile() {
         } else if (profile.role === "client" && clientProfile) {
           // Fetch campaigns for client using campaign service
           try {
-            const result = await campaignService.getCampaignsForClient(
-              clientProfile.id
-            );
+            const result = await campaignService.getMyClientCampaigns();
 
             if (result.error || !result.data) {
               console.error("Error fetching campaigns:", result.error);
