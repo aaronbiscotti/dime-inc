@@ -4,10 +4,10 @@
  */
 
 import '@testing-library/jest-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 // Mock dependencies
-jest.mock('@/contexts/AuthContext');
+jest.mock('@/components/providers/AuthProvider');
 jest.mock('next/navigation');
 
 describe('Profile Page', () => {

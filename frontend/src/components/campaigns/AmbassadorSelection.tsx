@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Search, MapPin, Users, Star, CheckCircle } from "lucide-react";
-import { API_URL } from "@/config/api";
+// Using Next.js API routes instead of external API
 
 interface Ambassador {
   id: string;
@@ -112,7 +112,7 @@ export function AmbassadorSelection({
 
   const fetchAmbassadors = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/explore/ambassadors`, {
+      const response = await fetch(`/api/explore/ambassadors`, {
         credentials: "include",
       });
 

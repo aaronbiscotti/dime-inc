@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { Campaign } from "@/types/database";
+import { Database } from "@/types/database";
+
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
 
 interface CampaignEditModalProps {
   isOpen: boolean;

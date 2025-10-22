@@ -7,7 +7,7 @@ import { exploreService } from "@/services/exploreService";
 import { chatService } from "@/services/chatService";
 import { campaignService } from "@/services/campaignService";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { CampaignCard } from "@/components/explore/CampaignCard";
 import { Modal } from "@/components/ui/modal";
 

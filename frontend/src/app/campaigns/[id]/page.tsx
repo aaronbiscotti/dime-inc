@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
 import { submissionService, Submission } from "@/services/submissionService";
@@ -77,7 +77,7 @@ export default function CampaignDetails() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) router.push("/login/client");
+    if (!user) router.push("/login");
     else if (profile?.role !== "client") router.push("/dashboard");
     else loadCampaign();
   }, [user, profile, authLoading, router, loadCampaign]);
@@ -160,7 +160,7 @@ export default function CampaignDetails() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div className="pt-16">
+      <div className="pt-4">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <button
             onClick={() => router.push("/campaigns")}

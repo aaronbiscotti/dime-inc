@@ -8,7 +8,7 @@ import {
   StarIcon,
   ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { useChatInitiation } from "@/hooks/useChatInitiation";
 
 interface AmbassadorCardProps {

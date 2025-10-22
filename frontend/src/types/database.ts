@@ -65,6 +65,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ambassador_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "v_user_onboarding"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       campaign_ambassadors: {
@@ -253,6 +260,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chat_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_user_onboarding"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       chat_room_participants_enhanced: {
@@ -304,6 +318,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_room_participants_enhanced_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_user_onboarding"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -377,6 +398,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chat_rooms_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_onboarding"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       client_profiles: {
@@ -421,6 +449,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "client_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "v_user_onboarding"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       contract_templates: {
@@ -464,6 +499,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_onboarding"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -693,6 +735,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "v_user_onboarding"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       portfolios: {
@@ -760,6 +809,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          onboarding_completed: boolean | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
         }
@@ -767,6 +817,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id: string
+          onboarding_completed?: boolean | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
@@ -774,6 +825,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          onboarding_completed?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
@@ -781,17 +833,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_user_onboarding: {
+        Row: {
+          email: string | null
+          has_ambassador_profile: boolean | null
+          has_client_profile: boolean | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          user_id: string | null
+        }
+        Insert: {
+          email?: string | null
+          has_ambassador_profile?: never
+          has_client_profile?: never
+          role?: Database["public"]["Enums"]["user_role"] | null
+          user_id?: string | null
+        }
+        Update: {
+          email?: string | null
+          has_ambassador_profile?: never
+          has_client_profile?: never
+          role?: Database["public"]["Enums"]["user_role"] | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_chat_participant: {
         Args: { p_chat_room_id: string; p_user_id: string }
         Returns: boolean
       }
-      cleanup_orphaned_chats: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      cleanup_orphaned_chats: { Args: never; Returns: undefined }
       create_private_chat_between_users: {
         Args: {
           chat_name?: string

@@ -40,6 +40,23 @@ export function Modal({
     }
   }, [isOpen]);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
   const handleClose = () => {
     setIsClosing(true);
     // Delay the actual close to allow animation to complete
@@ -61,17 +78,9 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 bg-gray-900/50 ${
-          isClosing ? "animate-fade-slide-out" : "animate-fade-slide-in"
-        }`}
-        onClick={handleClose}
-      />
-
       {/* Modal content */}
       <div
-        className={`relative z-10 bg-white rounded-xl shadow-xl ${
+        className={`relative z-10 bg-white rounded-xl border border-gray-300 ${
           maxWidthClasses[maxWidth]
         } w-full ${isClosing ? "animate-bounce-out" : "animate-bounce-in"} ${
           scrollable ? `max-h-[${maxHeight}] flex flex-col` : ""

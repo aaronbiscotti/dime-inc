@@ -1,10 +1,9 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { ProfileGuard } from "@/components/auth/ProfileGuard";
 import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileSidebar } from "@/components/profile/ProfileSidebar";
 import { AmbassadorPortfolio } from "@/components/profile/AmbassadorPortfolio";
@@ -106,23 +105,34 @@ export default function Profile() {
             }
 
             // Convert database campaigns to UI Campaign format
-            const clientCampaigns: CampaignDisplay[] = result.data.map(
-              (campaign) => ({
-                id: campaign.id,
-                title: campaign.title,
-                status: campaign.status as
-                  | "draft"
-                  | "active"
-                  | "completed"
-                  | "cancelled",
-                budgetRange: `$${campaign.budget_min.toFixed(
-                  2
-                )} - $${campaign.budget_max.toFixed(2)}`,
-                ambassadorCount: 0,
-                timeline: campaign.deadline
-                  ? new Date(campaign.deadline).toLocaleDateString()
-                  : "TBD",
-                coverImage: undefined,
+            const clientCampaigns: CampaignDisplay[] = await Promise.all(
+              result.data.map(async (campaign) => {
+                // Fetch ambassador count for each campaign
+                let ambassadorCount = 0;
+                try {
+                  const ambassadorsResult = await campaignService.getCampaignAmbassadors(campaign.id);
+                  ambassadorCount = ambassadorsResult.data?.length || 0;
+                } catch (error) {
+                  console.warn(`Could not fetch ambassadors for campaign ${campaign.id}:`, error);
+                }
+
+                return {
+                  id: campaign.id,
+                  title: campaign.title,
+                  status: campaign.status as
+                    | "draft"
+                    | "active"
+                    | "completed"
+                    | "cancelled",
+                  budgetRange: `$${campaign.budget_min.toFixed(
+                    2
+                  )} - $${campaign.budget_max.toFixed(2)}`,
+                  ambassadorCount,
+                  timeline: campaign.deadline
+                    ? new Date(campaign.deadline).toLocaleDateString()
+                    : "TBD",
+                  coverImage: undefined,
+                };
               })
             );
             setCampaigns(clientCampaigns);
@@ -208,9 +218,7 @@ export default function Profile() {
     // Refresh campaigns list after creation
     if (clientProfile) {
       try {
-        const result = await campaignService.getCampaignsForClient(
-          clientProfile.id
-        );
+        const result = await campaignService.getMyClientCampaigns();
         if (result.data) {
           const clientCampaigns: CampaignDisplay[] = result.data.map((c) => ({
             id: c.id,
@@ -233,41 +241,101 @@ export default function Profile() {
     }
   };
 
-  return (
-    <ProfileGuard>
+  if (loading) {
+    return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-
-        {/* Only render profile content if profile exists */}
-        {profile && (
-          <div className="max-w-7xl mx-auto px-6 py-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Sidebar - Profile Info */}
-              <ProfileSidebar
-                profile={profile}
-                ambassadorProfile={ambassadorProfile}
-                clientProfile={clientProfile}
-                campaignCount={campaigns.length}
-                onEditProfile={() => setShowProfileEditModal(true)}
-              />
-
-              {/* Right Side - Portfolio/Campaign Grid */}
-              {profile.role === "ambassador" ? (
-                <AmbassadorPortfolio
-                  portfolioItems={portfolioItems}
-                  loading={loading}
-                  onAddContent={() => setShowAddContentModal(true)}
-                />
-              ) : (
-                <ClientCampaigns
-                  campaigns={campaigns}
-                  loading={loading}
-                  onCreateCampaign={() => setShowCreateCampaignModal(true)}
-                />
-              )}
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Sidebar Skeleton */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-xl border border-gray-300 overflow-hidden animate-pulse">
+                <div className="h-32 bg-gray-200"></div>
+                <div className="px-6 -mt-12 relative z-10">
+                  <div className="w-24 h-24 bg-gray-300 rounded-full border-4 border-white"></div>
+                </div>
+                <div className="px-6 pb-6 mt-4 space-y-4">
+                  <div className="h-7 bg-gray-200 rounded w-40 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right Side Skeleton */}
+            <div className="lg:col-span-2">
+              <div className="mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="h-6 bg-gray-200 rounded w-24"></div>
+                  <div className="h-10 bg-gray-200 rounded w-32"></div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl border border-gray-300 overflow-hidden animate-pulse">
+                    <div className="h-48 bg-gray-200"></div>
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="h-3 bg-gray-200 rounded"></div>
+                        <div className="h-3 bg-gray-200 rounded"></div>
+                      </div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Not Found</h2>
+          <p className="text-gray-600">Please sign in to view your profile.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Sidebar - Profile Info */}
+          <ProfileSidebar
+            profile={profile}
+            ambassadorProfile={ambassadorProfile}
+            clientProfile={clientProfile}
+            campaignCount={campaigns.length}
+            onEditProfile={() => setShowProfileEditModal(true)}
+          />
+
+          {/* Right Side - Portfolio/Campaign Grid */}
+          {profile.role === "ambassador" ? (
+            <AmbassadorPortfolio
+              portfolioItems={portfolioItems}
+              loading={loading}
+              onAddContent={() => setShowAddContentModal(true)}
+            />
+          ) : (
+            <ClientCampaigns
+              campaigns={campaigns}
+              loading={loading}
+              onCreateCampaign={() => setShowCreateCampaignModal(true)}
+            />
+          )}
+        </div>
+      </div>
 
         {/* Profile Edit Modal */}
         {showProfileEditModal && (
@@ -296,6 +364,5 @@ export default function Profile() {
           onCampaignCreated={handleCampaignCreated}
         />
       </div>
-    </ProfileGuard>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { DebugPanel } from "@/components/debug/DebugPanel";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ToastProvider } from "@/components/ui/toast";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -41,7 +40,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ToastProvider>
       <AuthProvider>
         {children}
-        <DebugPanel />
       </AuthProvider>
     </ToastProvider>
   );

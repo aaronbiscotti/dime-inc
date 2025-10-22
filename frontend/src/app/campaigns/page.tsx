@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
 import { Campaign } from "@/types/database";
@@ -35,7 +35,7 @@ export default function Campaigns() {
 
     // If no user, redirect to login
     if (!user) {
-      router.push("/login/client");
+      router.push("/login");
       return;
     }
 

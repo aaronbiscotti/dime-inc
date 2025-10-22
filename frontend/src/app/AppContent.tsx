@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { CleanupService } from "@/services/cleanupService";
 import { AppSkeleton } from "@/components/skeletons/AppSkeleton";
 import { usePathname } from "next/navigation";

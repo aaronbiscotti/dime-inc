@@ -1,6 +1,8 @@
 "use client";
 
-import { Campaign } from "@/types/database";
+import { Database } from "@/types/database";
+
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
 import { Calendar, DollarSign, Users, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";

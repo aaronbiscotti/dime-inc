@@ -2,7 +2,7 @@
 // ContractDraftForm component for drafting a new contract
 import React, { useState, useEffect } from "react";
 import { Paperclip, FileText, Eye, Calendar, CheckCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { campaignService } from "@/services/campaignService";
 import { contractService } from "@/services/contractService";
 import { useRouter } from "next/navigation";

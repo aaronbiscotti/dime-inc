@@ -2,7 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CampaignDisplay } from "@/types/database";
+// Local interface for UI display
+interface CampaignDisplay {
+  id: string;
+  title: string;
+  status: "draft" | "active" | "completed" | "cancelled";
+  budgetRange: string;
+  ambassadorCount: number;
+  timeline: string;
+  coverImage?: string;
+}
 import { Plus, DollarSign, Users, Clock } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";

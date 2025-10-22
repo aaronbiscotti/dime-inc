@@ -562,6 +562,51 @@ class ChatService {
   }
 
   /**
+   * Clean up orphaned chats that have no participants or only one participant
+   */
+  async cleanupOrphanedChat(chatRoomId: string) {
+    try {
+      console.log("[ChatService] Cleaning up potentially orphaned chat:", chatRoomId);
+      
+      // Check if chat has participants
+      const { data: participants } = await this.supabase
+        .from("chat_participants")
+        .select("user_id")
+        .eq("chat_room_id", chatRoomId);
+
+      if (!participants || participants.length <= 1) {
+        console.log("[ChatService] Chat has insufficient participants, cleaning up");
+        
+        // Delete chat participants first
+        await this.supabase
+          .from("chat_participants")
+          .delete()
+          .eq("chat_room_id", chatRoomId);
+
+        // Delete chat messages
+        await this.supabase
+          .from("messages")
+          .delete()
+          .eq("chat_room_id", chatRoomId);
+
+        // Delete the chat room
+        await this.supabase
+          .from("chat_rooms")
+          .delete()
+          .eq("id", chatRoomId);
+
+        console.log("[ChatService] Orphaned chat cleaned up successfully");
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("[ChatService] Error cleaning up orphaned chat:", error);
+      return false;
+    }
+  }
+
+  /**
    * Get chat room details
    */
   async getChatRoom(chatRoomId: string) {
@@ -716,7 +761,7 @@ class ChatService {
         // Fallback to simple data with basic info
         const participants = simpleData.map((p: any) => ({
           user_id: p.user_id,
-          role: 'unknown',
+          role: 'client' as const,
           name: 'Unknown User',
           profile_photo: null,
         }));
@@ -724,6 +769,79 @@ class ChatService {
         console.log("[ChatService] Using fallback participants:", participants);
         return {
           data: participants as ChatParticipant[],
+          error: null,
+        };
+      }
+
+      // If no data returned from complex query, use simple data with enhanced lookup
+      if (!data || data.length === 0) {
+        console.log("[ChatService] Complex query returned no data, using enhanced fallback");
+        
+        const participants: ChatParticipant[] = [];
+        
+        for (const participant of simpleData) {
+          try {
+            // Try to get basic profile info for each participant
+            const { data: profile } = await this.supabase
+              .from("profiles")
+              .select("id, email, role")
+              .eq("id", participant.user_id)
+              .single();
+
+            if (profile) {
+              // Try to get role-specific profile data for better names
+              let displayName = profile.email || 'Unknown User';
+              
+              if (profile.role === 'ambassador') {
+                const { data: ambassadorProfile } = await this.supabase
+                  .from('ambassador_profiles')
+                  .select('full_name')
+                  .eq('user_id', participant.user_id)
+                  .single();
+                
+                if (ambassadorProfile?.full_name) {
+                  displayName = ambassadorProfile.full_name;
+                }
+              } else if (profile.role === 'client') {
+                const { data: clientProfile } = await this.supabase
+                  .from('client_profiles')
+                  .select('company_name')
+                  .eq('user_id', participant.user_id)
+                  .single();
+                
+                if (clientProfile?.company_name) {
+                  displayName = clientProfile.company_name;
+                }
+              }
+
+              participants.push({
+                user_id: participant.user_id,
+                role: profile.role,
+                name: displayName,
+                profile_photo: null,
+              });
+            } else {
+              participants.push({
+                user_id: participant.user_id,
+                role: 'client' as const,
+                name: 'Unknown User',
+                profile_photo: null,
+              });
+            }
+          } catch (error) {
+            console.warn("[ChatService] Could not get profile for participant:", participant.user_id);
+            participants.push({
+              user_id: participant.user_id,
+              role: 'client' as const,
+              name: 'Unknown User',
+              profile_photo: null,
+            });
+          }
+        }
+
+        console.log("[ChatService] Using enhanced fallback participants:", participants);
+        return {
+          data: participants,
           error: null,
         };
       }
@@ -746,7 +864,6 @@ class ChatService {
         industry: p.profiles.client_profiles?.industry,
         logo_url: p.profiles.client_profiles?.logo_url,
         website: p.profiles.client_profiles?.website,
-        // Add ambassador_profile_id for contract creation
         ambassador_profile_id: p.profiles.ambassador_profiles?.id,
         client_profile_id: p.profiles.client_profiles?.id,
       })) || [];
@@ -795,6 +912,18 @@ class ChatService {
 
       console.log("[ChatService] Current user ID:", user.id);
 
+      // If no participants found, this might be an orphaned chat
+      if (!participantsResult.data || participantsResult.data.length === 0) {
+        console.log("[ChatService] No participants found, chat may be orphaned");
+        return {
+          data: null,
+          error: {
+            message: "Chat no longer available",
+            shouldRemove: true,
+          } as any,
+        };
+      }
+
       // Find the other participant
       const otherParticipant = participantsResult.data?.find(p => p.user_id !== user.id);
       
@@ -802,6 +931,19 @@ class ChatService {
       
       if (!otherParticipant) {
         console.error("[ChatService] No other participant found. Available participants:", participantsResult.data?.map(p => ({ id: p.user_id, name: p.name })));
+        
+        // If we only have the current user, this is an orphaned chat
+        if (participantsResult.data.length === 1 && participantsResult.data[0].user_id === user.id) {
+          console.log("[ChatService] Only current user found, marking chat as orphaned");
+          return {
+            data: null,
+            error: {
+              message: "Chat no longer available",
+              shouldRemove: true,
+            } as any,
+          };
+        }
+        
         return {
           data: null,
           error: {

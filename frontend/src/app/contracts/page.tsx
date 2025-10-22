@@ -3,10 +3,9 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { contractService, Contract } from "@/services/contractService";
 import { useEffect, useState } from "react";
-import { ProfileGuard } from "@/components/auth/ProfileGuard";
 
 export default function ContractsPage() {
   const { user, clientProfile, ambassadorProfile } = useAuth();
@@ -81,7 +80,7 @@ export default function ContractsPage() {
   };
 
   return (
-    <ProfileGuard>
+    
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <main className="max-w-7xl mx-auto px-6 py-6">
@@ -174,6 +173,6 @@ export default function ContractsPage() {
         )}
       </main>
       </div>
-    </ProfileGuard>
+    
   );
 }

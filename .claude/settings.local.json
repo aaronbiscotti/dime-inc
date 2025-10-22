@@ -18,7 +18,11 @@
       "WebFetch(domain:github.com)",
       "mcp__supabase__search_docs",
       "Bash(npm install:*)",
-      "WebFetch(domain:developers.facebook.com)"
+      "WebFetch(domain:developers.facebook.com)",
+      "Bash(mcp list-tools:*)",
+      "Bash(npm run)",
+      "Bash(npm run build:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

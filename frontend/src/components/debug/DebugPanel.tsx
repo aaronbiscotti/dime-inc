@@ -1,26 +1,54 @@
 'use client'
 
-import { useAuth } from '@/contexts/AuthContext'
+import { useState } from 'react'
+import { useAuth } from '@/components/providers/AuthProvider'
 
 export function DebugPanel() {
-  const { user, profile, ambassadorProfile, clientProfile } = useAuth()
+  const [isOpen, setIsOpen] = useState(false)
+  const { user, profile, ambassadorProfile, clientProfile, loading, refreshProfile } = useAuth()
 
-  if (process.env.NODE_ENV !== 'development') {
+  if (process.env.NODE_ENV === 'production') {
     return null
   }
 
   return (
-    <div className="fixed bottom-4 right-4 bg-black text-white p-3 rounded-lg text-xs font-mono z-50 max-w-xs">
-      <div className="font-bold mb-2">Debug Panel</div>
-      <div>User: {user ? 'Logged In' : 'Not Logged In'}</div>
-      {user && (
-        <>
-          <div>Email: {user.email}</div>
-          <div>Role: {profile?.role || 'No Profile'}</div>
-          <div>Profile ID: {profile?.id || 'None'}</div>
-          <div>Ambassador Profile: {ambassadorProfile ? 'Yes' : 'No'}</div>
-          <div>Client Profile: {clientProfile ? 'Yes' : 'No'}</div>
-        </>
+    <div style={{ position: 'fixed', bottom: '10px', right: '10px', zIndex: 9999, backgroundColor: 'white', border: '1px solid #ccc', padding: '10px', maxWidth: '300px' }}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '10px' }}
+      >
+        DEBUG {isOpen ? '▼' : '▶'}
+      </div>
+      
+      {isOpen && (
+        <div style={{ fontSize: '12px' }}>
+          <div><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</div>
+          <div><strong>User:</strong> {user ? 'Authenticated' : 'Not authenticated'}</div>
+          <div><strong>Profile:</strong> {profile ? 'Loaded' : 'Not loaded'}</div>
+          <div><strong>Role:</strong> {profile?.role || 'N/A'}</div>
+          <div><strong>Onboarding:</strong> {profile?.onboarding_completed ? 'Completed' : 'Pending'}</div>
+          
+          {user && (
+            <>
+              <div><strong>Email:</strong> {user.email || 'N/A'}</div>
+              <div><strong>ID:</strong> {user.id?.slice(0, 8)}...</div>
+            </>
+          )}
+          
+          {profile && (
+            <>
+              <div><strong>Ambassador Profile:</strong> {ambassadorProfile ? 'Yes' : 'No'}</div>
+              <div><strong>Client Profile:</strong> {clientProfile ? 'Yes' : 'No'}</div>
+            </>
+          )}
+          
+          <button 
+            onClick={refreshProfile}
+            style={{ marginTop: '10px', padding: '5px 10px', fontSize: '12px' }}
+          >
+            Refresh Profile
+          </button>
+        </div>
       )}
     </div>
   )

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { InstagramMedia, instagramService } from "@/services/instagramService";
-import { API_URL } from "@/config/api";
 
 interface AddContentModalProps {
   isOpen: boolean;
@@ -47,7 +46,7 @@ export function AddContentModal({
 
   const handleConnectInstagram = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/instagram/auth-url`);
+      const response = await fetch(`/api/instagram/auth-url`);
       if (response.ok) {
         const data = await response.json();
         window.location.href = data.url; // Redirect user to Instagram

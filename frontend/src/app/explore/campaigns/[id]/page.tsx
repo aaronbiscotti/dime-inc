@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
-import { Campaign } from "@/types/database";
+import { Database } from "@/types/database";
+
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
 import {
   ArrowLeft,
   Calendar,
@@ -46,7 +48,7 @@ export default function AmbassadorCampaignDetails() {
       try {
         // Check authentication
         if (!user) {
-          router.push("/login/brand-ambassador");
+          router.push("/login?role=ambassador");
           return;
         }
 

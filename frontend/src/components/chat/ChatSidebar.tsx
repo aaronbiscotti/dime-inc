@@ -8,9 +8,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { chatService, type ChatRoom } from "@/services/chatService";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { GroupChatModal } from "./GroupChatModal";
-import { API_URL } from "@/config/api";
 
 // UI-specific chat type for sidebar display
 interface Chat {
@@ -100,33 +99,67 @@ export function ChatSidebar({
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        // Fetch from explore endpoint
-        const response = await fetch(`${API_URL}/api/explore/ambassadors`, {
-          credentials: "include",
-        });
+        // Use Supabase directly instead of backend API
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
 
-        if (response.ok) {
-          const data = await response.json();
-          // The service returns the full ambassador_profile object
-          const profiles = data.data || []; 
-          if (profiles) {
-            const allUsers = profiles.map((profile: any) => ({
-              // FIX: Use profile.user_id for the participant's ID, not profile.id
-              id: profile.user_id, 
-              name: profile.full_name,
-              email: profile.profiles?.email || `user-temp-${profile.id.slice(-4)}@dime.com`,
-            }));
+        // Get ambassador profiles
+        const { data: ambassadorProfiles, error: ambassadorError } = await supabase
+          .from('ambassador_profiles')
+          .select(`
+            id,
+            user_id,
+            full_name,
+            profiles!inner(
+              email
+            )
+          `);
 
-            const uniqueUsers = allUsers.filter(
-              (u: { id: string | undefined }, index: any, self: any[]) =>
-                u.id &&
-                u.id !== user?.id &&
-                index === self.findIndex((t) => t.id === u.id)
-            );
-
-            setAvailableUsers(uniqueUsers);
-          }
+        if (ambassadorError) {
+          console.error("Error fetching ambassador profiles:", ambassadorError);
+          return;
         }
+
+        // Get client profiles
+        const { data: clientProfiles, error: clientError } = await supabase
+          .from('client_profiles')
+          .select(`
+            id,
+            user_id,
+            company_name,
+            profiles!inner(
+              email
+            )
+          `);
+
+        if (clientError) {
+          console.error("Error fetching client profiles:", clientError);
+          return;
+        }
+
+        // Combine and format users
+        const allUsers = [
+          ...(ambassadorProfiles || []).map((profile: any) => ({
+            id: profile.user_id,
+            name: profile.full_name,
+            email: profile.profiles?.email || `user-${profile.id.slice(-4)}@dime.com`,
+          })),
+          ...(clientProfiles || []).map((profile: any) => ({
+            id: profile.user_id,
+            name: profile.company_name,
+            email: profile.profiles?.email || `user-${profile.id.slice(-4)}@dime.com`,
+          }))
+        ];
+
+        // Filter out current user and duplicates
+        const uniqueUsers = allUsers.filter(
+          (u: { id: string | undefined }, index: any, self: any[]) =>
+            u.id &&
+            u.id !== user?.id &&
+            index === self.findIndex((t) => t.id === u.id)
+        );
+
+        setAvailableUsers(uniqueUsers);
       } catch (error) {
         console.error("Error fetching users:", error);
       }

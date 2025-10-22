@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserRole } from "@/types/database";
+import { Database } from "@/types/database";
+
+type UserRole = Database['public']['Tables']['profiles']['Row']['role'];
 import { AmbassadorCard } from "./AmbassadorCard";
 import { ClientCard } from "./ClientCard";
-import { API_URL } from "@/config/api";
-
-const API_BASE_URL = API_URL;
+// Using Next.js API routes instead of external API
 
 interface ExploreGridProps {
   userRole: UserRole;
@@ -39,7 +39,7 @@ export function ExploreGrid({
           }
 
           const response = await fetch(
-            `${API_BASE_URL}/api/explore/ambassadors?${params.toString()}`,
+            `/api/explore/ambassadors?${params.toString()}`,
             {
               credentials: "include", // Use cookie-based auth
             }
@@ -58,7 +58,7 @@ export function ExploreGrid({
           }
 
           const response = await fetch(
-            `${API_BASE_URL}/api/explore/clients?${params.toString()}`,
+            `/api/explore/clients?${params.toString()}`,
             {
               credentials: "include", // Use cookie-based auth
             }

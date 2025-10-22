@@ -2,7 +2,19 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PortfolioItem } from "@/types/database";
+// Local interface for UI display
+interface PortfolioItem {
+  id: string;
+  title: string;
+  description?: string;
+  platform: "instagram" | "tiktok";
+  postUrl: string;
+  thumbnailUrl?: string;
+  date: string;
+  views?: string;
+  likes?: string;
+  engagement?: string;
+}
 import { Plus, ExternalLink, Calendar } from "lucide-react";
 import Image from "next/image";
 

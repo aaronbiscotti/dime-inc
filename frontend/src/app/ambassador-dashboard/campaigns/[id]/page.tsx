@@ -2,10 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { campaignService } from "@/services/campaignService";
 import { submissionService, Submission } from "@/services/submissionService";
-import { Campaign, CampaignAmbassador } from "@/types/database";
+import { Database } from "@/types/database";
+
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
+type CampaignAmbassador = Database['public']['Tables']['campaign_ambassadors']['Row'];
 import { Navbar } from "@/components/layout/Navbar";
 import { CreatorSubmissionForm } from "@/components/submissions/CreatorSubmissionForm";
 import { SubmissionsList } from "@/components/submissions/SubmissionsList";

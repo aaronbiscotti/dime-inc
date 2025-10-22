@@ -1,6 +1,6 @@
 /**
  * Instagram Service - Handles all Instagram-related operations via direct Supabase calls
- * Now uses RLS policies for security instead of FastAPI backend
+ * IGNORE THIS FOR NOW.
  */
 
 import { createClient } from "@/lib/supabase/client"; // Use the client-side client

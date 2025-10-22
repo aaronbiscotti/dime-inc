@@ -1,24 +1,25 @@
-"use client";
+'use client'
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { AuthFlow } from "@/components/auth/AuthFlow";
+import { useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LoginPage() {
-  const router = useRouter();
-  const { user, profile, loading } = useAuth();
+export default function LoginRedirect() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const role = searchParams.get('role')
 
   useEffect(() => {
-    // Wait for auth to finish loading
-    if (loading) return;
+    // Redirect to the new auth route with role parameter
+    const redirectUrl = role ? `/signin?role=${role}` : '/'
+    router.replace(redirectUrl)
+  }, [router, role])
 
-    // If user is already authenticated, redirect to dashboard
-    if (user && profile) {
-      router.replace("/dashboard");
-      return;
-    }
-  }, [user, profile, loading, router]);
-
-  return <AuthFlow redirectTo="/dashboard" />;
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e] mx-auto mb-4"></div>
+        <p className="text-gray-600">Redirecting...</p>
+      </div>
+    </div>
+  )
 }

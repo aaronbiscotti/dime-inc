@@ -46,3 +46,187 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+🏗️ Architecture
+Authentication Flow
+
+Role Selection (/auth)
+
+User chooses Ambassador or Client role
+
+
+Sign Up (/auth/signup)
+
+Creates auth account with role in metadata
+Trigger creates profile entry
+Redirects to onboarding
+
+
+Onboarding (/onboarding/[role])
+
+Collects role-specific information
+Creates ambassador_profiles or client_profiles entry
+Marks onboarding_completed = true
+Redirects to dashboard
+
+
+Sign In (/auth/signin)
+
+Authenticates user
+Middleware checks onboarding status
+Redirects to onboarding if incomplete
+Otherwise redirects to dashboard
+
+
+
+Key Components
+Supabase Clients (/utils/supabase/)
+
+client.ts - Browser client for client components
+server.ts - Server client for server components/actions
+middleware.ts - Session refresh helper
+
+Authentication (/app/auth/)
+
+actions.ts - Server actions for auth operations
+page.tsx - Role selection
+signup/page.tsx - Sign up form
+signin/page.tsx - Sign in form
+
+Onboarding (/app/onboarding/)
+
+ambassador/page.tsx - Ambassador profile setup
+client/page.tsx - Client profile setup
+
+Providers (/components/providers/)
+
+AuthProvider.tsx - Global auth context
+
+Middleware (/middleware.ts)
+
+Session refresh
+Onboarding enforcement
+Route protection
+
+🔐 Security Best Practices
+
+Always use getUser() on the server - Never trust getSession() for authorization
+RLS Policies - All database access is protected by your existing RLS policies
+Server Actions - Authentication operations use server actions
+Secure Cookies - Sessions stored in HTTP-only cookies
+Automatic Refresh - Middleware refreshes expired tokens
+
+🎯 Usage Examples
+Using Auth in Components
+tsx'use client'
+
+import { useAuth } from '@/components/providers/AuthProvider'
+
+export function MyComponent() {
+  const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth()
+  
+  if (loading) return <div>Loading...</div>
+  
+  if (!user) return <div>Not authenticated</div>
+  
+  return (
+    <div>
+      <p>Welcome, {user.email}</p>
+      <p>Role: {profile?.role}</p>
+      {profile?.role === 'ambassador' && ambassadorProfile && (
+        <p>Ambassador: {ambassadorProfile.full_name}</p>
+      )}
+    </div>
+  )
+}
+Protected Server Components
+tsximport { createClient } from '@/utils/supabase/server'
+import { redirect } from 'next/navigation'
+
+export default async function ProtectedPage() {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/auth')
+  }
+  
+  return <div>Protected content</div>
+}
+Sign Out
+tsximport { signOut } from '@/app/auth/actions'
+
+<form action={signOut}>
+  <button type="submit">Sign Out</button>
+</form>
+📝 Important Notes
+October 2025 Best Practices
+This implementation follows the latest Supabase SSR package patterns:
+
+Uses @supabase/ssr (NOT deprecated auth-helpers)
+Uses getAll() and setAll() cookie methods
+Avoids deprecated individual cookie operations
+Implements proper middleware session refresh
+
+Migration from Old Patterns
+If migrating from @supabase/auth-helpers-nextjs:
+
+Replace createMiddlewareClient → createServerClient
+Replace createClientComponentClient → createBrowserClient
+Replace createServerComponentClient → createServerClient
+Update cookie handling to use getAll/setAll
+
+Serverless Compatibility
+The middleware automatically:
+
+Refreshes expired tokens
+Passes tokens to server components
+Updates browser cookies
+Maintains session across serverless invocations
+
+🐛 Troubleshooting
+User stuck in auth loop
+
+Check middleware.ts matcher configuration
+Verify onboarding_completed column exists
+Check browser console for cookie errors
+
+Session not persisting
+
+Ensure middleware is running (check network tab)
+Verify environment variables are correct
+Check Supabase project URL includes https://
+
+Onboarding redirect not working
+
+Check if onboarding_completed is false in profiles table
+Verify middleware is checking the correct routes
+Check for errors in browser console
+
+📚 Resources
+
+Supabase Next.js Guide
+Supabase SSR Package
+Next.js 15 Documentation
+
+🤝 Support
+If you encounter issues:
+
+Check the browser console for errors
+Verify all environment variables are set
+Ensure your Supabase project is running
+Check that all database tables and columns exist
+Review the middleware logs in development
+
+🎉 You're All Set!
+Your authentication system is now ready. The flow is:
+
+User visits /auth → chooses role
+Signs up → automatically redirected to onboarding
+Completes onboarding → redirected to dashboard
+If interrupted, returning users are prompted to complete onboarding
+Global auth state persists throughout the app
+
+The implementation is minimal, type-safe, and follows October 2025 best practices for Next.js 15 with Supabase.

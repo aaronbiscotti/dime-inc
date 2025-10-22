@@ -14,7 +14,7 @@ import { UserRole, Contract } from "@/types/database";
 import { chatService, ChatParticipant, ChatRoom } from "@/services/chatService";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 interface ContextPanelProps {
   selectedChatId: string | null;
@@ -75,6 +75,21 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           );
           if (participantRes.error || !participantRes.data) {
             console.error("[ContextPanel] Failed to load other participant:", participantRes.error);
+            
+            // Check if this is an orphaned chat that should be cleaned up
+            if (participantRes.error?.shouldRemove) {
+              console.log("[ContextPanel] Chat appears to be orphaned, attempting cleanup");
+              try {
+                await chatService.cleanupOrphanedChat(selectedChatId);
+                console.log("[ContextPanel] Orphaned chat cleaned up");
+                // Redirect to chats page without the problematic chat
+                router.push('/chats');
+                return;
+              } catch (cleanupError) {
+                console.error("[ContextPanel] Failed to cleanup orphaned chat:", cleanupError);
+              }
+            }
+            
             throw new Error("Failed to load participant information");
           }
           setOtherParticipant(participantRes.data);

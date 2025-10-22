@@ -4,7 +4,9 @@
  */
 
 import { createClient } from "@/lib/supabase/client"; // Use the client-side client
-import { Campaign } from "@/types/database";
+import { Database } from "@/types/database";
+
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -35,7 +37,7 @@ export interface CreateCampaignData {
 }
 
 // Use the database Campaign type
-export type Campaign = Campaign;
+export type CampaignType = Campaign;
 
 export interface CampaignAmbassador {
   id: string;
@@ -112,7 +114,7 @@ class CampaignService {
           requirements: campaignData.requirements,
           max_ambassadors: 10, // Default value
           status: "draft", // Start as draft
-          client_id: campaignData.clientId, // Include client_id
+          client_id: campaignData.clientId || "", // Provide fallback for required field
         })
         .select()
         .single();
@@ -218,7 +220,7 @@ class CampaignService {
   /**
    * Update campaign status
    */
-  async updateCampaignStatus(campaignId: string, status: string) {
+  async updateCampaignStatus(campaignId: string, status: "active" | "completed" | "draft" | "cancelled") {
     try {
       const { error } = await this.supabase
         .from("campaigns")
