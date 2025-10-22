@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/database";
+import { signup } from "@/app/login/actions"; // Import the server action
 
 interface SignupFormProps {
   onSwitchToLogin?: () => void;
@@ -25,7 +26,6 @@ export function SignupForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const { signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,14 +47,20 @@ export function SignupForm({
     }
 
     setLoading(true);
-    const { error } = await signUp(email, password, role);
+    
+    const formData = new FormData();
+    formData.append("email", email);
+    formData.append("password", password);
+    formData.append("role", role);
+    
+    const result = await signup(formData); // Call the server action
 
-    if (error) {
-      setError(error);
+    if (result?.error) {
+      setError(result.error);
+      setLoading(false);
     } else {
       onSignupSuccess?.(role);
     }
-    setLoading(false);
   };
 
   return (

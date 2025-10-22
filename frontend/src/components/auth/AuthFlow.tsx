@@ -26,7 +26,7 @@ export function AuthFlow({
     initialRole || null
   );
 
-  const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth();
+  const { user, profile, ambassadorProfile, clientProfile, loading, refreshProfile } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -49,8 +49,9 @@ export function AuthFlow({
     setCurrentStep("profile-setup");
   };
 
-  const handleProfileComplete = () => {
-    router.push(redirectTo);
+  const handleProfileComplete = async () => {
+    await refreshProfile(); // Re-fetch the user's profile data
+    router.push(redirectTo); // Now navigate to the dashboard
   };
 
   // Don't show a separate loading skeleton - let each form handle its own loading state

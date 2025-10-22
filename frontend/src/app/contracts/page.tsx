@@ -22,12 +22,14 @@ export default function ContractsPage() {
       try {
         let data: Contract[] = [];
         if (clientProfile) {
+          // FIX: Use clientProfile.id, not user_id
           data = await contractService.getContractsForClient(
-            clientProfile.user_id
+            clientProfile.id
           );
         } else if (ambassadorProfile) {
+          // FIX: Use ambassadorProfile.id, not user_id
           data = await contractService.getContractsForAmbassador(
-            ambassadorProfile.user_id
+            ambassadorProfile.id
           );
         }
 

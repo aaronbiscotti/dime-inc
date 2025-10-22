@@ -1,7 +1,9 @@
-import { API_URL } from "@/config/api";
-import { authFetch, authPost, handleApiResponse } from "@/utils/fetch";
+/**
+ * Instagram Service - Handles all Instagram-related operations via direct Supabase calls
+ * Now uses RLS policies for security instead of FastAPI backend
+ */
 
-const API_BASE_URL = API_URL;
+import { createClient } from "@/lib/supabase/client"; // Use the client-side client
 
 export interface InstagramMedia {
   id: string;
@@ -31,6 +33,8 @@ export interface InstagramConnection {
 }
 
 class InstagramService {
+  private supabase = createClient(); // Instantiate the client
+
   /**
    * Save Instagram connection after OAuth
    */
@@ -44,20 +48,28 @@ class InstagramService {
     error?: string;
   }> {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/instagram/connect`, {
-        short_lived_token: shortLivedToken,
-        instagram_user_id: instagramUserId,
-      });
+      // Get current user
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
-      const data = await handleApiResponse<{
-        username: string;
-        expires_in: number;
-      }>(response);
+      // Save Instagram connection to user's profile
+      const { data, error } = await this.supabase
+        .from("instagram_connections")
+        .upsert({
+          user_id: user.id,
+          instagram_user_id: instagramUserId,
+          access_token: shortLivedToken,
+          expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
 
       return {
         success: true,
         username: data.username,
-        expiresIn: data.expires_in,
+        expiresIn: 60 * 24 * 60 * 60, // 60 days in seconds
       };
     } catch (error) {
       return {
@@ -75,9 +87,22 @@ class InstagramService {
    */
   async getConnection(): Promise<InstagramConnection> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/instagram/connect`);
-      const data = await handleApiResponse<InstagramConnection>(response);
-      return data;
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) return { connected: false };
+
+      const { data, error } = await this.supabase
+        .from("instagram_connections")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error || !data) return { connected: false };
+
+      return {
+        connected: true,
+        username: data.username,
+        expires_at: data.expires_at,
+      };
     } catch (error) {
       console.error("Failed to get Instagram connection:", error);
       return { connected: false };
@@ -86,16 +111,15 @@ class InstagramService {
 
   /**
    * Fetch user's Instagram media (Reels, posts)
+   * Note: This would need to be implemented with Instagram Basic Display API
+   * or Instagram Graph API integration
    */
   async getUserMedia(limit: number = 25): Promise<InstagramMedia[]> {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/instagram/media?limit=${limit}`
-      );
-      const data = await handleApiResponse<{ data: InstagramMedia[] }>(
-        response
-      );
-      return data.data || [];
+      // This would need to be implemented with actual Instagram API calls
+      // For now, return empty array as this requires external API integration
+      console.warn("Instagram media fetching not implemented - requires Instagram API integration");
+      return [];
     } catch (error) {
       console.error("Failed to get Instagram media:", error);
       return [];
@@ -104,16 +128,14 @@ class InstagramService {
 
   /**
    * Fetch insights for a specific media item
+   * Note: This would need to be implemented with Instagram Graph API
    */
   async getMediaInsights(mediaId: string): Promise<InstagramInsights> {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/instagram/insights/${mediaId}`
-      );
-      const data = await handleApiResponse<{ data: InstagramInsights }>(
-        response
-      );
-      return data.data || {};
+      // This would need to be implemented with actual Instagram API calls
+      // For now, return empty object as this requires external API integration
+      console.warn("Instagram insights fetching not implemented - requires Instagram API integration");
+      return {};
     } catch (error) {
       console.error("Failed to get Instagram insights:", error);
       return {};

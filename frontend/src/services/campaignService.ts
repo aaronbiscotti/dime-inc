@@ -1,19 +1,10 @@
 /**
- * Campaign Service - Handles all campaign-related operations via backend API
- * NO direct Supabase calls - all operations go through FastAPI backend
+ * Campaign Service - Handles all campaign-related operations via direct Supabase calls
+ * Now uses RLS policies for security instead of FastAPI backend
  */
 
-import { API_URL } from "@/config/api";
-import {
-  authFetch,
-  authPost,
-  authPut,
-  authDelete,
-  handleApiResponse,
-} from "@/utils/fetch";
-import { Campaign as DatabaseCampaign } from "@/types/database";
-
-const API_BASE_URL = API_URL;
+import { createClient } from "@/lib/supabase/client"; // Use the client-side client
+import { Campaign } from "@/types/database";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -43,7 +34,7 @@ export interface CreateCampaignData {
 }
 
 // Use the database Campaign type
-export type Campaign = DatabaseCampaign;
+export type Campaign = Campaign;
 
 export interface CampaignAmbassador {
   id: string;
@@ -92,52 +83,67 @@ function handleError(error: unknown, context: string): ErrorResponse {
 // ============================================================================
 
 class CampaignService {
+  private supabase = createClient(); // Instantiate the client
+
   /**
    * Create a new campaign
    */
   async createCampaign(campaignData: CampaignData) {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/campaigns/create`, {
-        title: campaignData.title,
-        description: campaignData.description,
-        budget: campaignData.budget,
-        timeline: campaignData.timeline,
-        requirements: campaignData.requirements,
-        target_niches: campaignData.targetNiches,
-        campaign_type: campaignData.campaignType,
-        deliverables: campaignData.deliverables,
-      });
+      const { data, error } = await this.supabase
+        .from("campaigns")
+        .insert({
+          title: campaignData.title,
+          description: campaignData.description,
+          budget: campaignData.budget,
+          timeline: campaignData.timeline,
+          requirements: campaignData.requirements,
+          target_niches: campaignData.targetNiches,
+          campaign_type: campaignData.campaignType,
+          deliverables: campaignData.deliverables,
+        })
+        .select()
+        .single();
 
-      const data = await handleApiResponse<{ campaign: Campaign }>(response);
-      return { data: data.campaign, error: null };
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
       return handleError(error, "createCampaign");
     }
   }
 
   /**
-   * Get all campaigns for a specific client
+   * Get all campaigns for the currently logged-in client.
+   * RLS policy ensures they can only see their own campaigns.
    */
-  async getCampaignsForClient(clientId: string) {
+  async getMyClientCampaigns() {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/campaigns/client/${clientId}`
-      );
-      const result = await handleApiResponse<{ data: Campaign[] }>(response);
-      return { data: result.data || [], error: null };
+      const { data, error } = await this.supabase
+        .from("campaigns")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
-      return handleError(error, "getCampaignsForClient");
+      return handleError(error, "getMyClientCampaigns");
     }
   }
 
   /**
-   * Get all open campaigns (for ambassadors to browse)
+   * Get all active campaigns for ambassadors to browse.
+   * RLS policy ensures they can only see campaigns with status = 'active'.
    */
   async getAllOpenCampaigns() {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/campaigns/all`);
-      const result = await handleApiResponse<{ data: Campaign[] }>(response);
-      return { data: result.data || [], error: null };
+      const { data, error } = await this.supabase
+        .from("campaigns")
+        .select("*, client_profiles(*)")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
       return handleError(error, "getAllOpenCampaigns");
     }
@@ -148,10 +154,13 @@ class CampaignService {
    */
   async getCampaign(campaignId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/campaigns/${campaignId}`
-      );
-      const data = await handleApiResponse<Campaign>(response);
+      const { data, error } = await this.supabase
+        .from("campaigns")
+        .select("*")
+        .eq("id", campaignId)
+        .single();
+
+      if (error) throw error;
       return { data, error: null };
     } catch (error) {
       return handleError(error, "getCampaign");
@@ -163,12 +172,15 @@ class CampaignService {
    */
   async updateCampaign(campaignId: string, updates: Partial<CampaignData>) {
     try {
-      const response = await authPut(
-        `${API_BASE_URL}/api/campaigns/${campaignId}`,
-        updates
-      );
-      const data = await handleApiResponse<{ campaign: Campaign }>(response);
-      return { data: data.campaign, error: null };
+      const { data, error } = await this.supabase
+        .from("campaigns")
+        .update(updates)
+        .eq("id", campaignId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
       return handleError(error, "updateCampaign");
     }
@@ -179,10 +191,12 @@ class CampaignService {
    */
   async deleteCampaign(campaignId: string) {
     try {
-      const response = await authDelete(
-        `${API_BASE_URL}/api/campaigns/${campaignId}`
-      );
-      await handleApiResponse(response);
+      const { error } = await this.supabase
+        .from("campaigns")
+        .delete()
+        .eq("id", campaignId);
+
+      if (error) throw error;
       return { data: { success: true }, error: null };
     } catch (error) {
       return handleError(error, "deleteCampaign");
@@ -194,11 +208,12 @@ class CampaignService {
    */
   async updateCampaignStatus(campaignId: string, status: string) {
     try {
-      const response = await authPut(
-        `${API_BASE_URL}/api/campaigns/${campaignId}/status`,
-        { status }
-      );
-      await handleApiResponse(response);
+      const { error } = await this.supabase
+        .from("campaigns")
+        .update({ status })
+        .eq("id", campaignId);
+
+      if (error) throw error;
       return { data: { success: true }, error: null };
     } catch (error) {
       return handleError(error, "updateCampaignStatus");
@@ -211,13 +226,16 @@ class CampaignService {
    */
   async addAmbassadorToCampaign(campaignId: string, ambassadorId: string) {
     try {
-      const response = await authPost(
-        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors/${ambassadorId}`,
-        {}
-      );
+      const { data, error } = await this.supabase
+        .from("campaign_ambassadors")
+        .insert({
+          campaign_id: campaignId,
+          ambassador_id: ambassadorId,
+        })
+        .select();
 
-      const data = await handleApiResponse(response);
-      return { data: data, error: null };
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
       return handleError(error, "addAmbassadorToCampaign");
     }
@@ -228,13 +246,23 @@ class CampaignService {
    */
   async getCampaignAmbassadors(campaignId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassadors`
-      );
-      const data = await handleApiResponse<{
-        ambassadors: CampaignAmbassador[];
-      }>(response);
-      return { data: data.ambassadors || [], error: null };
+      const { data, error } = await this.supabase
+        .from("campaign_ambassadors")
+        .select(`
+          *,
+          ambassador_profiles!inner(
+            id,
+            name,
+            avatar_url,
+            instagram_handle,
+            tiktok_handle,
+            twitter_handle
+          )
+        `)
+        .eq("campaign_id", campaignId);
+
+      if (error) throw error;
+      return { data: data || [], error: null };
     } catch (error) {
       return handleError(error, "getCampaignAmbassadors");
     }
@@ -245,11 +273,13 @@ class CampaignService {
    */
   async getCampaignAmbassadorRows(campaignId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/campaigns/${campaignId}/ambassador-rows`
-      );
-      const data = await handleApiResponse<{ rows: unknown[] }>(response);
-      return { data: data.rows || [], error: null };
+      const { data, error } = await this.supabase
+        .from("campaign_ambassadors")
+        .select("*")
+        .eq("campaign_id", campaignId);
+
+      if (error) throw error;
+      return { data: data || [], error: null };
     } catch (error) {
       return handleError(error, "getCampaignAmbassadorRows");
     }
@@ -260,11 +290,16 @@ class CampaignService {
    */
   async getCampaignsForAmbassador(ambassadorId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/campaigns/ambassador/${ambassadorId}`
-      );
-      const data = await handleApiResponse<{ data: Campaign[] }>(response);
-      return { data: data.data || [], error: null };
+      const { data, error } = await this.supabase
+        .from("campaign_ambassadors")
+        .select(`
+          *,
+          campaigns!inner(*)
+        `)
+        .eq("ambassador_id", ambassadorId);
+
+      if (error) throw error;
+      return { data: data || [], error: null };
     } catch (error) {
       return handleError(error, "getCampaignsForAmbassador");
     }
@@ -277,7 +312,7 @@ export const campaignService = new CampaignService();
 // Export individual methods for convenience
 export const {
   createCampaign,
-  getCampaignsForClient,
+  getMyClientCampaigns,
   getAllOpenCampaigns,
   getCampaign,
   updateCampaign,

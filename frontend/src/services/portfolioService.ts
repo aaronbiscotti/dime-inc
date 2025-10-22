@@ -1,12 +1,9 @@
 /**
- * Portfolio Service - Handles all portfolio-related operations via backend API
- * NO direct Supabase calls - all operations go through FastAPI backend
+ * Portfolio Service - Handles all portfolio-related operations via direct Supabase calls
+ * Now uses RLS policies for security instead of FastAPI backend
  */
 
-import { API_URL } from '@/config/api';
-import { authFetch, authPost, authPut, authDelete, handleApiResponse } from '@/utils/fetch';
-
-const API_BASE_URL = API_URL;
+import { createClient } from "@/lib/supabase/client"; // Use the client-side client
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -85,14 +82,21 @@ function handleError(error: unknown, context: string) {
 // ============================================================================
 
 class PortfolioService {
+  private supabase = createClient(); // Instantiate the client
+
   /**
    * Create a new portfolio item
    */
   async createPortfolio(data: CreatePortfolioData): Promise<PortfolioItem> {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/portfolios/create`, data);
-      const result = await handleApiResponse<{ portfolio: PortfolioItem }>(response);
-      return result.portfolio;
+      const { data: result, error } = await this.supabase
+        .from("portfolio_items")
+        .insert(data)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
     } catch (error) {
       return handleError(error, 'createPortfolio');
     }
@@ -103,9 +107,14 @@ class PortfolioService {
    */
   async getAmbassadorPortfolio(ambassadorId: string): Promise<PortfolioItem[]> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/portfolios/ambassador/${ambassadorId}`);
-      const result = await handleApiResponse<{ data: PortfolioItem[] }>(response);
-      return result.data || [];
+      const { data, error } = await this.supabase
+        .from("portfolio_items")
+        .select("*")
+        .eq("ambassador_id", ambassadorId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       return handleError(error, 'getAmbassadorPortfolio');
     }
@@ -116,8 +125,14 @@ class PortfolioService {
    */
   async getPortfolioItem(portfolioId: string): Promise<PortfolioItem> {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/portfolios/${portfolioId}`);
-      return await handleApiResponse<PortfolioItem>(response);
+      const { data, error } = await this.supabase
+        .from("portfolio_items")
+        .select("*")
+        .eq("id", portfolioId)
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (error) {
       return handleError(error, 'getPortfolioItem');
     }
@@ -128,9 +143,15 @@ class PortfolioService {
    */
   async updatePortfolio(portfolioId: string, data: UpdatePortfolioData): Promise<PortfolioItem> {
     try {
-      const response = await authPut(`${API_BASE_URL}/api/portfolios/${portfolioId}`, data);
-      const result = await handleApiResponse<{ portfolio: PortfolioItem }>(response);
-      return result.portfolio;
+      const { data: result, error } = await this.supabase
+        .from("portfolio_items")
+        .update(data)
+        .eq("id", portfolioId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
     } catch (error) {
       return handleError(error, 'updatePortfolio');
     }
@@ -141,8 +162,12 @@ class PortfolioService {
    */
   async deletePortfolio(portfolioId: string): Promise<void> {
     try {
-      const response = await authDelete(`${API_BASE_URL}/api/portfolios/${portfolioId}`);
-      await handleApiResponse(response);
+      const { error } = await this.supabase
+        .from("portfolio_items")
+        .delete()
+        .eq("id", portfolioId);
+
+      if (error) throw error;
     } catch (error) {
       return handleError(error, 'deletePortfolio');
     }
@@ -160,4 +185,3 @@ export const {
   updatePortfolio,
   deletePortfolio
 } = portfolioService;
-

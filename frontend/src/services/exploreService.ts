@@ -1,12 +1,9 @@
 /**
- * Explore Service - Handles exploration/discovery operations via backend API
- * NO direct Supabase calls - all operations go through FastAPI backend
+ * Explore Service - Handles exploration/discovery operations via direct Supabase calls
+ * Now uses RLS policies for security instead of FastAPI backend
  */
 
-import { API_URL } from '@/config/api';
-import { authFetch, handleApiResponse } from '@/utils/fetch';
-
-const API_BASE_URL = API_URL;
+import { createClient } from "@/lib/supabase/client"; // Use the client-side client
 
 // ============================================================================
 // EXPLORE SERVICE
@@ -22,15 +19,39 @@ export const exploreService = {
     location?: string;
   }) {
     try {
-      // Build query string
-      const queryParams = new URLSearchParams();
-      if (params?.search) queryParams.append('search', params.search);
-      if (params?.niches) params.niches.forEach(n => queryParams.append('niches', n));
-      if (params?.location) queryParams.append('location', params.location);
+      const supabase = createClient();
       
-      const response = await authFetch(`${API_BASE_URL}/api/explore/ambassadors?${queryParams}`);
-      const result = await handleApiResponse<{ data: unknown[] }>(response);
-      return result.data || [];
+      let query = supabase
+        .from("ambassador_profiles")
+        .select(`
+          *,
+          profiles!inner(
+            id,
+            email,
+            role,
+            created_at
+          )
+        `);
+
+      // Apply search filter
+      if (params?.search) {
+        query = query.or(`name.ilike.%${params.search}%,bio.ilike.%${params.search}%`);
+      }
+
+      // Apply niche filter
+      if (params?.niches && params.niches.length > 0) {
+        query = query.overlaps("niches", params.niches);
+      }
+
+      // Apply location filter
+      if (params?.location) {
+        query = query.ilike("location", `%${params.location}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('[ExploreService] getAmbassadors:', error);
       throw error;
@@ -45,14 +66,34 @@ export const exploreService = {
     industry?: string;
   }) {
     try {
-      // Build query string
-      const queryParams = new URLSearchParams();
-      if (params?.search) queryParams.append('search', params.search);
-      if (params?.industry) queryParams.append('industry', params.industry);
+      const supabase = createClient();
       
-      const response = await authFetch(`${API_BASE_URL}/api/explore/clients?${queryParams}`);
-      const result = await handleApiResponse<{ data: unknown[] }>(response);
-      return result.data || [];
+      let query = supabase
+        .from("client_profiles")
+        .select(`
+          *,
+          profiles!inner(
+            id,
+            email,
+            role,
+            created_at
+          )
+        `);
+
+      // Apply search filter
+      if (params?.search) {
+        query = query.or(`company_name.ilike.%${params.search}%,company_description.ilike.%${params.search}%`);
+      }
+
+      // Apply industry filter
+      if (params?.industry) {
+        query = query.eq("industry", params.industry);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error('[ExploreService] getClients:', error);
       throw error;
@@ -64,8 +105,24 @@ export const exploreService = {
    */
   async getAmbassadorDetails(ambassadorId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/explore/ambassador/${ambassadorId}`);
-      return await handleApiResponse(response);
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from("ambassador_profiles")
+        .select(`
+          *,
+          profiles!inner(
+            id,
+            email,
+            role,
+            created_at
+          )
+        `)
+        .eq("id", ambassadorId)
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('[ExploreService] getAmbassadorDetails:', error);
       throw error;
@@ -77,12 +134,27 @@ export const exploreService = {
    */
   async getClientDetails(clientId: string) {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/explore/client/${clientId}`);
-      return await handleApiResponse(response);
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from("client_profiles")
+        .select(`
+          *,
+          profiles!inner(
+            id,
+            email,
+            role,
+            created_at
+          )
+        `)
+        .eq("id", clientId)
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('[ExploreService] getClientDetails:', error);
       throw error;
     }
   }
 };
-

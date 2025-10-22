@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/database";
+import { createProfile } from "@/app/login/actions";
 
 interface ProfileSetupFormProps {
   role: UserRole;
@@ -13,7 +13,6 @@ interface ProfileSetupFormProps {
 }
 
 export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
-  const { createProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,14 +65,15 @@ export function ProfileSetupForm({ role, onComplete }: ProfileSetupFormProps) {
       };
     }
 
-    const { error } = await createProfile(role, profileData);
+    const result = await createProfile(role, profileData);
 
-    if (error) {
-      setError(error);
+    if (result?.error) {
+      setError(result.error);
     } else {
-      onComplete?.();
+      // Await the onComplete handler
+      await onComplete?.(); 
     }
-
+    
     setLoading(false);
   };
 

@@ -1,7 +1,9 @@
-import { API_URL } from "@/config/api";
-import { authFetch, authPost, authPut, handleApiResponse } from "@/utils/fetch";
+/**
+ * Submission Service - Handles all submission-related operations via direct Supabase calls
+ * Now uses RLS policies for security instead of FastAPI backend
+ */
 
-const API_BASE_URL = API_URL;
+import { createClient } from "@/lib/supabase/client"; // Use the client-side client
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -35,40 +37,108 @@ export interface ReviewSubmissionData {
 }
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Handle API errors consistently
+ */
+function handleError(error: unknown, context: string): never {
+  console.error(`[SubmissionService] ${context}:`, error);
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+      ? error
+      : "An unexpected error occurred";
+
+  throw new Error(message);
+}
+
+// ============================================================================
 // SUBMISSION SERVICE
 // ============================================================================
 
 class SubmissionService {
+  private supabase = createClient(); // Instantiate the client
+
   async createSubmission(data: CreateSubmissionData): Promise<Submission> {
-    const response = await authPost(`${API_BASE_URL}/api/submissions/`, data);
-    return handleApiResponse<Submission>(response);
+    try {
+      const { data: result, error } = await this.supabase
+        .from("submissions")
+        .insert({
+          campaign_ambassador_id: data.campaign_ambassador_id,
+          content_url: data.content_url,
+          ad_code: data.ad_code || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
+    } catch (error) {
+      handleError(error, "createSubmission");
+    }
   }
 
   async getSubmissionsForCampaign(campaignId: string): Promise<Submission[]> {
-    const response = await authFetch(
-      `${API_BASE_URL}/api/submissions/campaign/${campaignId}`
-    );
-    return handleApiResponse<Submission[]>(response);
+    try {
+      const { data, error } = await this.supabase
+        .from("submissions")
+        .select(`
+          *,
+          campaign_ambassadors!inner(
+            campaign_id
+          )
+        `)
+        .eq("campaign_ambassadors.campaign_id", campaignId);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      handleError(error, "getSubmissionsForCampaign");
+    }
   }
 
   async getMySubmissionsForCampaign(
     campaignAmbassadorId: string
   ): Promise<Submission[]> {
-    const response = await authFetch(
-      `${API_BASE_URL}/api/submissions/ambassador/${campaignAmbassadorId}`
-    );
-    return handleApiResponse<Submission[]>(response);
+    try {
+      const { data, error } = await this.supabase
+        .from("submissions")
+        .select("*")
+        .eq("campaign_ambassador_id", campaignAmbassadorId)
+        .order("submitted_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      handleError(error, "getMySubmissionsForCampaign");
+    }
   }
 
   async reviewSubmission(
     submissionId: string,
     data: ReviewSubmissionData
   ): Promise<Submission> {
-    const response = await authPut(
-      `${API_BASE_URL}/api/submissions/${submissionId}/review`,
-      data
-    );
-    return handleApiResponse<Submission>(response);
+    try {
+      const { data: result, error } = await this.supabase
+        .from("submissions")
+        .update({
+          status: data.status,
+          feedback: data.feedback || null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", submissionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
+    } catch (error) {
+      handleError(error, "reviewSubmission");
+    }
   }
 }
 

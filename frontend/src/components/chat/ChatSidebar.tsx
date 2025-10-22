@@ -107,15 +107,16 @@ export function ChatSidebar({
 
         if (response.ok) {
           const data = await response.json();
-          if (data.data) {
-            const allUsers = data.data.map((profile: any) => ({
-              id: profile.id, // FIX: Was profile.userId, which is incorrect. API returns user_id as 'id'.
-              name: profile.name,
-              email:
-                profile.email || `user-temp-${profile.id.slice(-4)}@dime.com`,
+          // The service returns the full ambassador_profile object
+          const profiles = data.data || []; 
+          if (profiles) {
+            const allUsers = profiles.map((profile: any) => ({
+              // FIX: Use profile.user_id for the participant's ID, not profile.id
+              id: profile.user_id, 
+              name: profile.full_name,
+              email: profile.profiles?.email || `user-temp-${profile.id.slice(-4)}@dime.com`,
             }));
 
-            // FIX: Filter out the current user and remove duplicates to prevent issues in the modal
             const uniqueUsers = allUsers.filter(
               (u: { id: string | undefined }, index: any, self: any[]) =>
                 u.id &&

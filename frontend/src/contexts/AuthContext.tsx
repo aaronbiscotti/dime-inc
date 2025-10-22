@@ -1,24 +1,16 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client"; // Use your new client
 import {
   Profile,
   UserRole,
   AmbassadorProfile,
   ClientProfile,
 } from "@/types/database";
+import type { User, Session } from "@supabase/supabase-js";
 
-// Define a simpler User type since we're no longer using Supabase's User type
-interface User {
-  id: string;
-  email: string;
-}
-
-interface Session {
-  user: User;
-  access_token?: string;
-}
-
+// Keep your existing types
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -28,33 +20,16 @@ interface AuthState {
   loading: boolean;
 }
 
+// Interface simplifies: we will use server actions for auth
 interface AuthContextType extends AuthState {
-  signUp: (
-    email: string,
-    password: string,
-    role: UserRole
-  ) => Promise<{ error: string | null }>;
-  signIn: (
-    email: string,
-    password: string,
-    expectedRole?: UserRole
-  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  createProfile: (
-    role: UserRole,
-    profileData: Record<string, unknown>
-  ) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-import { API_URL } from "@/config/api";
-
-// API base URL from centralized config
-const API_BASE_URL = API_URL;
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClient();
   const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
@@ -64,45 +39,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
   });
 
-  // Initialize auth on mount - check for auth cookie via backend
+  // Fetch full profile data for a user
+  const fetchFullProfile = async (user: User) => {
+    // This now uses the JS client, which respects RLS policies
+    const { data: profileData, error } = await supabase
+      .from("profiles")
+      .select("*, ambassador_profiles(*), client_profiles(*)")
+      .eq("id", user.id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching full profile:", error);
+      return { profile: null, ambassadorProfile: null, clientProfile: null };
+    }
+
+    return {
+      profile: profileData ? { id: profileData.id, email: profileData.email, role: profileData.role, created_at: profileData.created_at, updated_at: profileData.updated_at } : null,
+      ambassadorProfile: profileData?.ambassador_profiles || null,
+      clientProfile: profileData?.client_profiles || null,
+    };
+  };
+
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // Verify auth cookie with backend and get user data
-        // Cookie is automatically sent by browser (httpOnly, secure)
-        const response = await fetch(`${API_BASE_URL}/api/users/me`, {
-          credentials: "include", // Send cookies
+    // Initial auth state check
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Initial session check:", session?.user?.email);
+      
+      if (session?.user) {
+        const { profile, ambassadorProfile, clientProfile } = await fetchFullProfile(session.user);
+        setState({
+          user: session.user,
+          session,
+          profile,
+          ambassadorProfile,
+          clientProfile,
+          loading: false,
         });
-
-        if (response.ok) {
-          // Backend confirmed auth cookie is valid, get user data
-          const userData = await response.json();
-
-          setState({
-            user: { id: userData.id, email: userData.email },
-            session: {
-              user: { id: userData.id, email: userData.email },
-              access_token: "cookie-based", // Token is in httpOnly cookie, not accessible
-            },
-            profile: userData.profile || null,
-            ambassadorProfile: userData.ambassador_profile || null,
-            clientProfile: userData.client_profile || null,
-            loading: false,
-          });
-        } else {
-          // Backend said no valid auth cookie found
-          setState({
-            user: null,
-            session: null,
-            profile: null,
-            ambassadorProfile: null,
-            clientProfile: null,
-            loading: false,
-          });
-        }
-      } catch (error) {
-        // Network error, backend is down, etc.
-        console.error("Failed to authenticate with backend", error);
+      } else {
         setState({
           user: null,
           session: null,
@@ -114,166 +88,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initializeAuth();
-  }, []); // This hook runs only ONCE when the app loads
+    getInitialSession();
 
-  const signUp = async (email: string, password: string, role: UserRole) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password, role }),
-      });
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Auth state change:", event, session?.user?.email);
+        setState((prevState) => ({ ...prevState, loading: true }));
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.detail || "Signup failed" };
+        const user = session?.user || null;
+        if (user) {
+          console.log("User authenticated:", user.email);
+          const { profile, ambassadorProfile, clientProfile } = await fetchFullProfile(user);
+          setState({
+            user,
+            session,
+            profile,
+            ambassadorProfile,
+            clientProfile,
+            loading: false,
+          });
+        } else {
+          console.log("User not authenticated");
+          setState({
+            user: null,
+            session: null,
+            profile: null,
+            ambassadorProfile: null,
+            clientProfile: null,
+            loading: false,
+          });
+        }
       }
+    );
 
-      return { error: null };
-    } catch {
-      return { error: "Network error during signup" };
-    }
-  };
-
-  const signIn = async (
-    email: string,
-    password: string,
-    expectedRole?: UserRole
-  ) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password, expected_role: expectedRole }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        return { error: data.detail || "Invalid login credentials" };
-      }
-
-      await refreshProfile(); // Fetches user data after successful login
-      return { error: null };
-    } catch (err) {
-      return { error: "Network error during login" };
-    }
-  };
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const signOut = async () => {
-    try {
-      // Call backend logout endpoint to clear httpOnly cookie
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include", // Send cookie to be cleared
-      });
-
-      // Clear all auth-related storage (if any)
-      try {
-        sessionStorage.clear();
-        // Remove any legacy tokens
-        localStorage.removeItem("auth-token");
-      } catch (storageError) {
-        console.warn("Could not clear session storage:", storageError);
-      }
-
-      // Clear state
-      setState({
-        user: null,
-        session: null,
-        profile: null,
-        ambassadorProfile: null,
-        clientProfile: null,
-        loading: false,
-      });
-    } catch (error) {
-      console.error("Sign out error:", error);
-      // Even if backend fails, clear local state
-      setState({
-        user: null,
-        session: null,
-        profile: null,
-        ambassadorProfile: null,
-        clientProfile: null,
-        loading: false,
-      });
-    }
-  };
-
-  const createProfile = async (
-    role: UserRole,
-    profileData: Record<string, unknown>
-  ) => {
-    if (!state.user) {
-      return { error: new Error("No user logged in") };
-    }
-
-    try {
-      const endpoint =
-        role === "ambassador"
-          ? `${API_BASE_URL}/api/profiles/ambassador`
-          : `${API_BASE_URL}/api/profiles/client`;
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Send auth cookie
-        body: JSON.stringify({
-          user_id: state.user.id,
-          ...profileData,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.detail || "Failed to create profile" };
-      }
-
-      // Refresh profile data
-      await refreshProfile();
-
-      return { error: null };
-    } catch {
-      return { error: "Network error during profile creation" };
-    }
+    await supabase.auth.signOut();
+    // The onAuthStateChange listener will handle state updates
   };
 
   const refreshProfile = async () => {
-    if (!state.user) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/users/me`, {
-        credentials: "include", // Send auth cookie
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-
-        setState((prev) => ({
-          ...prev,
-          profile: userData.profile || null,
-          ambassadorProfile: userData.ambassador_profile || null,
-          clientProfile: userData.client_profile || null,
-        }));
-      }
-    } catch (error) {
-      console.error("Error refreshing profile:", error);
+    if (state.user) {
+      const { profile, ambassadorProfile, clientProfile } = await fetchFullProfile(state.user);
+      setState(prev => ({ ...prev, profile, ambassadorProfile, clientProfile }));
     }
   };
 
+  // Auth actions (signIn, signUp) will be moved to Server Actions
+  // so they are no longer needed in the context provider itself.
   const value: AuthContextType = {
     ...state,
-    signUp,
-    signIn,
     signOut,
-    createProfile,
     refreshProfile,
   };
 

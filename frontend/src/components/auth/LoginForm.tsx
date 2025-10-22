@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { UserRole } from "@/types/database";
 import { Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 import Image from "next/image";
+import { login } from "@/app/login/actions"; // Import the server action
 
 interface LoginFormProps {
   onSwitchToSignup?: () => void;
@@ -23,7 +24,7 @@ type AuthError = {
 
 export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
   const router = useRouter();
-  const { signIn, user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,65 +70,25 @@ export function LoginForm({ onSwitchToSignup, expectedRole }: LoginFormProps) {
     }
 
     setLoading(true);
-
-    try {
-      const { error: authError } = await signIn(
-        email.trim().toLowerCase(),
-        password,
-        expectedRole
-      );
-
-      if (authError) {
-        // Handle specific error types
-        if (authError.includes("role") || authError.includes("ROLE_MISMATCH")) {
-          // Show toast for role mismatch with user's actual role info
-          showToast(authError, "error", 7000);
-          return;
-        } else if (authError.includes("Invalid login credentials")) {
-          setError({
-            message: "Incorrect email or password. Please try again.",
-            field: "password",
-          });
-        } else if (authError.includes("Email not confirmed")) {
-          setError({
-            message:
-              "Please check your email and click the confirmation link before signing in.",
-          });
-        } else if (authError.includes("Too many requests")) {
-          setError({
-            message:
-              "Too many login attempts. Please wait a moment and try again.",
-          });
-        } else {
-          setError({
-            message: authError || "Unable to sign in. Please try again.",
-          });
-        }
-        return;
-      }
-
-      // Success - redirect to dashboard
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      console.error("Login error:", err);
-
-      if (!navigator.onLine) {
-        setError({
-          message:
-            "No internet connection. Please check your network and try again.",
-        });
-      } else if (err instanceof Error && err.message?.includes("fetch")) {
-        setError({
-          message: "Unable to connect to our servers. Please try again later.",
-        });
-      } else {
-        setError({
-          message: "An unexpected error occurred. Please try again.",
-        });
-      }
-    } finally {
-      setLoading(false);
+    
+    const formData = new FormData();
+    formData.append("email", email.trim().toLowerCase());
+    formData.append("password", password);
+    if (expectedRole) {
+      formData.append("expected_role", expectedRole);
     }
+    
+    console.log("Calling login server action...");
+    const result = await login(formData); // Call the server action
+    console.log("Login result:", result);
+
+    if (result?.error) {
+      setError({ message: result.error });
+      setLoading(false);
+    } else {
+      console.log("Login successful, should redirect...");
+    }
+    // On success, the server action handles the redirect
   };
 
   const handlePasswordReset = async () => {

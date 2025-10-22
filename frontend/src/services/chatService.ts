@@ -1,17 +1,9 @@
 /**
- * Chat Service - Handles all chat-related operations via backend API
- * NO direct Supabase calls - all operations go through FastAPI backend
+ * Chat Service - Handles all chat-related operations via direct Supabase calls
+ * Now uses RLS policies for security instead of FastAPI backend
  */
 
-import { API_URL } from "@/config/api";
-import {
-  authFetch,
-  authPost,
-  authDelete,
-  handleApiResponse,
-} from "@/utils/fetch";
-
-const API_BASE_URL = API_URL;
+import { createClient } from "@/lib/supabase/client"; // Use the client-side client
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -131,26 +123,70 @@ function handleError(error: unknown, context: string): ErrorResponse {
 // ============================================================================
 
 class ChatService {
+  private supabase = createClient(); // Instantiate the client
+
   /**
    * Create a private chat between current user and another user
    * Returns existing chat if one already exists
    */
   async createChat(params: CreateChatParams) {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/chats/create`, {
-        participant_id: params.participant_id,
-        participant_name: params.participant_name,
-        participant_role: params.participant_role,
-      });
+      // First check if a chat already exists between these users
+      const { data: existingChats, error: checkError } = await this.supabase
+        .from("chat_rooms")
+        .select(`
+          *,
+          chat_participants!inner(
+            user_id,
+            profiles!inner(
+              id,
+              email,
+              role
+            )
+          )
+        `)
+        .eq("is_group", false);
 
-      const data = await handleApiResponse<{
-        chat: ChatRoom;
-        existed: boolean;
-      }>(response);
+      if (checkError) throw checkError;
+
+      // Check if a chat already exists with this participant
+      const existingChat = existingChats?.find(chat => 
+        chat.chat_participants.some((p: any) => p.user_id === params.participant_id)
+      );
+
+      if (existingChat) {
+        return {
+          data: existingChat,
+          existed: true,
+          error: null,
+        };
+      }
+
+      // Create new chat
+      const { data: newChat, error: createError } = await this.supabase
+        .from("chat_rooms")
+        .insert({
+          name: null,
+          is_group: false,
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // Add participants
+      const { error: participantError } = await this.supabase
+        .from("chat_participants")
+        .insert([
+          { chat_room_id: newChat.id, user_id: params.participant_id },
+          // Current user will be added automatically by RLS
+        ]);
+
+      if (participantError) throw participantError;
 
       return {
-        data: data.chat,
-        existed: data.existed,
+        data: newChat,
+        existed: false,
         error: null,
       };
     } catch (error) {
@@ -163,15 +199,31 @@ class ChatService {
    */
   async createGroupChat(params: CreateGroupChatParams) {
     try {
-      const response = await authPost(`${API_BASE_URL}/api/chats/group`, {
-        name: params.name,
-        participant_ids: params.participant_ids,
-      });
+      const { data: newChat, error: createError } = await this.supabase
+        .from("chat_rooms")
+        .insert({
+          name: params.name,
+          is_group: true,
+        })
+        .select()
+        .single();
 
-      const data = await handleApiResponse<{ chat: ChatRoom }>(response);
+      if (createError) throw createError;
+
+      // Add participants
+      const participants = params.participant_ids.map(userId => ({
+        chat_room_id: newChat.id,
+        user_id: userId,
+      }));
+
+      const { error: participantError } = await this.supabase
+        .from("chat_participants")
+        .insert(participants);
+
+      if (participantError) throw participantError;
 
       return {
-        data: data.chat,
+        data: newChat,
         error: null,
       };
     } catch (error) {
@@ -184,10 +236,13 @@ class ChatService {
    */
   async getChatRoom(chatRoomId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/chats/${chatRoomId}`
-      );
-      const data = await handleApiResponse<ChatRoom>(response);
+      const { data, error } = await this.supabase
+        .from("chat_rooms")
+        .select("*")
+        .eq("id", chatRoomId)
+        .single();
+
+      if (error) throw error;
 
       return {
         data: data as ChatRoom,
@@ -203,21 +258,21 @@ class ChatService {
    */
   async sendMessage(chatRoomId: string, params: SendMessageParams) {
     try {
-      const payload: SendMessageParams = {
-        content: params.content.trim(),
-        file_url: params.file_url || null,
-        reply_to_message_id: params.reply_to_message_id || null,
-      };
+      const { data, error } = await this.supabase
+        .from("messages")
+        .insert({
+          chat_room_id: chatRoomId,
+          content: params.content.trim(),
+          file_url: params.file_url || null,
+          reply_to_message_id: params.reply_to_message_id || null,
+        })
+        .select()
+        .single();
 
-      const response = await authPost(
-        `${API_BASE_URL}/api/chats/${chatRoomId}/messages`,
-        payload
-      );
-
-      const data = await handleApiResponse<{ message: Message }>(response);
+      if (error) throw error;
 
       return {
-        data: data.message as Message,
+        data: data as Message,
         error: null,
       };
     } catch (error) {
@@ -234,18 +289,18 @@ class ChatService {
     offset: number = 0
   ) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/chats/${chatRoomId}/messages?limit=${limit}&offset=${offset}`
-      );
+      const { data, error, count } = await this.supabase
+        .from("messages")
+        .select("*", { count: 'exact' })
+        .eq("chat_room_id", chatRoomId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
-      const data = await handleApiResponse<{
-        messages: Message[];
-        count: number;
-      }>(response);
+      if (error) throw error;
 
       return {
-        data: data.messages as Message[],
-        count: data.count,
+        data: data as Message[],
+        count: count || 0,
         error: null,
       };
     } catch (error) {
@@ -258,15 +313,57 @@ class ChatService {
    */
   async getParticipants(chatRoomId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/chats/${chatRoomId}/participants`
-      );
-      const data = await handleApiResponse<{ participants: ChatParticipant[] }>(
-        response
-      );
+      const { data, error } = await this.supabase
+        .from("chat_participants")
+        .select(`
+          *,
+          profiles!inner(
+            id,
+            email,
+            role
+          ),
+          ambassador_profiles(
+            name,
+            bio,
+            location,
+            niches,
+            instagram_handle,
+            tiktok_handle,
+            twitter_handle,
+            avatar_url
+          ),
+          client_profiles(
+            company_name,
+            company_description,
+            industry,
+            logo_url,
+            website
+          )
+        `)
+        .eq("chat_room_id", chatRoomId);
+
+      if (error) throw error;
+
+      // Transform the data to match the expected format
+      const participants = data?.map((p: any) => ({
+        user_id: p.user_id,
+        role: p.profiles.role,
+        name: p.ambassador_profiles?.name || p.client_profiles?.company_name || 'Unknown',
+        profile_photo: p.ambassador_profiles?.avatar_url || p.client_profiles?.logo_url,
+        bio: p.ambassador_profiles?.bio,
+        location: p.ambassador_profiles?.location,
+        niche: p.ambassador_profiles?.niches,
+        instagram_handle: p.ambassador_profiles?.instagram_handle,
+        tiktok_handle: p.ambassador_profiles?.tiktok_handle,
+        twitter_handle: p.ambassador_profiles?.twitter_handle,
+        company_description: p.client_profiles?.company_description,
+        industry: p.client_profiles?.industry,
+        logo_url: p.client_profiles?.logo_url,
+        website: p.client_profiles?.website,
+      })) || [];
 
       return {
-        data: data.participants as ChatParticipant[],
+        data: participants as ChatParticipant[],
         error: null,
       };
     } catch (error) {
@@ -280,12 +377,26 @@ class ChatService {
    */
   async getOtherParticipant(chatRoomId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/chats/${chatRoomId}/other-participant`
-      );
+      const { data: participants, error } = await this.getParticipants(chatRoomId);
+      
+      if (error) return { data: null, error };
 
-      if (response.status === 410) {
-        // Orphaned chat; backend handles cleanup
+      // Get current user's ID from auth
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) {
+        return {
+          data: null,
+          error: {
+            message: "User not authenticated",
+            shouldRemove: true,
+          } as any,
+        };
+      }
+
+      // Find the other participant
+      const otherParticipant = participants.data?.find(p => p.user_id !== user.id);
+      
+      if (!otherParticipant) {
         return {
           data: null,
           error: {
@@ -295,10 +406,7 @@ class ChatService {
         };
       }
 
-      const data = await handleApiResponse<{ participant: ChatParticipant }>(
-        response
-      );
-      return { data: data.participant as ChatParticipant, error: null };
+      return { data: otherParticipant, error: null };
     } catch (error) {
       return handleError(error, "getOtherParticipant");
     }
@@ -309,14 +417,14 @@ class ChatService {
    */
   async addParticipant(chatRoomId: string, userId: string) {
     try {
-      const response = await authPost(
-        `${API_BASE_URL}/api/chats/${chatRoomId}/participants`,
-        {
+      const { error } = await this.supabase
+        .from("chat_participants")
+        .insert({
+          chat_room_id: chatRoomId,
           user_id: userId,
-        }
-      );
+        });
 
-      await handleApiResponse(response);
+      if (error) throw error;
 
       return {
         data: true,
@@ -332,10 +440,13 @@ class ChatService {
    */
   async removeParticipant(chatRoomId: string, userId: string) {
     try {
-      const response = await authDelete(
-        `${API_BASE_URL}/api/chats/${chatRoomId}/participants/${userId}`
-      );
-      await handleApiResponse(response);
+      const { error } = await this.supabase
+        .from("chat_participants")
+        .delete()
+        .eq("chat_room_id", chatRoomId)
+        .eq("user_id", userId);
+
+      if (error) throw error;
 
       return {
         data: true,
@@ -351,10 +462,12 @@ class ChatService {
    */
   async deleteChat(chatRoomId: string) {
     try {
-      const response = await authDelete(
-        `${API_BASE_URL}/api/chats/${chatRoomId}`
-      );
-      await handleApiResponse(response);
+      const { error } = await this.supabase
+        .from("chat_rooms")
+        .delete()
+        .eq("id", chatRoomId);
+
+      if (error) throw error;
 
       return {
         data: { success: true },
@@ -370,11 +483,15 @@ class ChatService {
    */
   async getUserChats() {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/chats/`);
-      const data = await handleApiResponse<{ chats: ChatRoom[] }>(response);
+      const { data, error } = await this.supabase
+        .from("chat_rooms")
+        .select("*")
+        .order("updated_at", { ascending: false });
+
+      if (error) throw error;
 
       return {
-        data: data.chats as ChatRoom[],
+        data: data as ChatRoom[],
         error: null,
       };
     } catch (error) {
@@ -387,15 +504,16 @@ class ChatService {
    */
   async getContractByChatId(chatRoomId: string) {
     try {
-      const response = await authFetch(
-        `${API_BASE_URL}/api/chats/${chatRoomId}/contract`
-      );
-      const data = await handleApiResponse<{ contract: Contract | null }>(
-        response
-      );
+      const { data, error } = await this.supabase
+        .from("contracts")
+        .select("*")
+        .eq("chat_room_id", chatRoomId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
 
       return {
-        data: data.contract as Contract | null,
+        data: data as Contract | null,
         error: null,
       };
     } catch (error) {
