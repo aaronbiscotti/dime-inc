@@ -11,6 +11,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CampaignCard } from "@/components/explore/CampaignCard";
 import { Modal } from "@/components/ui/modal";
 
+// Type alias for campaigns
+type Campaign = Tables<"campaigns">;
+
 // Interface can be added back if userRole is needed for role-based filtering later
 
 interface Influencer {
@@ -24,6 +27,12 @@ interface Influencer {
   categories: string[];
   avatar: string | null;
   associatedWith?: string | null;
+  // Additional fields for enhanced display
+  bio?: string | null;
+  location?: string | null;
+  instagramHandle?: string | null;
+  tiktokHandle?: string | null;
+  twitterHandle?: string | null;
 }
 
 interface CampaignWithClient extends Tables<"campaigns"> {
@@ -81,15 +90,17 @@ export function ExploreInterface() {
         );
 
         if (ambassadorProfiles && ambassadorProfiles.length > 0) {
+          console.log("Raw ambassador profiles data:", ambassadorProfiles[0]); // Debug log
           const mappedInfluencers: Influencer[] = ambassadorProfiles.map(
             (profile, index) => {
               const prof = profile as Record<string, unknown>;
+              console.log(`Profile ${index}:`, prof); // Debug log for each profile
 
               // Create platforms array from available handles
               const platforms: string[] = [];
-              if (prof.instagramHandle) platforms.push("Instagram");
-              if (prof.tiktokHandle) platforms.push("TikTok");
-              if (prof.twitterHandle) platforms.push("Twitter");
+              if (prof.instagram_handle) platforms.push("Instagram");
+              if (prof.tiktok_handle) platforms.push("TikTok");
+              if (prof.twitter_handle) platforms.push("Twitter");
 
               // Use niche as categories, fallback to empty array
               const categories = (prof.niche as string[]) || [];
@@ -104,14 +115,29 @@ export function ExploreInterface() {
                 id: (prof.profileId as string) || (prof.id as string) || `ambassador-${index}`, // Ensure unique ID
                 userId: (prof.profiles as any)?.id || prof.id as string, // Use profiles.id for chat functionality
                 name: (prof.name as string) || (prof.full_name as string) || "Unknown Ambassador",
-                handle: formatHandle(prof.instagramHandle as string | null),
+                handle: formatHandle(prof.instagram_handle as string | null),
                 platforms,
                 followers: null, // We don't have follower data in the current schema
                 engagement: null, // We don't have engagement data in the current schema
                 categories,
-                avatar: prof.profilePhotoUrl as string,
+                avatar: prof.profile_photo_url as string,
                 associatedWith: null, // We don't have association data in the current schema
+                // Additional fields
+                bio: prof.bio as string | null,
+                location: prof.location as string | null,
+                instagramHandle: prof.instagram_handle as string | null,
+                tiktokHandle: prof.tiktok_handle as string | null,
+                twitterHandle: prof.twitter_handle as string | null,
               };
+              
+              console.log(`Mapped influencer ${index}:`, {
+                name: prof.full_name,
+                instagramHandle: prof.instagram_handle,
+                tiktokHandle: prof.tiktok_handle,
+                twitterHandle: prof.twitter_handle,
+                bio: prof.bio,
+                location: prof.location
+              }); // Debug log for mapped data
             }
           );
 
@@ -538,61 +564,90 @@ export function ExploreInterface() {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <div className="mb-2">
+                          <div className="mb-3">
                             <h3 className="font-semibold text-gray-900 text-lg mb-1">
                               {influencer.name || "Unknown Ambassador"}
                             </h3>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              {influencer.handle && (
-                                <span>{influencer.handle}</span>
-                              )}
-                              {influencer.platforms.length > 0 && (
-                                <React.Fragment key="platforms">
-                                  <span>•</span>
-                                  <span>
-                                    {influencer.platforms.join(" | ")}
-                                  </span>
-                                </React.Fragment>
-                              )}
-                            </div>
-                          </div>
+                            
+                            {/* Bio */}
+                            {influencer.bio && (
+                              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                {influencer.bio}
+                              </p>
+                            )}
 
-                          <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                            {influencer.followers && (
-                              <span>
-                                <span className="font-medium">Followers:</span>{" "}
-                                {influencer.followers}
-                              </span>
-                            )}
-                            {influencer.engagement && (
-                              <React.Fragment key="engagement">
-                                <span>•</span>
-                                <span>
-                                  <span className="font-medium">
-                                    Engagement:
-                                  </span>{" "}
-                                  {influencer.engagement}
-                                </span>
-                              </React.Fragment>
-                            )}
-                            {influencer.categories.length > 0 && (
-                              <React.Fragment key="categories">
-                                <span>•</span>
-                                <span>{influencer.categories.join(", ")}</span>
-                              </React.Fragment>
-                            )}
-                          </div>
-
-                          {influencer.associatedWith && (
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <span>Associated with</span>
-                              <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs font-bold">
-                                  Z
-                                </span>
+                            {/* Location */}
+                            {influencer.location && (
+                              <div className="flex items-center gap-1 text-sm text-gray-500 mb-2">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                </svg>
+                                <span>{influencer.location}</span>
                               </div>
+                            )}
+
+                            {/* Social Media Handles */}
+                            <div className="flex items-center gap-3 text-sm mb-2">
+                              {influencer.instagramHandle && (
+                                <a
+                                  href={`https://instagram.com/${influencer.instagramHandle.replace('@', '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-gray-600 hover:text-pink-600 transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                                  </svg>
+                                  <span className="font-medium">{influencer.instagramHandle}</span>
+                                </a>
+                              )}
+                              {influencer.tiktokHandle && (
+                                <a
+                                  href={`https://tiktok.com/@${influencer.tiktokHandle.replace('@', '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-gray-600 hover:text-black transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-.88-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+                                  </svg>
+                                  <span className="font-medium">{influencer.tiktokHandle}</span>
+                                </a>
+                              )}
+                              {influencer.twitterHandle && (
+                                <a
+                                  href={`https://twitter.com/${influencer.twitterHandle.replace('@', '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-gray-600 hover:text-blue-500 transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                                  </svg>
+                                  <span className="font-medium">{influencer.twitterHandle}</span>
+                                </a>
+                              )}
                             </div>
-                          )}
+
+                            {/* Categories/Niche */}
+                            {influencer.categories.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {influencer.categories.slice(0, 3).map((category, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-1 bg-[#f5d82e] bg-opacity-20 text-[#f5d82e] text-xs font-medium rounded-full"
+                                  >
+                                    {category}
+                                  </span>
+                                ))}
+                                {influencer.categories.length > 3 && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                                    +{influencer.categories.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 

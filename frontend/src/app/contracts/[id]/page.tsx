@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { contractService, Contract } from "@/services/contractService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProfileGuard } from "@/components/auth/ProfileGuard";
 
 export default function ContractDetailPage() {
   const { user, clientProfile, ambassadorProfile } = useAuth();
@@ -137,7 +138,8 @@ export default function ContractDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ProfileGuard>
+      <div className="min-h-screen bg-gray-50">
       <Navbar />
       <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="mb-6 flex items-center justify-between">
@@ -282,6 +284,7 @@ export default function ContractDetailPage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </ProfileGuard>
   );
 }

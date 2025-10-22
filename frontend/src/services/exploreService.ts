@@ -24,7 +24,16 @@ export const exploreService = {
       let query = supabase
         .from("ambassador_profiles")
         .select(`
-          *,
+          id,
+          full_name,
+          bio,
+          location,
+          niche,
+          profile_photo_url,
+          instagram_handle,
+          tiktok_handle,
+          twitter_handle,
+          user_id,
           profiles!inner(
             id,
             email,
@@ -35,12 +44,12 @@ export const exploreService = {
 
       // Apply search filter
       if (params?.search) {
-        query = query.or(`name.ilike.%${params.search}%,bio.ilike.%${params.search}%`);
+        query = query.or(`full_name.ilike.%${params.search}%,bio.ilike.%${params.search}%`);
       }
 
       // Apply niche filter
       if (params?.niches && params.niches.length > 0) {
-        query = query.overlaps("niches", params.niches);
+        query = query.overlaps("niche", params.niches);
       }
 
       // Apply location filter

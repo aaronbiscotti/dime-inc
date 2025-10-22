@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import ContractDraftForm from "./ContractDraftForm";
 import { useSearchParams } from "next/navigation";
+import { ProfileGuard } from "@/components/auth/ProfileGuard";
 
 // Contract drafting page UI will be implemented here.
 // TODO: Implement modern contract drafting UI as per design.
@@ -14,7 +15,8 @@ export default function NewContractPage() {
   const campaignId = searchParams.get("campaign") || "";
   const ambassadorId = searchParams.get("ambassador") || "";
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ProfileGuard>
+      <div className="min-h-screen bg-gray-50">
       <Navbar />
       <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center gap-4 mb-6">
@@ -34,6 +36,7 @@ export default function NewContractPage() {
           initialAmbassadorIds={ambassadorId ? [ambassadorId] : []}
         />
       </main>
-    </div>
+      </div>
+    </ProfileGuard>
   );
 }

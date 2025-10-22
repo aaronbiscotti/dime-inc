@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/contexts/AuthContext";
 import Image from "next/image";
-import { API_URL } from "@/config/api";
+import { createClient } from "@/lib/supabase/client";
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -78,24 +78,38 @@ export function ProfileEditModal({
     setError(null);
 
     try {
-      const endpoint =
-        profile.role === "ambassador"
-          ? `${API_URL}/api/profiles/ambassador`
-          : `${API_URL}/api/profiles/client`;
+      const supabase = createClient();
 
-      const response = await fetch(endpoint, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Use cookie-based auth
-        body: JSON.stringify(formData),
-      });
+      if (profile.role === "ambassador" && ambassadorProfile) {
+        // Update ambassador profile
+        const { error } = await supabase
+          .from("ambassador_profiles")
+          .update({
+            full_name: formData.full_name,
+            bio: formData.bio,
+            location: formData.location,
+            instagram_handle: formData.instagram_handle,
+            tiktok_handle: formData.tiktok_handle,
+            twitter_handle: formData.twitter_handle,
+            profile_photo_url: formData.profile_photo_url,
+          })
+          .eq("id", ambassadorProfile.id);
 
-      const data = await response.json();
+        if (error) throw error;
+      } else if (profile.role === "client" && clientProfile) {
+        // Update client profile
+        const { error } = await supabase
+          .from("client_profiles")
+          .update({
+            company_name: formData.company_name,
+            company_description: formData.company_description,
+            industry: formData.industry,
+            website: formData.website,
+            logo_url: formData.logo_url,
+          })
+          .eq("id", clientProfile.id);
 
-      if (!response.ok) {
-        throw new Error(data.detail || "Failed to update profile");
+        if (error) throw error;
       }
 
       // Call the parent's onSave callback
@@ -128,29 +142,21 @@ export function ProfileEditModal({
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${API_URL}/api/users/delete`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // Use cookie-based auth
-        body: JSON.stringify({ user_id: profile.id }),
-      });
+      const supabase = createClient();
 
-      const result = await res.json();
+      // Delete the user profile first (this will cascade to ambassador/client profiles due to foreign key constraints)
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", profile.id);
 
-      if (res.ok && result.success) {
-        setSuccess(true);
-        // Call backend logout to clear cookie, then redirect
-        setTimeout(async () => {
-          await fetch(`${API_URL}/api/auth/logout`, {
-            method: "POST",
-            credentials: "include",
-          });
-          // Force reload to clear all app state
-          window.location.href = "/";
-        }, 1500);
-      } else {
-        setError(result.message || result.error || "Failed to delete account");
-      }
+      if (error) throw error;
+
+      setSuccess(true);
+      // Redirect to home page after successful deletion
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1500);
     } catch (error) {
       console.error("Error deleting account:", error);
       setError("Failed to delete account. Please try again.");
@@ -167,6 +173,8 @@ export function ProfileEditModal({
       onClose={handleClose}
       title={showDeleteConfirm ? "Delete Account" : "Edit Profile"}
       maxWidth="2xl"
+      scrollable={true}
+      maxHeight="90vh"
     >
       {/* Banner Area - matching the profile page */}
       <div className="h-32 bg-gradient-to-r from-[#f5d82e] to-[#FEE65D] rounded-t-xl mb-6 relative">

@@ -232,4 +232,12 @@
     background-color: #f5d82e;
     border-color: #f5d82e;
   }
+
+  /* Line clamp utilities */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }

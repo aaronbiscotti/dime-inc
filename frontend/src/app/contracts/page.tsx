@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { contractService, Contract } from "@/services/contractService";
 import { useEffect, useState } from "react";
+import { ProfileGuard } from "@/components/auth/ProfileGuard";
 
 export default function ContractsPage() {
   const { user, clientProfile, ambassadorProfile } = useAuth();
@@ -80,9 +81,10 @@ export default function ContractsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="max-w-7xl mx-auto px-6 py-6">
+    <ProfileGuard>
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Contracts</h1>
           {clientProfile && (
@@ -171,6 +173,7 @@ export default function ContractsPage() {
           </div>
         )}
       </main>
-    </div>
+      </div>
+    </ProfileGuard>
   );
 }

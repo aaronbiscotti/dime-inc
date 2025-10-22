@@ -253,7 +253,8 @@ export default function CampaignDetails() {
                   <>
                     <button
                       onClick={() => setShowAmbassadorSelection(true)}
-                      className="flex items-center gap-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+                      disabled={true}
+                      className="flex items-center gap-1 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed opacity-50"
                     >
                       <Users className="w-4 h-4" />
                       Find Ambassadors

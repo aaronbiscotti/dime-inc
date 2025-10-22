@@ -8,10 +8,10 @@ import { campaignService } from "@/services/campaignService";
 import { Campaign } from "@/types/database";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProfileGuard } from "@/components/auth/ProfileGuard";
 
 export default function AmbassadorDashboard() {
-  const { user, profile, ambassadorProfile, loading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { ambassadorProfile } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const router = useRouter();
 
@@ -30,25 +30,12 @@ export default function AmbassadorDashboard() {
   }, [ambassadorProfile]);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.push("/login/brand-ambassador");
-      return;
-    }
-    if (profile?.role !== "ambassador") {
-      router.push("/client-dashboard");
-      return;
-    }
     loadCampaigns();
-    setLoading(false);
-  }, [user, profile, ambassadorProfile, authLoading, router, loadCampaigns]);
-
-  if (loading || authLoading) {
-    return null;
-  }
+  }, [loadCampaigns]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ProfileGuard>
+      <div className="min-h-screen bg-gray-50">
       <Navbar />
       <main className="max-w-7xl mx-auto px-6 py-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">
@@ -90,6 +77,7 @@ export default function AmbassadorDashboard() {
           )}
         </div>
       </main>
-    </div>
+      </div>
+    </ProfileGuard>
   );
 }
