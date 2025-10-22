@@ -288,8 +288,8 @@ class CampaignService {
           *,
           ambassador_profiles!inner(
             id,
-            name,
-            avatar_url,
+            full_name,
+            profile_photo_url,
             instagram_handle,
             tiktok_handle,
             twitter_handle
@@ -298,7 +298,18 @@ class CampaignService {
         .eq("campaign_id", campaignId);
 
       if (error) throw error;
-      return { data: data || [], error: null };
+      
+      // Transform the data to match AmbassadorSummary interface
+      const transformedData = data?.map((item: any) => ({
+        id: item.ambassador_profiles.id,
+        name: item.ambassador_profiles.full_name,
+        avatar_url: item.ambassador_profiles.profile_photo_url,
+        instagram_handle: item.ambassador_profiles.instagram_handle,
+        tiktok_handle: item.ambassador_profiles.tiktok_handle,
+        twitter_handle: item.ambassador_profiles.twitter_handle,
+      })) || [];
+      
+      return { data: transformedData, error: null };
     } catch (error) {
       return handleError(error, "getCampaignAmbassadors");
     }

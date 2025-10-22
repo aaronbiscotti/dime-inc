@@ -20,9 +20,9 @@ export interface Contract {
   id: string;
   contract_text: string | null;
   terms_accepted: boolean;
-  created_at: string;
-  campaign_ambassador_id: string;
-  client_id: string;
+  created_at: string | null;
+  campaign_ambassador_id: string | null;
+  client_id: string | null;
   ambassador_signed_at: string | null;
   client_signed_at: string | null;
   status: ContractStatus;
@@ -79,9 +79,13 @@ export const contractService = {
     try {
       const supabase = createClient();
       
+      // Generate a UUID for the contract
+      const contractId = crypto.randomUUID();
+      
       const { data: result, error } = await supabase
         .from("contracts")
         .insert({
+          id: contractId,
           payment_type: data.payment_type,
           target_impressions: data.target_impressions,
           cost_per_cpm: data.cost_per_cpm,
@@ -91,6 +95,8 @@ export const contractService = {
           contract_file_url: data.contract_file_url,
           campaign_ambassador_id: data.campaign_ambassador_id,
           client_id: data.client_id,
+          status: "draft",
+          terms_accepted: false,
         })
         .select()
         .single();
@@ -162,19 +168,64 @@ export const contractService = {
     try {
       const supabase = createClient();
       
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Get user's profile to check role and get ambassador/client profile ID
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select(`
+          id, 
+          role,
+          ambassador_profiles(id),
+          client_profiles(id)
+        `)
+        .eq("id", user.id)
+        .single();
+
+      if (!profile) {
+        throw new Error("User profile not found");
+      }
+
+      // Fetch the contract with related data
       const { data, error } = await supabase
         .from("contracts")
         .select(`
           *,
           campaign_ambassadors(
             campaigns(title),
-            ambassador_profiles(full_name)
+            ambassador_profiles(full_name, id)
           )
         `)
         .eq("id", contractId)
         .single();
 
       if (error) throw error;
+
+      // Check permission: user must be either the client or the ambassador
+      const isClient = profile.role === "client" && 
+        profile.client_profiles?.id === data.client_id;
+      const isAmbassador = profile.role === "ambassador" && 
+        profile.ambassador_profiles?.id === data.campaign_ambassadors?.ambassador_profiles?.id;
+
+      console.log("[ContractService] Permission check:", {
+        userRole: profile.role,
+        userId: profile.id,
+        userAmbassadorProfileId: profile.ambassador_profiles?.id,
+        userClientProfileId: profile.client_profiles?.id,
+        contractClientId: data.client_id,
+        contractAmbassadorId: data.campaign_ambassadors?.ambassador_profiles?.id,
+        isClient,
+        isAmbassador
+      });
+
+      if (!isClient && !isAmbassador) {
+        throw new Error("You don't have permission to view this contract");
+      }
+
       return data;
     } catch (error) {
       handleError(error, "getContract");

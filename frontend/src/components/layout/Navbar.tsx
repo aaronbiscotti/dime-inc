@@ -57,8 +57,8 @@ export function Navbar() {
                     href="/client-dashboard"
                     className={`text-sm font-medium transition-colors ${
                       pathname === "/client-dashboard"
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Dashboard
@@ -68,8 +68,8 @@ export function Navbar() {
                     href="/campaigns"
                     className={`text-sm font-medium transition-colors ${
                       pathname === "/campaigns"
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Campaigns
@@ -79,8 +79,8 @@ export function Navbar() {
                     href="/explore"
                     className={`text-sm font-medium transition-colors ${
                       pathname === "/explore"
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Explore
@@ -90,8 +90,8 @@ export function Navbar() {
                     href="/chats"
                     className={`text-sm font-medium transition-colors ${
                       pathname === "/chats"
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Chats
@@ -101,8 +101,8 @@ export function Navbar() {
                     href="/profile"
                     className={`text-sm font-medium transition-colors ${
                       pathname.startsWith("/profile")
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Profile
@@ -114,7 +114,7 @@ export function Navbar() {
                     className={`text-sm font-medium transition-colors ${
                       pathname.startsWith("/contracts")
                         ? "text-yellow-600 font-bold"
-                        : "text-gray-600 hover:text-yellow-600"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Contracts
@@ -127,8 +127,8 @@ export function Navbar() {
                     href="/ambassador-dashboard"
                     className={`text-sm font-medium transition-colors ${
                       pathname === "/ambassador-dashboard"
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Dashboard
@@ -138,8 +138,8 @@ export function Navbar() {
                     href="/profile"
                     className={`text-sm font-medium transition-colors ${
                       pathname.startsWith("/profile")
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Profile
@@ -149,8 +149,8 @@ export function Navbar() {
                     href="/explore"
                     className={`text-sm font-medium transition-colors ${
                       pathname === "/explore"
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Explore
@@ -160,11 +160,22 @@ export function Navbar() {
                     href="/chats"
                     className={`text-sm font-medium transition-colors ${
                       pathname === "/chats"
-                        ? "text-gray-900"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
                     Chats
+                  </Link>
+
+                  <Link
+                    href="/contracts"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname.startsWith("/contracts")
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
+                    }`}
+                  >
+                    Contracts
                   </Link>
                 </>
               )}

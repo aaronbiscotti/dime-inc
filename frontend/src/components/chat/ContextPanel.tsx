@@ -30,7 +30,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [contract, setContract] = useState<Contract | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showContractModal, setShowContractModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -109,20 +108,15 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
 
     let ambassadorId = "";
     if (otherParticipant.role === "ambassador") {
-      // The user_id is what we need to link to the ambassador_profile, but the otherParticipant object might have the profile id as `id`
-      // Let's assume the API for getOtherParticipant returns the ambassador_profile id correctly.
-      // The `id` on the ambassador object in the explore endpoint is the `user_id`, but here it might be the profile id.
-      // To be safe, let's check for both. In our backend, ambassador_profiles `id` is what's needed.
-      // And the getOtherParticipant returns the profile data, so we can get the profile id.
-      // Let's assume the service returns the ambassador_profile id as `id` on the participant object
-      const participantAsAny = otherParticipant as any;
-      ambassadorId = participantAsAny.id || participantAsAny.profileId;
+      // Use the ambassador_profile_id which is the correct ID for contract creation
+      ambassadorId = (otherParticipant as any).ambassador_profile_id || "";
     }
 
     let url = "/contracts/new";
     if (ambassadorId) {
       url += `?ambassador=${ambassadorId}`;
     }
+
     router.push(url);
   };
 
@@ -221,7 +215,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => setShowContractModal(true)}
+              onClick={() => router.push(`/contracts/${contract.id}`)}
             >
               <EyeIcon className="w-5 h-5 mr-2" /> View contract
             </Button>

@@ -21,7 +21,9 @@ export default function AmbassadorDashboard() {
       const { data } = await campaignService.getCampaignsForAmbassador(
         ambassadorProfile.id
       );
-      setCampaigns(data || []);
+      // Extract campaigns from the nested structure
+      const campaigns = data?.map((item: any) => item.campaigns).filter(Boolean) || [];
+      setCampaigns(campaigns);
     } catch (e) {
       console.error("Failed to load ambassador campaigns", e);
     }

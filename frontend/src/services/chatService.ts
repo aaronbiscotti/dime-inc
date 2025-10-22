@@ -26,6 +26,9 @@ export interface ChatParticipant {
   industry?: string | null;
   logo_url?: string | null;
   website?: string | null;
+  // Profile IDs for contract creation
+  ambassador_profile_id?: string | null;
+  client_profile_id?: string | null;
 }
 
 export interface ChatRoom {
@@ -543,7 +546,7 @@ class ChatService {
         .from("chat_participants")
         .select("*")
         .eq("chat_room_id", chatRoomId)
-        .eq("user_id", user?.id);
+        .eq("user_id", user?.id || "");
       
       console.log("[ChatService] Debug: Current user participation:", { data: userParticipation, error: userError });
       
@@ -743,6 +746,9 @@ class ChatService {
         industry: p.profiles.client_profiles?.industry,
         logo_url: p.profiles.client_profiles?.logo_url,
         website: p.profiles.client_profiles?.website,
+        // Add ambassador_profile_id for contract creation
+        ambassador_profile_id: p.profiles.ambassador_profiles?.id,
+        client_profile_id: p.profiles.client_profiles?.id,
       })) || [];
 
       console.log("[ChatService] Transformed participants:", participants);
