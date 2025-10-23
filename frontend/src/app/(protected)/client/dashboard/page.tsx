@@ -1,9 +1,19 @@
 import { getClientWithProfile } from "@/lib/auth/server";
+import { getClientCampaignsAction } from "@/app/(protected)/campaigns/actions";
 import { Navbar } from "@/components/layout/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import ClientDashboardClient from "@/components/dashboard/ClientDashboardClient";
 
-export default async function ClientDashboard() {
+export default async function ClientDashboardPage() {
   const { clientProfile } = await getClientWithProfile();
+
+  if (!clientProfile) {
+    return <div>Profile not found</div>;
+  }
+
+  // Fetch client's campaigns
+  const campaignsResult = await getClientCampaignsAction();
+  const campaigns = campaignsResult.ok ? campaignsResult.data : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -14,21 +24,15 @@ export default async function ClientDashboard() {
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Client Dashboard
+                  Your Campaigns
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">
-                      Welcome back, {clientProfile?.company_name || "Client"}!
-                    </h3>
-                    <p className="text-gray-600">
-                      Manage your campaigns and connect with talented
-                      ambassadors.
-                    </p>
-                  </div>
-                </div>
+                <ClientDashboardClient
+                  userId={clientProfile.id}
+                  role="client"
+                  campaigns={campaigns}
+                />
               </CardContent>
             </Card>
 
@@ -47,13 +51,13 @@ export default async function ClientDashboard() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Company</span>
                     <span className="text-sm font-semibold">
-                      {clientProfile?.company_name || "Not set"}
+                      {clientProfile.company_name}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Joined</span>
                     <span className="text-sm">
-                      {clientProfile?.created_at
+                      {clientProfile.created_at
                         ? new Date(
                             clientProfile.created_at
                           ).toLocaleDateString()

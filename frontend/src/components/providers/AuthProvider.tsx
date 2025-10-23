@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Database } from "@/types/database";
 
@@ -15,6 +15,7 @@ interface AuthContextType {
   profile: Profile | null;
   ambassadorProfile: AmbassadorProfile | null;
   clientProfile: ClientProfile | null;
+  userRole: "client" | "ambassador" | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   ambassadorProfile: null,
   clientProfile: null,
+  userRole: null,
   loading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
@@ -40,9 +42,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(
     null
   );
+  const [userRole, setUserRole] = useState<"client" | "ambassador" | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
 
-  const supabase = createClient();
+  const supabase = supabaseBrowser();
 
   async function fetchUserProfile(userId: string) {
     try {
@@ -64,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log("Profile data", profileData);
       setProfile(profileData);
+      setUserRole(profileData?.role as "client" | "ambassador" | null);
 
       // Fetch role-specific profile
       if (profileData?.role === "ambassador") {
@@ -115,11 +121,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setAmbassadorProfile(null);
-    setClientProfile(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Client-side sign out error:", error);
+    } finally {
+      // Always clear state, even if signOut fails
+      setUser(null);
+      setProfile(null);
+      setAmbassadorProfile(null);
+      setClientProfile(null);
+      setUserRole(null);
+    }
   }
 
   // Manual method to clear all state (useful after server actions)
@@ -128,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     setAmbassadorProfile(null);
     setClientProfile(null);
+    setUserRole(null);
     setLoading(false);
   }
 
@@ -162,6 +176,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("Error checking initial session:", error);
         if (mounted) {
+          setUser(null);
+          setProfile(null);
+          setAmbassadorProfile(null);
+          setClientProfile(null);
           setLoading(false);
         }
       }
@@ -170,11 +188,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check session immediately
     checkInitialSession();
 
+    // Add a timeout to ensure loading doesn't get stuck
+    const timeoutId = setTimeout(() => {
+      if (mounted && loading) {
+        console.log("Auth loading timeout - forcing loading to false");
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
     // onAuthStateChange fires an INITIAL_SESSION event on page load,
     // which is more reliable than getSession() after a redirect.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (!mounted) {
         return;
       }
@@ -199,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,6 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         ambassadorProfile,
         clientProfile,
+        userRole,
         loading,
         signOut,
         refreshProfile,

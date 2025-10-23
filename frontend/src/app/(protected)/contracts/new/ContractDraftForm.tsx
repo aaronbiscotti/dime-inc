@@ -3,8 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { Paperclip, FileText, Eye, Calendar, CheckCircle } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { campaignService } from "@/services/campaignService";
-import { contractService } from "@/services/contractService";
+import { getCampaignsAction } from "@/app/(protected)/explore/actions";
+import {
+  getCampaignAmbassadorsAction,
+  getCampaignAmbassadorRowsAction,
+} from "@/app/(protected)/campaigns/actions";
+import { createContractAction } from "@/app/(protected)/contracts/actions";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import ContractTextEditor from "./ContractTextEditor";
@@ -68,10 +72,9 @@ export default function ContractDraftForm({
       // For each campaign, fetch ambassadors and check if ambassadorId is present
       (async () => {
         for (const campaign of campaigns) {
-          const { data: ambs } = await campaignService.getCampaignAmbassadors(
-            campaign.id
-          );
-          if (ambs && ambs.some((a) => a.id === ambassadorId)) {
+          const result = await getCampaignAmbassadorsAction(campaign.id);
+          const ambs = result.ok ? result.data : [];
+          if (ambs && ambs.some((a: any) => a.id === ambassadorId)) {
             setSelectedCampaignId(campaign.id);
             setSelectedAmbassadorIds([ambassadorId]);
             break;
@@ -89,18 +92,24 @@ export default function ContractDraftForm({
   useEffect(() => {
     if (!clientProfile) return;
     setLoadingCampaigns(true);
-    campaignService
-      .getMyClientCampaigns()
-      .then((result) => {
-        if (!result.error && result.data) {
-          // Only include active campaigns
-          const activeCampaigns = (result.data || []).filter(
-            (c) => c.status === "active"
-          );
-          setCampaigns(activeCampaigns);
-        }
-      })
-      .finally(() => setLoadingCampaigns(false));
+
+    const fetchCampaigns = async () => {
+      try {
+        const result = await getCampaignsAction();
+        const campaigns = result.ok ? result.data : [];
+        // Only include active campaigns
+        const activeCampaigns = campaigns.filter(
+          (c: any) => c.status === "active"
+        );
+        setCampaigns(activeCampaigns);
+      } catch (error) {
+        console.error("Error fetching campaigns:", error);
+      } finally {
+        setLoadingCampaigns(false);
+      }
+    };
+
+    fetchCampaigns();
   }, [clientProfile]);
 
   // Fetch ambassadors when campaign changes
@@ -112,11 +121,20 @@ export default function ContractDraftForm({
     const selected = campaigns.find((c) => c.id === selectedCampaignId);
     if (selected && selected.description) setDescription(selected.description);
     setLoadingAmbassadors(true);
-    // Placeholder: implement this in campaignService if not present
-    campaignService
-      .getCampaignAmbassadors(selectedCampaignId)
-      .then(({ data }) => setAmbassadors(data || []))
-      .finally(() => setLoadingAmbassadors(false));
+    const fetchAmbassadors = async () => {
+      try {
+        const result = await getCampaignAmbassadorsAction(selectedCampaignId);
+        const ambassadors = result.ok ? result.data : [];
+        setAmbassadors(ambassadors || []);
+      } catch (error) {
+        console.error("Error fetching ambassadors:", error);
+        setAmbassadors([]);
+      } finally {
+        setLoadingAmbassadors(false);
+      }
+    };
+
+    fetchAmbassadors();
   }, [selectedCampaignId, campaigns]);
 
   // File input handler
@@ -163,17 +181,14 @@ export default function ContractDraftForm({
   const handleSaveFromEditor = async (text: string) => {
     try {
       // Fetch campaign_ambassadors join table rows for the selected campaign
-      const caResult = await campaignService.getCampaignAmbassadorRows(
+      const caResult = await getCampaignAmbassadorRowsAction(
         selectedCampaignId
       ); // This returns [{ id, ambassador_id, ... }]
       console.log("Selected campaign:", selectedCampaignId);
       console.log("Selected ambassadorIds:", selectedAmbassadorIds);
-      console.log(
-        "campaignService.getCampaignAmbassadorRows result:",
-        caResult.data
-      );
+      console.log("getCampaignAmbassadorRows result:", caResult);
       // Find the campaign_ambassador row for the selected ambassador
-      if (!caResult.data || caResult.error) {
+      if (!caResult.ok || !caResult.data) {
         alert("Failed to fetch campaign ambassadors.");
         return;
       }
@@ -194,14 +209,19 @@ export default function ContractDraftForm({
         alert("Client profile not found.");
         return;
       }
-      await contractService.createContract({
-        contract_text: text,
-        payment_type: payType === "post" ? "pay_per_post" : "pay_per_cpm",
-        start_date: startDate || undefined,
-        campaign_ambassador_id: caRow.id, // correct join table FK
-        client_id: clientProfile.id, // correct client FK
-        // Add more fields as needed
-      });
+      const formData = new FormData();
+      formData.append("contractText", text);
+      formData.append(
+        "paymentType",
+        payType === "post" ? "pay_per_post" : "pay_per_cpm"
+      );
+      formData.append("startDate", startDate || "");
+      formData.append("campaignAmbassadorId", caRow.id);
+
+      const result = await createContractAction(null, formData);
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
       router.push("/contracts");
       router.refresh();
     } catch (err) {

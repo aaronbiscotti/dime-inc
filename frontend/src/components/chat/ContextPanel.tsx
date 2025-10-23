@@ -15,10 +15,40 @@ import { ActivityTimeline } from "./ActivityTimeline";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 type Contract = Database["public"]["Tables"]["contracts"]["Row"];
-import { chatService, ChatParticipant, ChatRoom } from "@/services/chatService";
+// Types defined locally since they're not exported from actions
+interface ChatParticipant {
+  id: string;
+  user_id: string;
+  profiles: {
+    id: string;
+    email: string | null;
+    role: string;
+    ambassador_profiles?: {
+      id: string;
+      full_name: string;
+      profile_photo_url: string | null;
+      instagram_handle: string | null;
+    };
+    client_profiles?: {
+      id: string;
+      company_name: string;
+      logo_url: string | null;
+    };
+  };
+}
+
+interface ChatRoom {
+  id: string;
+  name: string | null;
+  is_group: boolean | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 interface ContextPanelProps {
   selectedChatId: string | null;
@@ -27,6 +57,7 @@ interface ContextPanelProps {
 
 export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const { user } = useAuth();
+  const supabase = supabaseBrowser();
   const [isGroupChat, setIsGroupChat] = useState(false);
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
   const [otherParticipant, setOtherParticipant] =
@@ -55,7 +86,11 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
       try {
         console.log("[ContextPanel] Loading chat context for:", selectedChatId);
 
-        const chatRoomRes = await chatService.getChatRoom(selectedChatId);
+        const chatRoomRes = await supabase
+          .from("chat_rooms")
+          .select("*")
+          .eq("id", selectedChatId)
+          .single();
         if (chatRoomRes.error || !chatRoomRes.data) {
           console.error(
             "[ContextPanel] Failed to load chat room:",
@@ -65,13 +100,19 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         }
 
         const isGroup = chatRoomRes.data.is_group;
-        setIsGroupChat(isGroup);
+        setIsGroupChat(!!isGroup);
         console.log("[ContextPanel] Chat room loaded, isGroup:", isGroup);
 
         if (isGroup) {
-          const participantsRes = await chatService.getParticipants(
-            selectedChatId
-          );
+          const participantsRes = await supabase
+            .from("chat_participants")
+            .select(
+              `
+              *,
+              profiles!inner(*)
+            `
+            )
+            .eq("chat_room_id", selectedChatId);
           if (participantsRes.error) {
             console.error(
               "[ContextPanel] Failed to load participants:",
@@ -79,15 +120,25 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             );
             throw new Error("Failed to load participants");
           }
-          setParticipants(participantsRes.data || []);
+          setParticipants(
+            (participantsRes.data || []) as unknown as ChatParticipant[]
+          );
           console.log(
             "[ContextPanel] Participants loaded:",
             participantsRes.data?.length
           );
         } else {
-          const participantRes = await chatService.getOtherParticipant(
-            selectedChatId
-          );
+          const participantRes = await supabase
+            .from("chat_participants")
+            .select(
+              `
+              *,
+              profiles!inner(*)
+            `
+            )
+            .eq("chat_room_id", selectedChatId)
+            .neq("user_id", user?.id || "")
+            .single();
           if (participantRes.error || !participantRes.data) {
             console.error(
               "[ContextPanel] Failed to load other participant:",
@@ -95,7 +146,11 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             );
 
             // Check if this is an orphaned chat that should be cleaned up
-            if (participantRes.error?.shouldRemove) {
+            if (
+              participantRes.error &&
+              "shouldRemove" in participantRes.error &&
+              participantRes.error.shouldRemove
+            ) {
               console.log(
                 "[ContextPanel] Chat appears to be orphaned, attempting cleanup"
               );
@@ -106,15 +161,19 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
 
             throw new Error("Failed to load participant information");
           }
-          setOtherParticipant(participantRes.data);
+          setOtherParticipant(
+            participantRes.data as unknown as ChatParticipant
+          );
           console.log(
             "[ContextPanel] Other participant loaded:",
-            participantRes.data.name
+            participantRes.data.profiles?.email
           );
 
-          const contractRes = await chatService.getContractByChatId(
-            selectedChatId
-          );
+          const contractRes = await supabase
+            .from("contracts")
+            .select("*")
+            .eq("chat_room_id", selectedChatId)
+            .single();
           if (!contractRes.error && contractRes.data) {
             setContract(contractRes.data);
             console.log("[ContextPanel] Contract loaded:", contractRes.data.id);
@@ -123,28 +182,41 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           }
 
           // Fetch campaign ambassador status
-          const campaignAmbassadorRes = await chatService.getCampaignAmbassadorStatus(
-            selectedChatId
-          );
+          const campaignAmbassadorRes = await supabase
+            .from("campaign_ambassadors")
+            .select("*")
+            .eq("chat_room_id", selectedChatId)
+            .single();
           if (!campaignAmbassadorRes.error && campaignAmbassadorRes.data) {
             let campaignAmbassadorData = campaignAmbassadorRes.data;
-            
+
             // Frontend guard: If contract is active but campaign_ambassador_status is not contract_signed,
             // override the status to show the correct state
-            if (contractRes.data && (contractRes.data as any).status === "active" && 
-                campaignAmbassadorData.status !== "contract_signed") {
-              console.log("[ContextPanel] Frontend guard: Contract is active but campaign_ambassador_status is", 
-                campaignAmbassadorData.status, "- overriding to contract_signed");
+            if (
+              contractRes.data &&
+              (contractRes.data as any).status === "active" &&
+              campaignAmbassadorData.status !== "contract_signed"
+            ) {
+              console.log(
+                "[ContextPanel] Frontend guard: Contract is active but campaign_ambassador_status is",
+                campaignAmbassadorData.status,
+                "- overriding to contract_signed"
+              );
               campaignAmbassadorData = {
                 ...campaignAmbassadorData,
-                status: "contract_signed"
+                status: "contract_signed",
               };
             }
-            
+
             setCampaignAmbassador(campaignAmbassadorData);
-            console.log("[ContextPanel] Campaign ambassador status loaded:", campaignAmbassadorData.status);
+            console.log(
+              "[ContextPanel] Campaign ambassador status loaded:",
+              campaignAmbassadorData.status
+            );
           } else {
-            console.log("[ContextPanel] No campaign ambassador found for this chat");
+            console.log(
+              "[ContextPanel] No campaign ambassador found for this chat"
+            );
           }
         }
       } catch (err) {
@@ -164,7 +236,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     if (!otherParticipant) return;
 
     let ambassadorId = "";
-    if (otherParticipant.role === "ambassador") {
+    if (otherParticipant.profiles.role === "ambassador") {
       // Use the ambassador_profile_id which is the correct ID for contract creation
       ambassadorId = (otherParticipant as any).ambassador_profile_id || "";
     }
@@ -184,13 +256,14 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     }
 
     try {
-      const { data: chatRoom, error: chatError } = await chatService.createChat(
-        {
-          participant_id: participant.user_id,
-          participant_name: participant.name,
-          participant_role: participant.role,
-        }
-      );
+      const { data: chatRoom, error: chatError } = await supabase
+        .from("chat_rooms")
+        .insert({
+          name: "Direct Chat",
+          is_group: false,
+        })
+        .select()
+        .single();
 
       if (chatError || !chatRoom) {
         console.error("Failed to create or find private chat:", chatError);
@@ -235,7 +308,9 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const SingleParticipantView = () => {
     if (!otherParticipant) return null;
     let avatar: string | null =
-      otherParticipant.profile_photo || otherParticipant.logo_url || null;
+      otherParticipant.profiles?.ambassador_profiles?.profile_photo_url ||
+      otherParticipant.profiles?.client_profiles?.logo_url ||
+      null;
 
     return (
       <>
@@ -244,14 +319,14 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
           {avatar ? (
             <Image
               src={avatar}
-              alt={otherParticipant.name}
+              alt={otherParticipant.profiles?.email || "Unknown"}
               width={80}
               height={80}
               className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-gray-600">
-              {otherParticipant.name.charAt(0)}
+              {(otherParticipant.profiles?.email || "U").charAt(0)}
             </div>
           )}
         </div>
@@ -259,10 +334,10 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
         {/* Name & Role */}
         <div className="text-center mb-2">
           <h3 className="font-semibold text-gray-900 text-lg">
-            {otherParticipant.name}
+            {otherParticipant.profiles?.email || "Unknown"}
           </h3>
           <p className="text-sm text-gray-500 capitalize">
-            {otherParticipant.role}
+            {otherParticipant.profiles.role}
           </p>
         </div>
         <hr className="w-full border-gray-300 mb-4" />
@@ -292,7 +367,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             </Button>
           )}
         </div>
-        
+
         {/* Activity Timeline */}
         {campaignAmbassador && (
           <div className="mt-6">
@@ -320,7 +395,9 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
       </div>
       <div className="space-y-3">
         {participants.map((p) => {
-          const avatar = p.profile_photo || p.logo_url;
+          const avatar =
+            p.profiles?.ambassador_profiles?.profile_photo_url ||
+            p.profiles?.client_profiles?.logo_url;
           const isClickable = userRole === "client" && p.user_id !== user?.id;
           return (
             <div
@@ -334,22 +411,26 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
                 {avatar ? (
                   <Image
                     src={avatar}
-                    alt={p.name}
+                    alt={p.profiles?.email || "Unknown"}
                     width={40}
                     height={40}
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <span className="text-gray-600 font-medium">
-                    {p.name.charAt(0)}
+                    {(p.profiles?.email || "U").charAt(0)}
                   </span>
                 )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm text-gray-800 truncate">
-                  {p.user_id === user?.id ? "You" : p.name}
+                  {p.user_id === user?.id
+                    ? "You"
+                    : p.profiles?.email || "Unknown"}
                 </p>
-                <p className="text-xs text-gray-500 capitalize">{p.role}</p>
+                <p className="text-xs text-gray-500 capitalize">
+                  {p.profiles.role}
+                </p>
               </div>
             </div>
           );

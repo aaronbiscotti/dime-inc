@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { supabaseBrowser } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,7 +29,7 @@ export default function AmbassadorOnboardingPage() {
     setError(null)
 
     try {
-      const supabase = createClient()
+      const supabase = supabaseBrowser()
       
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser()

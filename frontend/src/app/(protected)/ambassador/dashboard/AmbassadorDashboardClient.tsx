@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { campaignService } from "@/services/campaignService";
+import { getCampaignsAction } from "@/app/(protected)/explore/actions";
 import { Database } from "@/types/database";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,13 @@ export function AmbassadorDashboardClient({
   const loadCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await campaignService.getCampaignsForAmbassador(
-        ambassadorId
-      );
-      // Extract campaigns from the nested structure
-      const campaigns =
-        data?.map((item: any) => item.campaigns).filter(Boolean) || [];
-      setCampaigns(campaigns);
+      const result = await getCampaignsAction();
+      if (result.ok) {
+        setCampaigns(result.data);
+      } else {
+        console.error("Failed to load campaigns:", result.error);
+        setCampaigns([]);
+      }
     } catch (e) {
       console.error("Failed to load ambassador campaigns", e);
     } finally {

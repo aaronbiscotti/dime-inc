@@ -1,19 +1,38 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { signOut } from "@/app/auth/actions";
 import Image from "next/image";
 
 export function Navbar() {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading, clearAuthState } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut(); // Call the AuthProvider's signOut to clear local state
-    router.push("/"); // Then navigate to root
+    if (signingOut) return; // Prevent multiple clicks
+
+    setSigningOut(true);
+    try {
+      // Clear client-side state immediately for better UX
+      clearAuthState();
+
+      // Call server action to sign out and redirect
+      await signOut();
+    } catch (error) {
+      console.error("Sign out error:", error);
+      // Even if there's an error, clear local state and redirect
+      clearAuthState();
+      // Force a hard refresh to ensure all server state is cleared
+      window.location.href = "/";
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   // Show loading skeleton while auth state is being determined
@@ -200,8 +219,12 @@ export function Navbar() {
 
           {/* Sign Out Button */}
           <div>
-            <Button onClick={handleSignOut} variant="outline">
-              Sign Out
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              disabled={signingOut}
+            >
+              {signingOut ? "Signing Out..." : "Sign Out"}
             </Button>
           </div>
         </div>

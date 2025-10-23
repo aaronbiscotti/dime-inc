@@ -8,7 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Modal } from "@/components/ui/modal";
 import { Calendar, DollarSign, Users } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { campaignService } from "@/services/campaignService";
+import {
+  createCampaignAction,
+  updateCampaignStatus,
+} from "@/app/(protected)/campaigns/actions";
 import { useRouter } from "next/navigation";
 
 interface CreateCampaignModalProps {
@@ -52,7 +55,10 @@ export function CreateCampaignModal({
     max_ambassadors: 1,
   });
 
-  const handleInputChange = (field: keyof CampaignFormData, value: string | number) => {
+  const handleInputChange = (
+    field: keyof CampaignFormData,
+    value: string | number
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -66,25 +72,28 @@ export function CreateCampaignModal({
 
     setIsCreating(true);
     try {
-      const { data: campaign, error } = await campaignService.createCampaign({
-        title: formData.title,
-        description: formData.description,
-        budget_min: formData.budget_min,
-        budget_max: formData.budget_max,
-        deadline: formData.deadline,
-        requirements: formData.requirements,
-        proposal_message: formData.proposal_message,
-        max_ambassadors: formData.max_ambassadors,
-        client_id: clientProfile.id,
-      });
+      const formDataForAction = new FormData();
+      formDataForAction.append("title", formData.title);
+      formDataForAction.append("description", formData.description);
+      formDataForAction.append("budget_min", formData.budget_min.toString());
+      formDataForAction.append("budget_max", formData.budget_max.toString());
+      formDataForAction.append("deadline", formData.deadline);
+      formDataForAction.append("requirements", formData.requirements);
+      formDataForAction.append("proposal_message", formData.proposal_message);
+      formDataForAction.append(
+        "max_ambassadors",
+        formData.max_ambassadors.toString()
+      );
 
-      if (error || !campaign) {
-        console.error("Error creating campaign:", error);
+      const result = await createCampaignAction(null, formDataForAction);
+
+      if (!result.ok) {
+        console.error("Error creating campaign:", result.error);
         return;
       }
 
-      setCreatedCampaignId(campaign.id as string);
-      onCampaignCreated?.(campaign);
+      setCreatedCampaignId(result.data.id as string);
+      onCampaignCreated?.(result.data);
       setStep(2); // Move to activation step
     } catch (error) {
       console.error("Error creating campaign:", error);
@@ -97,7 +106,11 @@ export function CreateCampaignModal({
     if (!createdCampaignId) return;
     setIsCreating(true);
     try {
-      await campaignService.updateCampaignStatus(createdCampaignId, "active");
+      const formData = new FormData();
+      formData.append("id", createdCampaignId);
+      formData.append("status", "active");
+
+      await updateCampaignStatus(formData);
       router.push(`/campaigns/${createdCampaignId}`);
     } catch (error) {
       console.error("Error activating campaign", error);
@@ -163,7 +176,12 @@ export function CreateCampaignModal({
                   min="0"
                   step="100"
                   value={formData.budget_min}
-                  onChange={(e) => handleInputChange("budget_min", parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "budget_min",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
                   placeholder="1000"
                   className="pl-9"
                   required
@@ -180,7 +198,12 @@ export function CreateCampaignModal({
                   min="0"
                   step="100"
                   value={formData.budget_max}
-                  onChange={(e) => handleInputChange("budget_max", parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "budget_max",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
                   placeholder="5000"
                   className="pl-9"
                   required
@@ -199,7 +222,9 @@ export function CreateCampaignModal({
                   id="deadline"
                   type="date"
                   value={formData.deadline}
-                  onChange={(e) => handleInputChange("deadline", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("deadline", e.target.value)
+                  }
                   className="pl-9"
                   required
                 />
@@ -215,7 +240,12 @@ export function CreateCampaignModal({
                   min="1"
                   max="50"
                   value={formData.max_ambassadors}
-                  onChange={(e) => handleInputChange("max_ambassadors", parseInt(e.target.value) || 1)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "max_ambassadors",
+                      parseInt(e.target.value) || 1
+                    )
+                  }
                   placeholder="5"
                   className="pl-9"
                   required
@@ -230,7 +260,9 @@ export function CreateCampaignModal({
             <Textarea
               id="requirements"
               value={formData.requirements}
-              onChange={(e) => handleInputChange("requirements", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("requirements", e.target.value)
+              }
               placeholder="List the specific requirements for this campaign..."
               rows={4}
               required
@@ -243,7 +275,9 @@ export function CreateCampaignModal({
             <Textarea
               id="proposal_message"
               value={formData.proposal_message}
-              onChange={(e) => handleInputChange("proposal_message", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("proposal_message", e.target.value)
+              }
               placeholder="Write a message to ambassadors about this campaign opportunity..."
               rows={3}
             />

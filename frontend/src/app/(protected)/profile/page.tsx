@@ -3,10 +3,7 @@ import {
   getClientWithProfile,
   getAmbassadorWithProfile,
 } from "@/lib/auth/server";
-import {
-  getAmbassadorPortfolio,
-  getClientCampaignsForProfile,
-} from "@/lib/profile/server";
+// Note: Portfolio and campaign data will be fetched client-side
 import { Navbar } from "@/components/layout/Navbar";
 import { ProfileSidebarClient } from "@/components/profile/ProfileSidebarClient";
 import { ProfileClient } from "@/components/profile/ProfileClient";
@@ -30,13 +27,11 @@ export default async function Profile() {
       user.id
     );
     ambassadorProfile = ambassador;
-    if (ambassadorProfile) {
-      portfolioItems = await getAmbassadorPortfolio(ambassadorProfile.id);
-    }
+    // Portfolio items will be fetched client-side
   } else if (profile.role === "client") {
     const { clientProfile: client } = await getClientWithProfile(user.id);
     clientProfile = client;
-    campaigns = await getClientCampaignsForProfile(user.id);
+    // Campaigns will be fetched client-side
   }
 
   return (

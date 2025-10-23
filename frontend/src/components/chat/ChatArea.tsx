@@ -12,22 +12,30 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/AuthProvider";
-import {
-  chatService,
-  type Message as ChatMessage,
-  type ChatParticipant,
-} from "@/services/chatService";
-import { createClient } from "@/lib/supabase/client";
+import { Database } from "@/types/database";
+
+type ChatMessage = Database["public"]["Tables"]["messages"]["Row"];
+type ChatParticipant = Database["public"]["Tables"]["chat_participants"]["Row"];
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 import { MessageStatus } from "./MessageStatus";
 import { Modal } from "@/components/ui/modal";
 
-interface Message extends ChatMessage {
+interface Message {
+  id: string;
+  chat_room_id: string;
+  sender_id: string;
+  content: string | null;
+  created_at: string | null;
+  edited_at: string | null;
+  file_url: string | null;
+  message_type: string | null;
+  metadata: any;
+  reply_to_message_id: string | null;
   sender_name?: string;
   status?: "sending" | "sent" | "delivered" | "read" | "error";
   read_by?: Record<string, string>;
-  reply_to_message_id?: string;
 }
 
 interface ChatAreaProps {
@@ -44,7 +52,7 @@ export function ChatArea({
   onChatDeleted,
 }: ChatAreaProps) {
   const { user } = useAuth();
-  const supabase = createClient();
+  const supabase = supabaseBrowser();
 
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -90,8 +98,17 @@ export function ChatArea({
       try {
         // Fetch all data in parallel for better performance
         const [chatRoomResult, messagesResult] = await Promise.all([
-          chatService.getChatRoom(selectedChatId),
-          chatService.getMessages(selectedChatId, 100),
+          supabase
+            .from("chat_rooms")
+            .select("*")
+            .eq("id", selectedChatId)
+            .single(),
+          supabase
+            .from("messages")
+            .select("*")
+            .eq("chat_room_id", selectedChatId)
+            .order("created_at", { ascending: true })
+            .limit(100),
         ]);
 
         if (chatRoomResult.error) {
@@ -104,12 +121,22 @@ export function ChatArea({
 
         // Handle participant info
         if (!chatRoom?.is_group) {
-          const participantResult = await chatService.getOtherParticipant(
-            selectedChatId
-          );
+          const participantResult = await supabase
+            .from("chat_participants")
+            .select(
+              `
+              *,
+              profiles!inner(*)
+            `
+            )
+            .eq("chat_room_id", selectedChatId)
+            .neq("user_id", user.id)
+            .single();
           if (participantResult.data) {
             setOtherParticipant(participantResult.data);
-            setChatDisplayName(`Chat with ${participantResult.data.name}`);
+            setChatDisplayName(
+              `Chat with ${participantResult.data.profiles?.email || "Unknown"}`
+            );
           } else {
             setChatDisplayName("Private Chat");
           }
@@ -124,8 +151,8 @@ export function ChatArea({
             sender_name:
               msg.sender_id === user?.id
                 ? "You"
-                : otherParticipant?.name || "Unknown",
-            reply_to_message_id: msg.reply_to_message_id || undefined,
+                : (otherParticipant as any)?.profiles?.email || "Unknown",
+            reply_to_message_id: msg.reply_to_message_id,
           }));
           setMessages(enrichedMessages);
         }
@@ -160,7 +187,7 @@ export function ChatArea({
           table: "messages",
           filter: `chat_room_id=eq.${selectedChatId}`,
         },
-        async (payload) => {
+        async (payload: any) => {
           const newMessage = payload.new as Message;
 
           // Don't add optimistic messages from current user (they're handled separately)
@@ -181,7 +208,8 @@ export function ChatArea({
           // For messages from others, enrich and add
           let senderName = "Unknown";
           if (otherParticipant && newMessage.sender_id !== user?.id) {
-            senderName = otherParticipant.name;
+            senderName =
+              (otherParticipant as any)?.profiles?.email || "Unknown";
           }
 
           const enrichedMessage = {
@@ -229,7 +257,12 @@ export function ChatArea({
     }
 
     try {
-      const result = await chatService.getMessages(selectedChatId, 100);
+      const result = await supabase
+        .from("messages")
+        .select("*")
+        .eq("chat_room_id", selectedChatId)
+        .order("created_at", { ascending: true })
+        .limit(100);
 
       if (result.error) {
         if (!silent) {
@@ -245,8 +278,9 @@ export function ChatArea({
           if (otherParticipant && msg.sender_id !== user?.id) {
             return {
               ...msg,
-              sender_name: otherParticipant.name,
-              reply_to_message_id: msg.reply_to_message_id || undefined,
+              sender_name:
+                (otherParticipant as any)?.profiles?.email || "Unknown",
+              reply_to_message_id: msg.reply_to_message_id,
             };
           }
 
@@ -255,7 +289,7 @@ export function ChatArea({
             return {
               ...msg,
               sender_name: "You",
-              reply_to_message_id: msg.reply_to_message_id || undefined,
+              reply_to_message_id: msg.reply_to_message_id,
             };
           }
 
@@ -264,7 +298,7 @@ export function ChatArea({
           return {
             ...msg,
             sender_name: "Unknown",
-            reply_to_message_id: msg.reply_to_message_id || undefined,
+            reply_to_message_id: msg.reply_to_message_id,
           };
         })
       );
@@ -336,8 +370,12 @@ export function ChatArea({
       sender_name: "You",
       content: messageContent,
       created_at: new Date().toISOString(),
+      edited_at: null,
+      file_url: null,
+      message_type: null,
+      metadata: null,
       status: "sending",
-      reply_to_message_id: replyingTo?.id,
+      reply_to_message_id: replyingTo?.id || null,
     };
 
     // Add optimistic message immediately
@@ -348,7 +386,9 @@ export function ChatArea({
     setErrorMessage(null);
 
     try {
-      const result = await chatService.sendMessage(selectedChatId, {
+      const result = await supabase.from("messages").insert({
+        chat_room_id: selectedChatId,
+        sender_id: user.id,
         content: messageContent,
         file_url: optimisticMessage.file_url,
         reply_to_message_id: optimisticMessage.reply_to_message_id,
@@ -359,19 +399,26 @@ export function ChatArea({
       }
 
       // Update optimistic message with real message data
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === optimisticId
-            ? {
-                ...result.data,
-                sender_name: "You",
-                status: "sent" as const,
-                reply_to_message_id:
-                  result.data.reply_to_message_id || undefined,
-              }
-            : m
-        )
-      );
+      if (
+        result.data &&
+        Array.isArray(result.data) &&
+        (result.data as any[]).length > 0
+      ) {
+        const messageData = result.data[0] as any;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === optimisticId
+              ? {
+                  ...m,
+                  ...messageData,
+                  sender_name: "You",
+                  status: "sent" as const,
+                  reply_to_message_id: messageData?.reply_to_message_id || null,
+                }
+              : m
+          )
+        );
+      }
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -404,7 +451,10 @@ export function ChatArea({
     setErrorMessage(null);
 
     try {
-      const result = await chatService.deleteChatRoom(selectedChatId);
+      const result = await supabase
+        .from("chat_rooms")
+        .delete()
+        .eq("id", selectedChatId);
 
       if (result.error) {
         setErrorMessage(`Failed to delete chat: ${result.error.message}`);
@@ -675,7 +725,7 @@ export function ChatArea({
                       }`}
                     >
                       <p className="text-xs text-gray-500">
-                        {formatTimestamp(message.created_at)}
+                        {formatTimestamp(message.created_at || "")}
                       </p>
                       {isCurrentUser && (
                         <MessageStatus

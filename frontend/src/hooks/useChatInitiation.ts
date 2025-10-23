@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { chatService } from "@/services/chatService";
+import {
+  createChatRoomAction,
+  createChatAction,
+} from "@/app/(protected)/chat/actions";
 
 interface UseChatInitiationProps {
   participantId: string;
@@ -44,11 +47,13 @@ export function useChatInitiation({
     setIsLoading(true);
     try {
       // Create new chat (createChat handles existing chat detection)
-      const { data: chat, error } = await chatService.createChat({
-        participant_id: participantId,
-        participant_name: participantName,
-        participant_role: participantRole,
-      });
+      const formData = new FormData();
+      formData.append("participantId", participantId);
+
+      const result = await createChatAction(null, formData);
+      const { data: chat, error } = result.ok
+        ? { data: result.data, error: null }
+        : { data: null, error: result.error };
 
       if (error || !chat) {
         console.error("Error creating chat:", error);

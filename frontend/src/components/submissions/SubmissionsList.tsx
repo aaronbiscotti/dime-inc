@@ -1,6 +1,9 @@
 "use client";
 
-import { Submission, SubmissionStatus } from "@/services/submissionService";
+import { Database } from "@/types/database";
+
+type Submission = Database["public"]["Tables"]["campaign_submissions"]["Row"];
+type SubmissionStatus = "pending_review" | "approved" | "requires_changes";
 import { ExternalLink, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 
 interface SubmissionsListProps {

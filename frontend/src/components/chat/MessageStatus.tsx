@@ -2,14 +2,12 @@ interface MessageStatusProps {
   status?: "sending" | "sent" | "delivered" | "read" | "error";
   isGroupChat: boolean;
   readBy?: Record<string, string>; // userId -> timestamp
-  userId?: string;
 }
 
 export function MessageStatus({
   status = "sent",
   isGroupChat,
   readBy,
-  userId,
 }: MessageStatusProps) {
   if (status === "sending") {
     return (

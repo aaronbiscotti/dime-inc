@@ -7,9 +7,9 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { chatService, type ChatRoom } from "@/services/chatService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { GroupChatModal } from "./GroupChatModal";
+import { getUserChatsAction } from "@/app/(protected)/chat/actions";
 
 // UI-specific chat type for sidebar display
 interface Chat {
@@ -54,10 +54,10 @@ export function ChatSidebar({
       setLoading(true);
       try {
         // Single API call to get all chat data with messages and participants
-        const result = await chatService.getUserChats();
+        const result = await getUserChatsAction();
 
         if (result.error) {
-          console.error("Error fetching chats:", result.error.message);
+          console.error("Error fetching chats:", result.error);
           return;
         }
 
@@ -100,13 +100,12 @@ export function ChatSidebar({
     const fetchUsers = async () => {
       try {
         // Use Supabase directly instead of backend API
-        const { createClient } = await import('@/lib/supabase/client');
-        const supabase = createClient();
+        const { supabaseBrowser } = await import("@/lib/supabase/client");
+        const supabase = supabaseBrowser();
 
         // Get ambassador profiles
-        const { data: ambassadorProfiles, error: ambassadorError } = await supabase
-          .from('ambassador_profiles')
-          .select(`
+        const { data: ambassadorProfiles, error: ambassadorError } =
+          await supabase.from("ambassador_profiles").select(`
             id,
             user_id,
             full_name,
@@ -121,9 +120,8 @@ export function ChatSidebar({
         }
 
         // Get client profiles
-        const { data: clientProfiles, error: clientError } = await supabase
-          .from('client_profiles')
-          .select(`
+        const { data: clientProfiles, error: clientError } =
+          await supabase.from("client_profiles").select(`
             id,
             user_id,
             company_name,
@@ -142,13 +140,17 @@ export function ChatSidebar({
           ...(ambassadorProfiles || []).map((profile: any) => ({
             id: profile.user_id,
             name: profile.full_name,
-            email: profile.profiles?.email || `user-${profile.id.slice(-4)}@dime.com`,
+            email:
+              profile.profiles?.email ||
+              `user-${profile.id.slice(-4)}@dime.com`,
           })),
           ...(clientProfiles || []).map((profile: any) => ({
             id: profile.user_id,
             name: profile.company_name,
-            email: profile.profiles?.email || `user-${profile.id.slice(-4)}@dime.com`,
-          }))
+            email:
+              profile.profiles?.email ||
+              `user-${profile.id.slice(-4)}@dime.com`,
+          })),
         ];
 
         // Filter out current user and duplicates

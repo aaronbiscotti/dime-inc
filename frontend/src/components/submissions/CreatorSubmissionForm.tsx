@@ -1,10 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  submissionService,
-  CreateSubmissionData,
-} from "@/services/submissionService";
+import { createSubmissionAction } from "@/app/(protected)/submissions/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,15 +30,19 @@ export function CreatorSubmissionForm({
     setLoading(true);
     setError(null);
     try {
-      const submissionData: CreateSubmissionData = {
-        campaign_ambassador_id: campaignAmbassadorId,
-        content_url: contentUrl,
-        ad_code: adCode || undefined,
-      };
-      await submissionService.createSubmission(submissionData);
-      setContentUrl("");
-      setAdCode("");
-      onSubmissionCreated(); // Refresh the list of submissions
+      const formData = new FormData();
+      formData.append("campaignAmbassadorId", campaignAmbassadorId);
+      formData.append("contentUrl", contentUrl);
+      formData.append("adCode", adCode);
+
+      const result = await createSubmissionAction(null, formData);
+      if (result.ok) {
+        setContentUrl("");
+        setAdCode("");
+        onSubmissionCreated(); // Refresh the list of submissions
+      } else {
+        setError(result.error);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred."

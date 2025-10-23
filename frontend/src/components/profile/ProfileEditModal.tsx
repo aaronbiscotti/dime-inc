@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/components/providers/AuthProvider";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -78,7 +78,7 @@ export function ProfileEditModal({
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = supabaseBrowser();
 
       if (profile.role === "ambassador" && ambassadorProfile) {
         // Update ambassador profile
@@ -142,7 +142,7 @@ export function ProfileEditModal({
       setLoading(true);
       setError(null);
 
-      const supabase = createClient();
+      const supabase = supabaseBrowser();
 
       // Delete the user profile first (this will cascade to ambassador/client profiles due to foreign key constraints)
       const { error } = await supabase

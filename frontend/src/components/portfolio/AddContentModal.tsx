@@ -3,7 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { InstagramMedia, instagramService } from "@/services/instagramService";
+import { getInstagramMediaAction } from "@/app/(protected)/instagram/actions";
+
+interface InstagramMedia {
+  id: string;
+  media_type: string;
+  media_url: string;
+  caption?: string;
+  timestamp: string;
+}
 
 interface AddContentModalProps {
   isOpen: boolean;
@@ -25,11 +33,11 @@ export function AddContentModal({
 
   const checkConnection = useCallback(async () => {
     try {
-      const connection = await instagramService.getConnection();
+      const result = await getInstagramMediaAction();
 
-      if (connection.connected) {
+      if (result.ok && result.data) {
         setConnected(true);
-        setUsername(connection.username || null);
+        setUsername(result.data[0]?.username || null);
         await fetchMedia();
       }
     } catch (err) {
@@ -61,8 +69,12 @@ export function AddContentModal({
   const fetchMedia = async () => {
     try {
       setLoading(true);
-      const mediaData = await instagramService.getUserMedia(50);
-      setMedia(mediaData);
+      const result = await getInstagramMediaAction();
+      if (result.ok) {
+        setMedia(result.data);
+      } else {
+        setError(result.error);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -100,9 +112,12 @@ export function AddContentModal({
           </svg>
         </div>
 
-        <h3 className="text-xl font-semibold mb-2 text-gray-900">Add Content Feature Coming Soon</h3>
+        <h3 className="text-xl font-semibold mb-2 text-gray-900">
+          Add Content Feature Coming Soon
+        </h3>
         <p className="text-gray-600 text-center mb-6 max-w-md">
-          We're working on bringing you the ability to easily import and showcase your Instagram content. Stay tuned!
+          We're working on bringing you the ability to easily import and
+          showcase your Instagram content. Stay tuned!
         </p>
 
         <Button

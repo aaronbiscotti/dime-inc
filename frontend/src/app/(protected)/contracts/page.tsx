@@ -4,7 +4,13 @@ import { Navbar } from "@/components/layout/Navbar";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { contractService, Contract } from "@/services/contractService";
+import { Database } from "@/types/database";
+import { getMyContractsAction } from "@/app/(protected)/contracts/actions";
+
+type Contract = Database["public"]["Tables"]["contracts"]["Row"] & {
+  campaign_name?: string;
+  ambassador_name?: string;
+};
 import { useEffect, useState } from "react";
 
 export default function ContractsPage() {
@@ -20,28 +26,20 @@ export default function ContractsPage() {
       setLoading(true);
       setError(null);
       try {
-        let data: Contract[] = [];
-        if (clientProfile) {
-          // FIX: Use clientProfile.id, not user_id
-          data = await contractService.getContractsForClient(
-            clientProfile.id
-          );
-        } else if (ambassadorProfile) {
-          // FIX: Use ambassadorProfile.id, not user_id
-          data = await contractService.getContractsForAmbassador(
-            ambassadorProfile.id
-          );
+        const result = await getMyContractsAction();
+        if (result.ok) {
+          // Enrich data with names for display
+          const enrichedData = result.data.map((c: any) => ({
+            ...c,
+            campaign_name: c.campaign_ambassadors?.campaigns?.title || "N/A",
+            ambassador_name:
+              c.campaign_ambassadors?.ambassador_profiles?.full_name || "N/A",
+          }));
+
+          setContracts((enrichedData as Contract[]) || []);
+        } else {
+          setError(result.error);
         }
-
-        // Enrich data with names for display
-        const enrichedData = data.map((c) => ({
-          ...c,
-          campaign_name: c.campaign_ambassadors?.campaigns?.title || "N/A",
-          ambassador_name:
-            c.campaign_ambassadors?.ambassador_profiles?.full_name || "N/A",
-        }));
-
-        setContracts(enrichedData || []);
       } catch {
         setError("Failed to load contracts");
       }
@@ -80,10 +78,9 @@ export default function ContractsPage() {
   };
 
   return (
-    
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-6 py-6">
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Contracts</h1>
           {clientProfile && (
@@ -143,10 +140,10 @@ export default function ContractsPage() {
                 {contracts.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {c.campaign_name}
+                      {(c as any).campaign_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {c.ambassador_name}
+                      {(c as any).ambassador_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusChip(c.status)}
@@ -172,7 +169,6 @@ export default function ContractsPage() {
           </div>
         )}
       </main>
-      </div>
-    
+    </div>
   );
 }

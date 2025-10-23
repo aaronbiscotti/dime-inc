@@ -1,46 +1,57 @@
-import { getServerUser, requireClientRole } from "@/lib/auth/server";
-import {
-  getCampaignForClient,
-  getCampaignSubmissionsForClient,
-} from "@/lib/campaigns/server";
-import CampaignClient from "@/components/campaigns/CampaignClient";
+import { requireOnboardedProfile } from "@/lib/auth/requireUser";
+import { getCampaignAction } from "@/app/(protected)/explore/actions";
+import { getCampaignSubmissionsAction } from "@/app/(protected)/submissions/actions";
+import { ReviewSubmissionForm } from "@/components/submissions/ReviewSubmissionForm";
+import { CreateSubmissionForm } from "@/components/submissions/CreateSubmissionForm";
 
-interface CampaignPageProps {
-  params: Promise<{
-    id: string;
-  }>;
-}
+type Props = { params: Promise<{ id: string }> };
 
-export default async function CampaignPage({ params }: CampaignPageProps) {
-  try {
-    // Server-side auth check - redirects if not authenticated or not a client
-    const user = await getServerUser();
-    const profile = await requireClientRole(user.id);
+export default async function CampaignPage({ params }: Props) {
+  await requireOnboardedProfile();
+  const { id } = await params;
+  const campaignResult = await getCampaignAction(id);
+  const submissionsResult = await getCampaignSubmissionsAction(id);
 
-    // Await params before using its properties (Next.js 15+ requirement)
-    const { id } = await params;
-
-    console.log("[CampaignPage] Loading campaign:", id, "for user:", user.id);
-
-    // Server-side data fetching with ownership checks
-    const campaign = await getCampaignForClient(id, user.id);
-    const submissions = await getCampaignSubmissionsForClient(id, user.id);
-
-    console.log("[CampaignPage] Campaign loaded:", campaign?.title);
-
-    return (
-      <CampaignClient campaign={campaign} initialSubmissions={submissions} />
-    );
-  } catch (error) {
-    console.error("[CampaignPage] Error:", error);
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Campaign</h1>
-          <p className="text-gray-600">There was an error loading this campaign.</p>
-          <p className="text-sm text-gray-500 mt-2">Check the console for details.</p>
-        </div>
-      </div>
-    );
+  if (!campaignResult.ok) {
+    throw new Error(campaignResult.error);
   }
+  if (!submissionsResult.ok) {
+    throw new Error(submissionsResult.error);
+  }
+
+  const campaign = campaignResult.data;
+  const submissions = submissionsResult.data;
+
+  return (
+    <main className="p-6 space-y-8">
+      <section>
+        <h1 className="text-2xl font-semibold">{campaign.title}</h1>
+        <p className="opacity-70">{campaign.description}</p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-medium">Submissions</h2>
+        <ul className="grid gap-3">
+          {submissions.map((s: any) => (
+            <li key={s.id} className="border rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">
+                    {s.ambassador_profiles.full_name}
+                  </p>
+                  <p className="text-sm opacity-70">{s.status}</p>
+                </div>
+              </div>
+              <ReviewSubmissionForm submissionId={s.id} />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-xl font-medium">Create a submission (demo)</h2>
+        <CreateSubmissionForm campaignId={campaign.id} />
+      </section>
+    </main>
+  );
 }

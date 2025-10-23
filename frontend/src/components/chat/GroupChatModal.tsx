@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { chatService } from "@/services/chatService";
+import {
+  createChatRoomAction,
+  createGroupChatAction,
+} from "@/app/(protected)/chat/actions";
 
 interface User {
   id: string;
@@ -51,12 +54,19 @@ export function GroupChatModal({
       };
       console.log("[GroupChatModal] Creating group chat:", payload);
 
-      const result = await chatService.createGroupChat(payload);
+      const formData = new FormData();
+      formData.append("name", groupName);
+      formData.append(
+        "participantIds",
+        JSON.stringify(Array.from(selectedUsers))
+      );
+
+      const result = await createGroupChatAction(null, formData);
       console.log("[GroupChatModal] Result:", result);
 
       if (result.error || !result.data) {
         console.error("[GroupChatModal] Error:", result.error);
-        alert(`Error: ${result.error?.message || "Failed to create group"}`);
+        alert(`Error: ${result.error || "Failed to create group"}`);
         return;
       }
 

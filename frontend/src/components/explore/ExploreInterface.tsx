@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { Search, Heart, ChevronDown } from "lucide-react";
 import { Tables } from "@/types/database";
-import { exploreService } from "@/services/exploreService";
-import { chatService } from "@/services/chatService";
-import { campaignService } from "@/services/campaignService";
+import { createChatRoomAction } from "@/app/(protected)/chat/actions";
+import {
+  getCampaignsAction,
+  getAmbassadorsAction,
+} from "@/app/(protected)/explore/actions";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { CampaignCard } from "@/components/explore/CampaignCard";
@@ -84,7 +86,8 @@ export function ExploreInterface() {
       try {
         setLoading(true);
 
-        const ambassadorProfiles = await exploreService.getAmbassadors();
+        const result = await getAmbassadorsAction();
+        const ambassadorProfiles = result.ok ? result.data : [];
 
         console.log(
           "Loaded",
@@ -95,7 +98,7 @@ export function ExploreInterface() {
         if (ambassadorProfiles && ambassadorProfiles.length > 0) {
           console.log("Raw ambassador profiles data:", ambassadorProfiles[0]); // Debug log
           const mappedInfluencers: Influencer[] = ambassadorProfiles.map(
-            (profile, index) => {
+            (profile: any, index: number) => {
               const prof = profile as Record<string, unknown>;
               console.log(`Profile ${index}:`, prof); // Debug log for each profile
 
@@ -193,21 +196,18 @@ export function ExploreInterface() {
       try {
         setLoading(true);
 
-        const { data: activeCampaigns, error } =
-          await campaignService.getAllOpenCampaigns();
+        const result = await getCampaignsAction();
+        const activeCampaigns = result.ok ? result.data : [];
 
         console.log("Loaded", activeCampaigns?.length || 0, "active campaigns");
-
-        if (error) {
-          console.error("Error fetching campaigns:", error);
-          return;
-        }
 
         if (activeCampaigns) {
           setCampaigns(activeCampaigns as CampaignWithClient[]);
           console.log(
             `Loaded ${activeCampaigns.length} active campaigns for display`
           );
+        } else {
+          setCampaigns([]);
         }
       } catch (error) {
         console.error("Error fetching campaigns:", error);
@@ -255,13 +255,9 @@ export function ExploreInterface() {
         setActiveCampaigns([]);
         return;
       }
-      const result = await campaignService.getMyClientCampaigns();
-      if (result.error || !result.data) {
-        console.error("Error fetching campaigns:", result.error);
-        setActiveCampaigns([]);
-        return;
-      }
-      const active = result.data.filter((c) => c.status === "active");
+      const result = await getCampaignsAction();
+      const campaigns = result.ok ? result.data : [];
+      const active = campaigns.filter((c: any) => c.status === "active");
       setActiveCampaigns(active);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
@@ -304,16 +300,18 @@ export function ExploreInterface() {
 
     try {
       // Use the enhanced invite workflow
-      const result = await chatService.createEnhancedInvite({
-        ambassador_id: selectedAmbassador.id,
-        ambassador_user_id: selectedAmbassador.userId,
-        campaign_id: selectedCampaignId!,
-        invite_message: inviteMessage?.trim(),
-      });
+      const formData = new FormData();
+      formData.append("isGroup", "false");
+      formData.append(
+        "participantIds",
+        JSON.stringify([selectedAmbassador.userId])
+      );
+
+      const result = await createChatRoomAction(null, formData);
 
       if (result.error) {
         console.error("Invite failed:", result.error);
-        alert(`Failed to send invite: ${result.error.message}`);
+        alert(`Failed to send invite: ${result.error}`);
         return;
       }
 
@@ -321,8 +319,8 @@ export function ExploreInterface() {
 
       // Close modal and redirect to the specific chat
       setShowInviteModal(false);
-      if (result.data?.chatRoom?.id) {
-        router.push(`/chats?chat=${result.data.chatRoom.id}`);
+      if (result.data?.id) {
+        router.push(`/chats?chat=${result.data.id}`);
       }
     } catch (error) {
       console.error("Unexpected error during invite:", error);

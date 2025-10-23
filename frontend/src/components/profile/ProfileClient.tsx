@@ -6,9 +6,6 @@ import { ClientCampaigns } from "./ClientCampaigns";
 import { ProfileEditModal } from "./ProfileEditModal";
 import { AddContentModal } from "../portfolio/AddContentModal";
 import { CreateCampaignModal } from "../campaigns/CreateCampaignModal";
-import { Database } from "@/types/database";
-
-type UserRole = Database["public"]["Enums"]["user_role"];
 
 interface PortfolioItem {
   id: string;

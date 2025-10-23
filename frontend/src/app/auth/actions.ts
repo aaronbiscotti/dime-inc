@@ -93,12 +93,21 @@ export async function signIn(formData: FormData) {
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+
+  try {
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.error("Server-side sign out error:", error);
+    // Continue with cleanup even if signOut fails
+  }
 
   // Clear all cached data
   revalidatePath("/", "layout");
   revalidatePath("/client/dashboard", "layout");
   revalidatePath("/ambassador/dashboard", "layout");
+  revalidatePath("/chat", "layout");
+  revalidatePath("/campaigns", "layout");
+  revalidatePath("/profile", "layout");
 
   redirect("/");
 }

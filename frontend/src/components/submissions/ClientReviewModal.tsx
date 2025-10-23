@@ -5,7 +5,10 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Submission, submissionService } from "@/services/submissionService";
+import { Database } from "@/types/database";
+import { reviewSubmissionAction } from "@/app/(protected)/submissions/actions";
+
+type Submission = Database["public"]["Tables"]["campaign_submissions"]["Row"];
 
 interface ClientReviewModalProps {
   submission: Submission | null;
@@ -32,12 +35,18 @@ export function ClientReviewModal({
     setLoading(true);
     setError(null);
     try {
-      await submissionService.reviewSubmission(submission.id, {
-        status,
-        feedback,
-      });
-      onReviewed();
-      onClose();
+      const formData = new FormData();
+      formData.append("submissionId", submission.id);
+      formData.append("status", status);
+      formData.append("feedback", feedback);
+
+      const result = await reviewSubmissionAction(null, formData);
+      if (result.ok) {
+        onReviewed();
+        onClose();
+      } else {
+        setError(result.error);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit review.");
     } finally {

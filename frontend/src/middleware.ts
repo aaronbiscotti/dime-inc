@@ -1,20 +1,19 @@
-import { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+const PROTECTED_PREFIXES = ["/client", "/ambassador", "/campaigns"];
+
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  const res = await updateSession(request);
+
+  // Avoid redirect loops by ignoring already-on-target dashboard
+  const { pathname } = request.nextUrl;
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
+
+  if (!isProtected) return res;
+  return res; // all auth gating happens in server pages via requireUser
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico, other icons
-     * - api routes
-     * - public folder assets
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$|api).*)",
-  ],
+  matcher: ["/(client|ambassador)(/.*)?", "/campaigns/:path*"],
 };

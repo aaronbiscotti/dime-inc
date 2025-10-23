@@ -3,9 +3,14 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { submissionService, Submission } from "@/services/submissionService";
+import { getMySubmissionsAction } from "@/app/(protected)/submissions/actions";
 import { Database } from "@/types/database";
-import { campaignService } from "@/services/campaignService";
+import {
+  updateCampaignStatus,
+  updateCampaign,
+  deleteCampaign,
+  addAmbassadorToCampaign,
+} from "@/app/(protected)/campaigns/actions";
 import { ClientReviewModal } from "@/components/submissions/ClientReviewModal";
 import { SubmissionsList } from "@/components/submissions/SubmissionsList";
 import { AmbassadorSelection } from "@/components/campaigns/AmbassadorSelection";
@@ -27,20 +32,6 @@ type Tab = "details" | "submissions";
 type CampaignSubmission =
   Database["public"]["Tables"]["campaign_submissions"]["Row"];
 
-// Convert CampaignSubmission to Submission for compatibility
-function mapToSubmission(campaignSubmission: CampaignSubmission): Submission {
-  return {
-    id: campaignSubmission.id,
-    campaign_ambassador_id: campaignSubmission.campaign_ambassador_id,
-    content_url: campaignSubmission.content_url,
-    ad_code: campaignSubmission.ad_code,
-    status: campaignSubmission.status,
-    feedback: campaignSubmission.feedback,
-    submitted_at: campaignSubmission.submitted_at || new Date().toISOString(),
-    reviewed_at: campaignSubmission.reviewed_at,
-  };
-}
-
 interface CampaignClientProps {
   campaign: Database["public"]["Tables"]["campaigns"]["Row"];
   initialSubmissions: CampaignSubmission[];
@@ -50,9 +41,8 @@ export default function CampaignClient({
   campaign,
   initialSubmissions,
 }: CampaignClientProps) {
-  const [submissions, setSubmissions] = useState<Submission[]>(
-    initialSubmissions.map(mapToSubmission)
-  );
+  const [submissions, setSubmissions] =
+    useState<CampaignSubmission[]>(initialSubmissions);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -60,28 +50,33 @@ export default function CampaignClient({
     useState<Database["public"]["Tables"]["campaigns"]["Row"]>(campaign);
   const [activeTab, setActiveTab] = useState<Tab>("details");
   const [submissionToReview, setSubmissionToReview] =
-    useState<Submission | null>(null);
+    useState<CampaignSubmission | null>(null);
   const [showAmbassadorSelection, setShowAmbassadorSelection] = useState(false);
 
   const router = useRouter();
 
   const loadSubmissions = useCallback(async () => {
     try {
-      const subs = await submissionService.getSubmissionsForCampaign(
-        campaign.id
-      );
-      setSubmissions(subs || []);
+      const result = await getMySubmissionsAction();
+      if (result.ok) {
+        setSubmissions(result.data || []);
+      }
     } catch (e) {
       console.error("Failed to load submissions", e);
     }
-  }, [campaign.id]);
+  }, []);
 
   const handleToggleStatus = async () => {
     setIsUpdating(true);
     try {
       const newStatus: Database["public"]["Enums"]["campaign_status"] =
         campaign.status === "active" ? "draft" : "active";
-      await campaignService.updateCampaignStatus(campaign.id, newStatus);
+
+      const formData = new FormData();
+      formData.append("id", campaign.id);
+      formData.append("status", newStatus);
+
+      await updateCampaignStatus(formData);
       // Update the campaign object in place
       Object.assign(campaign, { status: newStatus });
     } finally {
@@ -92,8 +87,15 @@ export default function CampaignClient({
   const handleDelete = async () => {
     setIsUpdating(true);
     try {
-      await campaignService.deleteCampaign(campaign.id);
-      router.push("/campaigns");
+      const formData = new FormData();
+      formData.append("id", campaign.id);
+
+      const result = await deleteCampaign(formData);
+      if (result.ok) {
+        router.push("/campaigns");
+      } else {
+        console.error("Failed to delete campaign:", result.error);
+      }
     } finally {
       setIsUpdating(false);
     }
@@ -115,22 +117,27 @@ export default function CampaignClient({
     if (!editedCampaign) return;
     setIsUpdating(true);
     try {
-      const updateData: Partial<
-        Database["public"]["Tables"]["campaigns"]["Row"]
-      > = {
-        title: editedCampaign.title,
-        description: editedCampaign.description,
-        budget_min: editedCampaign.budget_min,
-        budget_max: editedCampaign.budget_max,
-        max_ambassadors: editedCampaign.max_ambassadors,
-        deadline: editedCampaign.deadline,
-        requirements: editedCampaign.requirements,
-        proposal_message: editedCampaign.proposal_message,
-      };
-      const { data: updated } = await campaignService.updateCampaign(
-        campaign.id,
-        updateData
+      const formData = new FormData();
+      formData.append("id", campaign.id);
+      formData.append("title", editedCampaign.title);
+      formData.append("description", editedCampaign.description);
+      formData.append("budget_min", editedCampaign.budget_min.toString());
+      formData.append("budget_max", editedCampaign.budget_max.toString());
+      formData.append(
+        "max_ambassadors",
+        (editedCampaign.max_ambassadors || 1).toString()
       );
+      if (editedCampaign.deadline) {
+        formData.append("deadline", editedCampaign.deadline);
+      }
+      if (editedCampaign.requirements) {
+        formData.append("requirements", editedCampaign.requirements);
+      }
+      if (editedCampaign.proposal_message) {
+        formData.append("proposal_message", editedCampaign.proposal_message);
+      }
+
+      const { data: updated } = await updateCampaign(formData);
       if (updated) {
         Object.assign(campaign, updated);
         setEditedCampaign(updated);

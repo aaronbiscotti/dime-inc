@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { supabaseBrowser } from '@/lib/supabase/client'
 
 interface TypingUser {
   user_id: string
@@ -10,7 +10,7 @@ interface TypingUser {
 export function useTypingIndicator(chatRoomId: string | null, currentUserId: string, currentUserName: string) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
   const [isTyping, setIsTyping] = useState(false)
-  const supabase = createClient()
+  const supabase = supabaseBrowser()
 
   // Broadcast typing status
   const startTyping = useCallback(() => {
@@ -49,7 +49,7 @@ export function useTypingIndicator(chatRoomId: string | null, currentUserId: str
 
     const channel = supabase
       .channel(`typing-${chatRoomId}`)
-      .on('broadcast', { event: 'typing' }, (payload) => {
+      .on('broadcast', { event: 'typing' }, (payload: any) => {
         const { user_id, typing, timestamp, user_name } = payload.payload
 
         if (user_id === currentUserId) return // Ignore own typing events

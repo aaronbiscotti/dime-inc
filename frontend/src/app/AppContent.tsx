@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { CleanupService } from "@/services/cleanupService";
+// Removed service import - using server actions instead
 import { AppSkeleton } from "@/components/skeletons/AppSkeleton";
 import { usePathname } from "next/navigation";
 
@@ -12,14 +12,11 @@ export function AppContent({ children }: { children: React.ReactNode }) {
 
   // Don't show skeleton on login/signup pages
   const isAuthPage =
-    pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname === "/";
+    pathname?.startsWith("/login") ||
+    pathname?.startsWith("/signup") ||
+    pathname === "/";
 
-  // Start periodic orphaned chat cleanup when authenticated
-  useEffect(() => {
-    if (user) {
-      CleanupService.getInstance().startPeriodicCleanup();
-    }
-  }, [user]);
+  // Cleanup service removed - using server actions instead
 
   if (loading && !isAuthPage) {
     return <AppSkeleton />;

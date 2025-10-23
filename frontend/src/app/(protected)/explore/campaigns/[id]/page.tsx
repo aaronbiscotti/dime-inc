@@ -5,10 +5,10 @@ import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Navbar } from "@/components/layout/Navbar";
-import { campaignService } from "@/services/campaignService";
+import { getCampaignAction } from "@/app/(protected)/explore/actions";
 import { Database } from "@/types/database";
 
-type Campaign = Database['public']['Tables']['campaigns']['Row'];
+type Campaign = Database["public"]["Tables"]["campaigns"]["Row"];
 import {
   ArrowLeft,
   Calendar,
@@ -18,7 +18,18 @@ import {
   Send,
 } from "lucide-react";
 
-interface CampaignWithClient extends Campaign {
+interface CampaignWithClient {
+  id: string;
+  title: string;
+  description: string;
+  budget_min: number;
+  budget_max: number;
+  deadline: string | null;
+  requirements: string | null;
+  proposal_message: string | null;
+  max_ambassadors: number | null;
+  status: "active" | "draft" | "completed" | "cancelled";
+  created_at: string | null;
   client_profiles?: {
     company_name: string;
     company_description: string | null;
@@ -58,22 +69,23 @@ export default function AmbassadorCampaignDetails() {
           return;
         }
 
-        // Load campaign with client details using API
-        const result = await campaignService.getCampaign(campaignId);
+        // Load campaign with client details using server function
+        const result = await getCampaignAction(campaignId);
+        const campaignData = result.ok ? result.data : null;
 
-        if (result.error || !result.data) {
-          console.error("Error loading campaign:", result.error);
+        if (!campaignData) {
+          console.error("Campaign not found");
           router.push("/explore");
           return;
         }
 
         // Only show active campaigns
-        if (result.data.status !== "active") {
+        if (campaignData.status !== "active") {
           router.push("/explore");
           return;
         }
 
-        setCampaign(result.data as CampaignWithClient);
+        setCampaign(campaignData as CampaignWithClient);
       } catch (error) {
         console.error("Error loading campaign:", error);
         router.push("/explore");
