@@ -51,7 +51,10 @@ export default function Profile() {
   // Fetch real data from database
   useEffect(() => {
     const fetchData = async () => {
-      if (!profile || (!ambassadorProfile && !clientProfile)) return;
+      if (!profile || (!ambassadorProfile && !clientProfile)) {
+        setLoading(false); // Set loading to false when no profile data
+        return;
+      }
 
       try {
         if (profile.role === "ambassador" && ambassadorProfile) {
@@ -110,10 +113,14 @@ export default function Profile() {
                 // Fetch ambassador count for each campaign
                 let ambassadorCount = 0;
                 try {
-                  const ambassadorsResult = await campaignService.getCampaignAmbassadors(campaign.id);
+                  const ambassadorsResult =
+                    await campaignService.getCampaignAmbassadors(campaign.id);
                   ambassadorCount = ambassadorsResult.data?.length || 0;
                 } catch (error) {
-                  console.warn(`Could not fetch ambassadors for campaign ${campaign.id}:`, error);
+                  console.warn(
+                    `Could not fetch ambassadors for campaign ${campaign.id}:`,
+                    error
+                  );
                 }
 
                 return {
@@ -264,7 +271,7 @@ export default function Profile() {
                 </div>
               </div>
             </div>
-            
+
             {/* Right Side Skeleton */}
             <div className="lg:col-span-2">
               <div className="mb-6">
@@ -275,7 +282,10 @@ export default function Profile() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl border border-gray-300 overflow-hidden animate-pulse">
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl border border-gray-300 overflow-hidden animate-pulse"
+                  >
                     <div className="h-48 bg-gray-200"></div>
                     <div className="p-4 space-y-3">
                       <div className="h-4 bg-gray-200 rounded w-3/4"></div>
@@ -299,7 +309,9 @@ export default function Profile() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Not Found</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Profile Not Found
+          </h2>
           <p className="text-gray-600">Please sign in to view your profile.</p>
         </div>
       </div>
@@ -337,32 +349,32 @@ export default function Profile() {
         </div>
       </div>
 
-        {/* Profile Edit Modal */}
-        {showProfileEditModal && (
-          <ProfileEditModal
-            isOpen={showProfileEditModal}
-            onClose={() => setShowProfileEditModal(false)}
-            onSave={(data) => {
-              console.log("Profile updated successfully:", data);
-            }}
-          />
-        )}
-
-        {/* Add Content Modal */}
-        {showAddContentModal && (
-          <AddContentModal
-            isOpen={showAddContentModal}
-            onClose={() => setShowAddContentModal(false)}
-            onContentSelected={handleContentSelected}
-          />
-        )}
-
-        {/* Create Campaign Modal */}
-        <CreateCampaignModal
-          isOpen={showCreateCampaignModal}
-          onClose={() => setShowCreateCampaignModal(false)}
-          onCampaignCreated={handleCampaignCreated}
+      {/* Profile Edit Modal */}
+      {showProfileEditModal && (
+        <ProfileEditModal
+          isOpen={showProfileEditModal}
+          onClose={() => setShowProfileEditModal(false)}
+          onSave={(data) => {
+            console.log("Profile updated successfully:", data);
+          }}
         />
-      </div>
+      )}
+
+      {/* Add Content Modal */}
+      {showAddContentModal && (
+        <AddContentModal
+          isOpen={showAddContentModal}
+          onClose={() => setShowAddContentModal(false)}
+          onContentSelected={handleContentSelected}
+        />
+      )}
+
+      {/* Create Campaign Modal */}
+      <CreateCampaignModal
+        isOpen={showCreateCampaignModal}
+        onClose={() => setShowCreateCampaignModal(false)}
+        onCampaignCreated={handleCampaignCreated}
+      />
+    </div>
   );
 }
