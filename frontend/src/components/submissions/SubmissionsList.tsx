@@ -63,7 +63,9 @@ export function SubmissionsList({
               </a>
               <p className="text-xs text-gray-500 mt-1">
                 Submitted on{" "}
-                {new Date(submission.submitted_at).toLocaleDateString()}
+                {submission.submitted_at
+                  ? new Date(submission.submitted_at).toLocaleDateString()
+                  : "Unknown"}
               </p>
               {submission.ad_code && (
                 <p className="text-xs text-gray-500 mt-1">

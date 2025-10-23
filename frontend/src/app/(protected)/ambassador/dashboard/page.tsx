@@ -6,6 +6,10 @@ import { AmbassadorDashboardClient } from "./AmbassadorDashboardClient";
 export default async function AmbassadorDashboard() {
   const { ambassadorProfile } = await getAmbassadorWithProfile();
 
+  if (!ambassadorProfile) {
+    return <div>Profile not found</div>;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />

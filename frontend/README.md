@@ -23,11 +23,13 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 ## Testing
 
 Run unit tests:
+
 ```bash
 npm test
 ```
 
 Run tests with coverage:
+
 ```bash
 npm test -- --coverage
 ```
@@ -47,7 +49,6 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
-
 🏗️ Architecture
 Authentication Flow
 
@@ -55,13 +56,11 @@ Role Selection (/auth)
 
 User chooses Ambassador or Client role
 
-
 Sign Up (/auth/signup)
 
 Creates auth account with role in metadata
 Trigger creates profile entry
 Redirects to onboarding
-
 
 Onboarding (/onboarding/[role])
 
@@ -70,15 +69,12 @@ Creates ambassador_profiles or client_profiles entry
 Marks onboarding_completed = true
 Redirects to dashboard
 
-
 Sign In (/auth/signin)
 
 Authenticates user
 Middleware checks onboarding status
 Redirects to onboarding if incomplete
 Otherwise redirects to dashboard
-
-
 
 Key Components
 Supabase Clients (/utils/supabase/)
@@ -124,36 +120,36 @@ tsx'use client'
 import { useAuth } from '@/components/providers/AuthProvider'
 
 export function MyComponent() {
-  const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth()
-  
-  if (loading) return <div>Loading...</div>
-  
-  if (!user) return <div>Not authenticated</div>
-  
-  return (
-    <div>
-      <p>Welcome, {user.email}</p>
-      <p>Role: {profile?.role}</p>
-      {profile?.role === 'ambassador' && ambassadorProfile && (
-        <p>Ambassador: {ambassadorProfile.full_name}</p>
-      )}
-    </div>
-  )
+const { user, profile, ambassadorProfile, clientProfile, loading } = useAuth()
+
+if (loading) return <div>Loading...</div>
+
+if (!user) return <div>Not authenticated</div>
+
+return (
+<div>
+<p>Welcome, {user.email}</p>
+<p>Role: {profile?.role}</p>
+{profile?.role === 'ambassador' && ambassadorProfile && (
+<p>Ambassador: {ambassadorProfile.full_name}</p>
+)}
+</div>
+)
 }
 Protected Server Components
 tsximport { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 
 export default async function ProtectedPage() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    redirect('/auth')
-  }
-  
-  return <div>Protected content</div>
+const supabase = await createClient()
+
+const { data: { user } } = await supabase.auth.getUser()
+
+if (!user) {
+redirect('/auth')
+}
+
+return <div>Protected content</div>
 }
 Sign Out
 tsximport { signOut } from '@/app/auth/actions'
@@ -230,3 +226,16 @@ If interrupted, returning users are prompted to complete onboarding
 Global auth state persists throughout the app
 
 The implementation is minimal, type-safe, and follows October 2025 best practices for Next.js 15 with Supabase.
+
+AVOID THESE MISTAKES:
+→ My number 1 pet peeve by far — adding click handlers to <div>s. This is acceptable if the right ARIA attributes and tabIndex are added, but chances are, it was done out of convenience/ignorance. Just don't do it during interviews, style the button instead
+
+→ Not adding aria-labels for elements that don't have text, such as close buttons that are just "X"
+
+→ Form elements don't have labels or accessible names (aria-label or aria-labelledby). Or the <label> isn't linked to the <input>
+
+→ Headings chosen for their visual size rather than by hierarchy. DO NOT choose heading tags based on the visual size, decide base on document hierarchy and style the heading instead!
+
+→ Poor keyboard support and focus management. Like c'mon interview questions are usually so small, it's not hard to have decent keyboard support
+
+→ Missing alt text for <img>. Not all images need alt text, add if you aren't sure

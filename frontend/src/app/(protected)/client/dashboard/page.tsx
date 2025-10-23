@@ -21,7 +21,7 @@ export default async function ClientDashboard() {
                 <div className="space-y-4">
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-2">
-                      Welcome back, {clientProfile.company_name}!
+                      Welcome back, {clientProfile?.company_name || "Client"}!
                     </h3>
                     <p className="text-gray-600">
                       Manage your campaigns and connect with talented
@@ -47,13 +47,13 @@ export default async function ClientDashboard() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Company</span>
                     <span className="text-sm font-semibold">
-                      {clientProfile.company_name}
+                      {clientProfile?.company_name || "Not set"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Joined</span>
                     <span className="text-sm">
-                      {clientProfile.created_at
+                      {clientProfile?.created_at
                         ? new Date(
                             clientProfile.created_at
                           ).toLocaleDateString()

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { campaignService } from "@/services/campaignService";
 import { submissionService, Submission } from "@/services/submissionService";
 import { Database } from "@/types/database";
+import { campaignService } from "@/services/campaignService";
 import { ClientReviewModal } from "@/components/submissions/ClientReviewModal";
 import { SubmissionsList } from "@/components/submissions/SubmissionsList";
 import { AmbassadorSelection } from "@/components/campaigns/AmbassadorSelection";
@@ -25,82 +24,72 @@ import {
 
 type Tab = "details" | "submissions";
 
-export default function CampaignDetails() {
-  const [loading, setLoading] = useState(true);
-  const [campaign, setCampaign] = useState<
-    Database["public"]["Tables"]["campaigns"]["Row"] | null
-  >(null);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+type CampaignSubmission =
+  Database["public"]["Tables"]["campaign_submissions"]["Row"];
+
+// Convert CampaignSubmission to Submission for compatibility
+function mapToSubmission(campaignSubmission: CampaignSubmission): Submission {
+  return {
+    id: campaignSubmission.id,
+    campaign_ambassador_id: campaignSubmission.campaign_ambassador_id,
+    content_url: campaignSubmission.content_url,
+    ad_code: campaignSubmission.ad_code,
+    status: campaignSubmission.status,
+    feedback: campaignSubmission.feedback,
+    submitted_at: campaignSubmission.submitted_at || new Date().toISOString(),
+    reviewed_at: campaignSubmission.reviewed_at,
+  };
+}
+
+interface CampaignClientProps {
+  campaign: Database["public"]["Tables"]["campaigns"]["Row"];
+  initialSubmissions: CampaignSubmission[];
+}
+
+export default function CampaignClient({
+  campaign,
+  initialSubmissions,
+}: CampaignClientProps) {
+  const [submissions, setSubmissions] = useState<Submission[]>(
+    initialSubmissions.map(mapToSubmission)
+  );
   const [isUpdating, setIsUpdating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editedCampaign, setEditedCampaign] = useState<
-    Database["public"]["Tables"]["campaigns"]["Row"] | null
-  >(null);
+  const [editedCampaign, setEditedCampaign] =
+    useState<Database["public"]["Tables"]["campaigns"]["Row"]>(campaign);
   const [activeTab, setActiveTab] = useState<Tab>("details");
   const [submissionToReview, setSubmissionToReview] =
     useState<Submission | null>(null);
   const [showAmbassadorSelection, setShowAmbassadorSelection] = useState(false);
 
   const router = useRouter();
-  const params = useParams();
-  const { user, profile, loading: authLoading } = useAuth();
-  const campaignId = params.id as string;
 
   const loadSubmissions = useCallback(async () => {
-    if (!campaignId) return;
     try {
       const subs = await submissionService.getSubmissionsForCampaign(
-        campaignId
+        campaign.id
       );
       setSubmissions(subs || []);
     } catch (e) {
       console.error("Failed to load submissions", e);
     }
-  }, [campaignId]);
-
-  const loadCampaign = useCallback(async () => {
-    if (authLoading || !user || !profile || profile.role !== "client") return;
-
-    setLoading(true);
-    try {
-      const result = await campaignService.getCampaign(campaignId);
-      if (result.error || !result.data) {
-        router.push("/campaigns");
-        return;
-      }
-      setCampaign(result.data);
-      setEditedCampaign(result.data);
-      await loadSubmissions();
-    } catch (error) {
-      router.push("/campaigns");
-    } finally {
-      setLoading(false);
-    }
-  }, [campaignId, router, user, profile, authLoading, loadSubmissions]);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) router.push("/login");
-    else if (profile?.role !== "client") router.push("/dashboard");
-    else loadCampaign();
-  }, [user, profile, authLoading, router, loadCampaign]);
+  }, [campaign.id]);
 
   const handleToggleStatus = async () => {
-    if (!campaign) return;
     setIsUpdating(true);
     try {
       const newStatus: Database["public"]["Enums"]["campaign_status"] =
         campaign.status === "active" ? "draft" : "active";
       await campaignService.updateCampaignStatus(campaign.id, newStatus);
-      setCampaign({ ...campaign, status: newStatus });
+      // Update the campaign object in place
+      Object.assign(campaign, { status: newStatus });
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!campaign) return;
     setIsUpdating(true);
     try {
       await campaignService.deleteCampaign(campaign.id);
@@ -119,12 +108,11 @@ export default function CampaignDetails() {
     field: keyof Database["public"]["Tables"]["campaigns"]["Row"],
     value: string | number | boolean | null
   ) => {
-    if (editedCampaign)
-      setEditedCampaign({ ...editedCampaign, [field]: value });
+    setEditedCampaign({ ...editedCampaign, [field]: value });
   };
 
   const handleSaveChanges = async () => {
-    if (!editedCampaign || !campaign) return;
+    if (!editedCampaign) return;
     setIsUpdating(true);
     try {
       const updateData: Partial<
@@ -144,7 +132,7 @@ export default function CampaignDetails() {
         updateData
       );
       if (updated) {
-        setCampaign(updated);
+        Object.assign(campaign, updated);
         setEditedCampaign(updated);
         setIsEditMode(false);
       }
@@ -152,16 +140,6 @@ export default function CampaignDetails() {
       setIsUpdating(false);
     }
   };
-
-  if (loading || authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        Loading...
-      </div>
-    );
-  }
-
-  if (!campaign) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -510,6 +488,7 @@ export default function CampaignDetails() {
           )}
         </div>
       </div>
+
       <ClientReviewModal
         submission={submissionToReview}
         onClose={() => setSubmissionToReview(null)}

@@ -40,7 +40,8 @@ class InstagramService {
    */
   async saveConnection(
     shortLivedToken: string,
-    instagramUserId: string
+    instagramUserId: string,
+    instagramUsername: string
   ): Promise<{
     success: boolean;
     username?: string;
@@ -49,17 +50,22 @@ class InstagramService {
   }> {
     try {
       // Get current user
-      const { data: { user } } = await this.supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
       // Save Instagram connection to user's profile
       const { data, error } = await this.supabase
         .from("instagram_connections")
         .upsert({
-          user_id: user.id,
+          ambassador_id: user.id,
           instagram_user_id: instagramUserId,
+          instagram_username: instagramUsername,
           access_token: shortLivedToken,
-          expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days
+          token_expires_at: new Date(
+            Date.now() + 60 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 60 days
         })
         .select()
         .single();
@@ -68,7 +74,7 @@ class InstagramService {
 
       return {
         success: true,
-        username: data.username,
+        username: data.instagram_username,
         expiresIn: 60 * 24 * 60 * 60, // 60 days in seconds
       };
     } catch (error) {
@@ -87,21 +93,23 @@ class InstagramService {
    */
   async getConnection(): Promise<InstagramConnection> {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser();
       if (!user) return { connected: false };
 
       const { data, error } = await this.supabase
         .from("instagram_connections")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("ambassador_id", user.id)
         .single();
 
       if (error || !data) return { connected: false };
 
       return {
         connected: true,
-        username: data.username,
-        expires_at: data.expires_at,
+        username: data.instagram_username,
+        expires_at: data.token_expires_at,
       };
     } catch (error) {
       console.error("Failed to get Instagram connection:", error);
@@ -118,7 +126,9 @@ class InstagramService {
     try {
       // This would need to be implemented with actual Instagram API calls
       // For now, return empty array as this requires external API integration
-      console.warn("Instagram media fetching not implemented - requires Instagram API integration");
+      console.warn(
+        "Instagram media fetching not implemented - requires Instagram API integration"
+      );
       return [];
     } catch (error) {
       console.error("Failed to get Instagram media:", error);
@@ -134,7 +144,9 @@ class InstagramService {
     try {
       // This would need to be implemented with actual Instagram API calls
       // For now, return empty object as this requires external API integration
-      console.warn("Instagram insights fetching not implemented - requires Instagram API integration");
+      console.warn(
+        "Instagram insights fetching not implemented - requires Instagram API integration"
+      );
       return {};
     } catch (error) {
       console.error("Failed to get Instagram insights:", error);

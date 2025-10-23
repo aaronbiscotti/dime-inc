@@ -21,7 +21,7 @@ export interface Submission {
   ad_code: string | null;
   status: SubmissionStatus;
   feedback: string | null;
-  submitted_at: string;
+  submitted_at: string | null;
   reviewed_at: string | null;
 }
 
@@ -43,7 +43,7 @@ export interface ReviewSubmissionData {
 /**
  * Handle API errors consistently
  */
-function handleError(error: unknown, context: string): never {
+function handleError(error: unknown, context: string) {
   console.error(`[SubmissionService] ${context}:`, error);
 
   const message =
@@ -63,7 +63,7 @@ function handleError(error: unknown, context: string): never {
 class SubmissionService {
   private supabase = createClient(); // Instantiate the client
 
-  async createSubmission(data: CreateSubmissionData): Promise<Submission> {
+  async createSubmission(data: CreateSubmissionData): Promise<any> {
     try {
       const { data: result, error } = await this.supabase
         .from("campaign_submissions")
@@ -76,34 +76,37 @@ class SubmissionService {
         .single();
 
       if (error) throw error;
-      return result;
+      return result as any;
     } catch (error) {
       handleError(error, "createSubmission");
     }
   }
 
-  async getSubmissionsForCampaign(campaignId: string): Promise<Submission[]> {
+  async getSubmissionsForCampaign(campaignId: string): Promise<any[]> {
     try {
       const { data, error } = await this.supabase
         .from("campaign_submissions")
-        .select(`
+        .select(
+          `
           *,
           campaign_ambassadors!inner(
             campaign_id
           )
-        `)
+        `
+        )
         .eq("campaign_ambassadors.campaign_id", campaignId);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     } catch (error) {
       handleError(error, "getSubmissionsForCampaign");
+      return []; // This will never be reached
     }
   }
 
   async getMySubmissionsForCampaign(
     campaignAmbassadorId: string
-  ): Promise<Submission[]> {
+  ): Promise<any[]> {
     try {
       const { data, error } = await this.supabase
         .from("campaign_submissions")
@@ -112,16 +115,17 @@ class SubmissionService {
         .order("submitted_at", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     } catch (error) {
       handleError(error, "getMySubmissionsForCampaign");
+      return []; // This will never be reached
     }
   }
 
   async reviewSubmission(
     submissionId: string,
     data: ReviewSubmissionData
-  ): Promise<Submission> {
+  ): Promise<any> {
     try {
       const { data: result, error } = await this.supabase
         .from("campaign_submissions")
@@ -135,7 +139,7 @@ class SubmissionService {
         .single();
 
       if (error) throw error;
-      return result;
+      return result as any;
     } catch (error) {
       handleError(error, "reviewSubmission");
     }

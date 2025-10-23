@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { FunnelIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { UserRole } from "@/types/database";
+import { Database } from "@/types/database";
+
+type UserRole = Database["public"]["Enums"]["user_role"];
 
 interface ExploreFiltersProps {
   userRole: UserRole;

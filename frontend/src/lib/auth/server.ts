@@ -1,193 +1,104 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { Database } from "@/types/database";
 
-type UserRole = Database["public"]["Enums"]["user_role"];
-
-export interface AuthUser {
-  id: string;
-  email?: string;
-  role: UserRole;
-  onboarding_completed: boolean;
-}
-
-export interface AuthProfile {
-  ambassadorProfile?: Database["public"]["Tables"]["ambassador_profiles"]["Row"];
-  clientProfile?: Database["public"]["Tables"]["client_profiles"]["Row"];
-}
-
-/**
- * Get the authenticated user with their profile data
- * Redirects to login if not authenticated
- */
-export async function getAuthenticatedUser(): Promise<AuthUser> {
+export async function getServerUser() {
   const supabase = await createClient();
 
   const {
     data: { user },
-    error: userError,
+    error,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    redirect("/signin");
+  if (error || !user) {
+    redirect("/login");
   }
 
-  const { data: profile, error: profileError } = await supabase
+  return user;
+}
+
+export async function getServerProfile(userId: string) {
+  const supabase = await createClient();
+
+  const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, email, role, onboarding_completed")
-    .eq("id", user.id)
+    .select("*")
+    .eq("id", userId)
     .single();
 
-  if (profileError || !profile) {
+  if (error || !profile) {
     redirect("/signin");
   }
 
-  return {
-    id: profile.id,
-    email: profile.email || undefined,
-    role: profile.role,
-    onboarding_completed: profile.onboarding_completed || false,
-  };
+  return profile;
 }
 
-/**
- * Get the authenticated user with their role-specific profile data
- * Redirects to login if not authenticated
- */
-export async function getAuthenticatedUserWithProfile(): Promise<
-  AuthUser & AuthProfile
-> {
-  const user = await getAuthenticatedUser();
+export async function requireClientRole(userId: string) {
+  const profile = await getServerProfile(userId);
+
+  if (profile.role !== "client") {
+    redirect("/ambassador/dashboard"); // role-aware redirect
+  }
+
+  if (!profile.onboarding_completed) {
+    redirect(`/onboarding/${profile.role}`);
+  }
+
+  return profile;
+}
+
+export async function requireRole(
+  role: "client" | "ambassador",
+  userId: string
+) {
+  const profile = await getServerProfile(userId);
+
+  if (profile.role !== role) {
+    // Role-aware redirects
+    if (role === "client") {
+      redirect("/ambassador/dashboard");
+    } else {
+      redirect("/client/dashboard");
+    }
+  }
+
+  if (!profile.onboarding_completed) {
+    redirect(`/onboarding/${profile.role}`);
+  }
+
+  return profile;
+}
+
+// Legacy function names for backward compatibility
+export async function getAuthenticatedUser() {
+  return getServerUser();
+}
+
+export async function getClientWithProfile(userId?: string) {
+  const user = userId ? { id: userId } : await getServerUser();
+  const profile = await requireClientRole(user.id);
+
+  // Fetch the actual client profile data
   const supabase = await createClient();
-
-  let ambassadorProfile:
-    | Database["public"]["Tables"]["ambassador_profiles"]["Row"]
-    | undefined;
-  let clientProfile:
-    | Database["public"]["Tables"]["client_profiles"]["Row"]
-    | undefined;
-
-  if (user.role === "ambassador") {
-    const { data } = await supabase
-      .from("ambassador_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    ambassadorProfile = data || undefined;
-  } else if (user.role === "client") {
-    const { data } = await supabase
-      .from("client_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    clientProfile = data || undefined;
-  }
-
-  return {
-    ...user,
-    ambassadorProfile,
-    clientProfile,
-  };
-}
-
-/**
- * Check if user has completed onboarding
- * Redirects to onboarding if not completed
- */
-export async function requireOnboardingCompleted(): Promise<AuthUser> {
-  const user = await getAuthenticatedUser();
-
-  if (!user.onboarding_completed) {
-    redirect(`/onboarding/${user.role}`);
-  }
-
-  return user;
-}
-
-/**
- * Check if user has a specific role
- * Redirects to appropriate dashboard if role doesn't match
- */
-export async function requireRole(requiredRole: UserRole): Promise<AuthUser> {
-  const user = await requireOnboardingCompleted();
-
-  if (user.role !== requiredRole) {
-    const redirectPath =
-      user.role === "client" ? "/client/dashboard" : "/ambassador/dashboard";
-    redirect(redirectPath);
-  }
-
-  return user;
-}
-
-/**
- * Check if user is an ambassador
- * Redirects to client dashboard if not an ambassador
- */
-export async function requireAmbassador(): Promise<AuthUser> {
-  return requireRole("ambassador");
-}
-
-/**
- * Check if user is a client
- * Redirects to ambassador dashboard if not a client
- */
-export async function requireClient(): Promise<AuthUser> {
-  return requireRole("client");
-}
-
-/**
- * Get user with role-specific profile, ensuring they have the correct role
- */
-export async function getAmbassadorWithProfile(): Promise<
-  AuthUser & {
-    ambassadorProfile: Database["public"]["Tables"]["ambassador_profiles"]["Row"];
-  }
-> {
-  const user = await requireAmbassador();
-  const supabase = await createClient();
-
-  const { data: ambassadorProfile, error } = await supabase
-    .from("ambassador_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (error || !ambassadorProfile) {
-    redirect("/onboarding/ambassador");
-  }
-
-  return {
-    ...user,
-    ambassadorProfile,
-  };
-}
-
-/**
- * Get user with role-specific profile, ensuring they have the correct role
- */
-export async function getClientWithProfile(): Promise<
-  AuthUser & {
-    clientProfile: Database["public"]["Tables"]["client_profiles"]["Row"];
-  }
-> {
-  const user = await requireClient();
-  const supabase = await createClient();
-
-  const { data: clientProfile, error } = await supabase
+  const { data: clientProfile } = await supabase
     .from("client_profiles")
     .select("*")
     .eq("user_id", user.id)
     .single();
 
-  if (error || !clientProfile) {
-    redirect("/onboarding/client");
-  }
+  return { user, profile, clientProfile };
+}
 
-  return {
-    ...user,
-    clientProfile,
-  };
+export async function getAmbassadorWithProfile(userId?: string) {
+  const user = userId ? { id: userId } : await getServerUser();
+  const profile = await requireRole("ambassador", user.id);
+
+  // Fetch the actual ambassador profile data
+  const supabase = await createClient();
+  const { data: ambassadorProfile } = await supabase
+    .from("ambassador_profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  return { user, profile, ambassadorProfile };
 }

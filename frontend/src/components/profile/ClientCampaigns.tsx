@@ -109,70 +109,69 @@ export function ClientCampaigns({
         ) : (
           /* Filled Cards - Client Campaigns */
           campaigns.map((campaign: CampaignDisplay) => (
-            <Card
+            <div
               key={campaign.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors"
               onClick={() => router.push(`/campaigns/${campaign.id}`)}
             >
-              <CardContent className="p-0">
-                {/* Campaign Cover */}
-                <div className="h-40 bg-gray-200 rounded-t-lg overflow-hidden relative">
-                  {campaign.coverImage ? (
-                    <Image
-                      src={campaign.coverImage}
-                      alt={campaign.title}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                      <span className="text-gray-500 text-4xl">📸</span>
-                    </div>
-                  )}
-
-                  {/* Status Badge */}
-                  <div className="absolute top-2 right-2">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        campaign.status === "active"
-                          ? "bg-green-100 text-green-800 border border-green-300"
-                          : campaign.status === "draft"
-                          ? "bg-gray-100 text-gray-800 border border-gray-300"
-                          : campaign.status === "completed"
-                          ? "bg-blue-100 text-blue-800 border border-blue-300"
-                          : "bg-red-100 text-red-800 border border-red-200"
-                      }`}
-                    >
-                      {campaign.status.charAt(0).toUpperCase() +
-                        campaign.status.slice(1)}
-                    </span>
+              {/* Campaign Cover */}
+              <div className="h-32 bg-gray-100 rounded-t-lg overflow-hidden relative">
+                {campaign.coverImage ? (
+                  <Image
+                    src={campaign.coverImage}
+                    alt={campaign.title}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <span className="text-gray-400 text-2xl">📸</span>
                   </div>
+                )}
+
+                {/* Status Badge */}
+                <div className="absolute top-2 right-2">
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      campaign.status === "active"
+                        ? "bg-green-50 text-green-700 border border-green-200"
+                        : campaign.status === "draft"
+                        ? "bg-gray-50 text-gray-700 border border-gray-200"
+                        : campaign.status === "completed"
+                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : "bg-red-50 text-red-700 border border-red-200"
+                    }`}
+                  >
+                    {campaign.status.charAt(0).toUpperCase() +
+                      campaign.status.slice(1)}
+                  </span>
                 </div>
+              </div>
 
-                {/* Campaign Info */}
-                <div className="p-4 space-y-2">
-                  <h4 className="font-semibold text-gray-900 line-clamp-1">
-                    {campaign.title}
-                  </h4>
+              {/* Campaign Info */}
+              <div className="p-4 space-y-3">
+                <h4 className="text-gray-900 line-clamp-1 text-sm">
+                  {campaign.title}
+                </h4>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      <span>{campaign.budgetRange}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      <span>{campaign.ambassadorCount} ambassadors</span>
-                    </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <DollarSign className="w-3 h-3" />
+                    <span>{campaign.budgetRange}</span>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <Users className="w-3 h-3" />
+                    <span>{campaign.ambassadorCount} ambassadors</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
                     <Clock className="w-3 h-3" />
                     <span>{campaign.timeline}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))
         )}
       </div>

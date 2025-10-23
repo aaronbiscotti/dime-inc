@@ -30,6 +30,7 @@ export interface PortfolioItem {
 }
 
 export interface CreatePortfolioData {
+  ambassador_id: string;
   title: string;
   description?: string;
   instagram_url?: string;
@@ -37,12 +38,7 @@ export interface CreatePortfolioData {
   media_urls?: string[];
   campaign_date?: string;
   client_id?: string;
-  results?: {
-    views?: number;
-    likes?: number;
-    engagement?: number;
-    [key: string]: unknown;
-  };
+  results?: any;
 }
 
 export interface UpdatePortfolioData {
@@ -53,12 +49,7 @@ export interface UpdatePortfolioData {
   media_urls?: string[];
   campaign_date?: string;
   client_id?: string;
-  results?: {
-    views?: number;
-    likes?: number;
-    engagement?: number;
-    [key: string]: unknown;
-  };
+  results?: any;
 }
 
 // ============================================================================
@@ -68,15 +59,16 @@ export interface UpdatePortfolioData {
 /**
  * Handle API errors consistently
  */
-function handleError(error: unknown, context: string) {
+function handleError(error: unknown, context: string): never {
   console.error(`[PortfolioService] ${context}:`, error);
-  
-  const message = error instanceof Error 
-    ? error.message 
-    : typeof error === 'string' 
-    ? error 
-    : 'An unexpected error occurred';
-  
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+      ? error
+      : "An unexpected error occurred";
+
   throw new Error(message);
 }
 
@@ -99,9 +91,9 @@ class PortfolioService {
         .single();
 
       if (error) throw error;
-      return result;
+      return result as PortfolioItem;
     } catch (error) {
-      return handleError(error, 'createPortfolio');
+      return handleError(error, "createPortfolio");
     }
   }
 
@@ -117,9 +109,9 @@ class PortfolioService {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as PortfolioItem[];
     } catch (error) {
-      return handleError(error, 'getAmbassadorPortfolio');
+      return handleError(error, "getAmbassadorPortfolio");
     }
   }
 
@@ -135,16 +127,19 @@ class PortfolioService {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as PortfolioItem;
     } catch (error) {
-      return handleError(error, 'getPortfolioItem');
+      return handleError(error, "getPortfolioItem");
     }
   }
 
   /**
    * Update a portfolio item
    */
-  async updatePortfolio(portfolioId: string, data: UpdatePortfolioData): Promise<PortfolioItem> {
+  async updatePortfolio(
+    portfolioId: string,
+    data: UpdatePortfolioData
+  ): Promise<PortfolioItem> {
     try {
       const { data: result, error } = await this.supabase
         .from("portfolios")
@@ -154,9 +149,9 @@ class PortfolioService {
         .single();
 
       if (error) throw error;
-      return result;
+      return result as PortfolioItem;
     } catch (error) {
-      return handleError(error, 'updatePortfolio');
+      return handleError(error, "updatePortfolio");
     }
   }
 
@@ -172,7 +167,7 @@ class PortfolioService {
 
       if (error) throw error;
     } catch (error) {
-      return handleError(error, 'deletePortfolio');
+      return handleError(error, "deletePortfolio");
     }
   }
 }
@@ -186,5 +181,5 @@ export const {
   getAmbassadorPortfolio,
   getPortfolioItem,
   updatePortfolio,
-  deletePortfolio
+  deletePortfolio,
 } = portfolioService;

@@ -1,20 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { mediaId: string } }
+  { params }: { params: Promise<{ mediaId: string }> }
 ) {
   try {
-    const supabase = await createClient()
-    
+    const supabase = await createClient();
+
     // Get the current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { mediaId } = params
+    const { mediaId } = await params;
 
     // For now, return mock data
     // In a real implementation, you would fetch from Instagram API
@@ -30,11 +33,14 @@ export async function GET(
       video_views: Math.floor(Math.random() * 5000) + 200,
       profile_visits: Math.floor(Math.random() * 200) + 20,
       website_clicks: Math.floor(Math.random() * 50) + 5,
-    }
+    };
 
-    return NextResponse.json({ data: mockInsights })
+    return NextResponse.json({ data: mockInsights });
   } catch (error) {
-    console.error('API Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("API Error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

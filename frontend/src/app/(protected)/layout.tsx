@@ -1,13 +1,8 @@
-import { getAuthenticatedUser } from "@/lib/auth/server";
-import { redirect } from "next/navigation";
-
-export default async function ProtectedLayout({
+export default function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // This will redirect if not authenticated or onboarding not completed
-  await getAuthenticatedUser();
-
+  // Auth is handled by middleware, no need for additional checks here
   return <>{children}</>;
 }

@@ -1,76 +1,32 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/providers/AuthProvider";
 import { Navbar } from "@/components/layout/Navbar";
-import { campaignService } from "@/services/campaignService";
+import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 import { Database } from "@/types/database";
+import { ChevronRight } from "lucide-react";
 
 type Campaign = Database["public"]["Tables"]["campaigns"]["Row"];
-import { ChevronRight } from "lucide-react";
-import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 
-export default function Campaigns() {
-  const { user, profile, clientProfile, loading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
+interface CampaignsListClientProps {
+  campaigns: Campaign[];
+}
+
+export default function CampaignsListClient({
+  campaigns,
+}: CampaignsListClientProps) {
   const [showForm, setShowForm] = useState(false);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [campaignsList, setCampaignsList] = useState<Campaign[]>(campaigns);
   const router = useRouter();
 
-  const loadCampaigns = useCallback(async () => {
-    setLoadingCampaigns(true);
-    try {
-      const { data } = await campaignService.getMyClientCampaigns();
-      setCampaigns(data || []);
-    } catch (error) {
-      console.error("Error loading campaigns:", error);
-    } finally {
-      setLoadingCampaigns(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Wait for auth to finish loading
-    if (authLoading) return;
-
-    // If no user, redirect to login
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    // If not a client, redirect to ambassador dashboard
-    if (profile?.role !== "client") {
-      router.push("/ambassador/dashboard");
-      return;
-    }
-
-    // Load campaigns for client
-    loadCampaigns();
-
-    // User is authenticated and is a client
-    setLoading(false);
-  }, [user, profile, authLoading, router, loadCampaigns]);
-
-  const handleCampaignCreated = async () => {
-    // Refresh campaigns list after creation
-    await loadCampaigns();
+  const handleCampaignCreated = async (
+    newCampaign: Record<string, unknown>
+  ) => {
+    // Add the new campaign to the list
+    setCampaignsList((prev) => [newCampaign as Campaign, ...prev]);
     setShowForm(false);
   };
-
-  if (loading || authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b border-[#f5d82e]"></div>
-      </div>
-    );
-  }
-
-  if (!user || profile?.role !== "client") {
-    return null; // Will redirect
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,18 +57,14 @@ export default function Campaigns() {
 
         {/* Campaigns List */}
         <div className="space-y-4">
-          {loadingCampaigns ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b border-[#f5d82e] mx-auto"></div>
-            </div>
-          ) : campaigns.length === 0 ? (
+          {campaignsList.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-300 p-12 text-center">
               <p className="text-gray-600">
                 No campaigns yet. Create your first campaign to get started!
               </p>
             </div>
           ) : (
-            campaigns.map((campaign) => (
+            campaignsList.map((campaign) => (
               <div
                 key={campaign.id}
                 onClick={() => router.push(`/campaigns/${campaign.id}`)}
