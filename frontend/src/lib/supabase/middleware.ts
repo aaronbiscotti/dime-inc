@@ -112,17 +112,15 @@ export async function updateSession(request: NextRequest) {
 
   // Role-based route protection
   if (profile.onboarding_completed) {
-    const isAmbassadorRoute =
-      request.nextUrl.pathname.startsWith("/ambassador") ||
-      request.nextUrl.pathname.startsWith("/explore") ||
-      request.nextUrl.pathname.startsWith("/profile");
-    const isClientRoute =
+    const isAmbassadorOnlyRoute =
+      request.nextUrl.pathname.startsWith("/ambassador");
+    const isClientOnlyRoute =
       request.nextUrl.pathname.startsWith("/client") ||
       request.nextUrl.pathname.startsWith("/contracts") ||
       request.nextUrl.pathname.startsWith("/campaigns");
 
-    // If ambassador tries to access client routes
-    if (profile.role === "ambassador" && isClientRoute) {
+    // If ambassador tries to access client-only routes
+    if (profile.role === "ambassador" && isClientOnlyRoute) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/ambassador-dashboard";
       console.log(
@@ -131,8 +129,8 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // If client tries to access ambassador routes
-    if (profile.role === "client" && isAmbassadorRoute) {
+    // If client tries to access ambassador-only routes
+    if (profile.role === "client" && isAmbassadorOnlyRoute) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/client-dashboard";
       console.log(

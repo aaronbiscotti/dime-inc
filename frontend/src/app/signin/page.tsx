@@ -45,12 +45,9 @@ export default function SignInPage() {
     if (result?.error) {
       setError(result.error);
       setLoading(false);
-    } else if (result?.success) {
+    } else {
       // Server action handles redirect automatically
       // Keep loading state until redirect completes
-    } else {
-      // Handle unexpected case
-      setLoading(false);
     }
   }
 
