@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Modal } from "@/components/ui/modal";
-import { Plus, Calendar, DollarSign, Users, X } from "lucide-react";
+import { Calendar, DollarSign, Users } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { campaignService } from "@/services/campaignService";
 import { useRouter } from "next/navigation";
@@ -20,12 +20,12 @@ interface CreateCampaignModalProps {
 interface CampaignFormData {
   title: string;
   description: string;
-  budget: string;
-  timeline: string;
-  requirements: string[];
-  targetNiches: string[];
-  campaignType: string;
-  deliverables: string[];
+  budget_min: number;
+  budget_max: number;
+  deadline: string;
+  requirements: string;
+  proposal_message: string;
+  max_ambassadors: number;
 }
 
 export function CreateCampaignModal({
@@ -44,71 +44,17 @@ export function CreateCampaignModal({
   const [formData, setFormData] = useState<CampaignFormData>({
     title: "",
     description: "",
-    budget: "",
-    timeline: "",
-    requirements: [""],
-    targetNiches: [],
-    campaignType: "",
-    deliverables: [""],
+    budget_min: 0,
+    budget_max: 0,
+    deadline: "",
+    requirements: "",
+    proposal_message: "",
+    max_ambassadors: 1,
   });
 
-  const handleInputChange = (field: keyof CampaignFormData, value: string) => {
+  const handleInputChange = (field: keyof CampaignFormData, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
-  const handleArrayFieldAdd = (field: "requirements" | "deliverables") => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: [...prev[field], ""],
-    }));
-  };
-
-  const handleArrayFieldChange = (
-    field: "requirements" | "deliverables",
-    index: number,
-    value: string
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: prev[field].map((item, i) => (i === index ? value : item)),
-    }));
-  };
-
-  const handleArrayFieldRemove = (
-    field: "requirements" | "deliverables",
-    index: number
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: prev[field].filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleNicheToggle = (niche: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      targetNiches: prev.targetNiches.includes(niche)
-        ? prev.targetNiches.filter((n) => n !== niche)
-        : [...prev.targetNiches, niche],
-    }));
-  };
-
-  const availableNiches = [
-    "Fashion",
-    "Beauty",
-    "Fitness",
-    "Food",
-    "Travel",
-    "Tech",
-    "Gaming",
-    "Music",
-    "Art",
-    "Lifestyle",
-    "Business",
-    "Education",
-    "Health",
-    "Sports",
-  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,15 +69,13 @@ export function CreateCampaignModal({
       const { data: campaign, error } = await campaignService.createCampaign({
         title: formData.title,
         description: formData.description,
-        budget: formData.budget,
-        timeline: formData.timeline,
-        requirements: formData.requirements
-          .filter((r) => r.trim() !== "")
-          .join("\n"),
-        targetNiches: formData.targetNiches,
-        campaignType: formData.campaignType,
-        deliverables: formData.deliverables.filter((d) => d.trim() !== ""),
-        clientId: clientProfile.id, // Add client_id
+        budget_min: formData.budget_min,
+        budget_max: formData.budget_max,
+        deadline: formData.deadline,
+        requirements: formData.requirements,
+        proposal_message: formData.proposal_message,
+        max_ambassadors: formData.max_ambassadors,
+        client_id: clientProfile.id,
       });
 
       if (error || !campaign) {
@@ -207,33 +151,72 @@ export function CreateCampaignModal({
             </div>
           </div>
 
-          {/* Campaign Details */}
+          {/* Budget Range */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="budget">Budget Range</Label>
+              <Label htmlFor="budget_min">Minimum Budget ($)</Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
-                  id="budget"
-                  value={formData.budget}
-                  onChange={(e) => handleInputChange("budget", e.target.value)}
-                  placeholder="e.g., $1,000 - $5,000"
+                  id="budget_min"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={formData.budget_min}
+                  onChange={(e) => handleInputChange("budget_min", parseFloat(e.target.value) || 0)}
+                  placeholder="1000"
                   className="pl-9"
                   required
                 />
               </div>
             </div>
             <div>
-              <Label htmlFor="timeline">Timeline</Label>
+              <Label htmlFor="budget_max">Maximum Budget ($)</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <Input
+                  id="budget_max"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={formData.budget_max}
+                  onChange={(e) => handleInputChange("budget_max", parseFloat(e.target.value) || 0)}
+                  placeholder="5000"
+                  className="pl-9"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Deadline and Max Ambassadors */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="deadline">Campaign Deadline</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
-                  id="timeline"
-                  value={formData.timeline}
-                  onChange={(e) =>
-                    handleInputChange("timeline", e.target.value)
-                  }
-                  placeholder="e.g., 2-4 weeks"
+                  id="deadline"
+                  type="date"
+                  value={formData.deadline}
+                  onChange={(e) => handleInputChange("deadline", e.target.value)}
+                  className="pl-9"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="max_ambassadors">Maximum Ambassadors</Label>
+              <div className="relative">
+                <Users className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <Input
+                  id="max_ambassadors"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={formData.max_ambassadors}
+                  onChange={(e) => handleInputChange("max_ambassadors", parseInt(e.target.value) || 1)}
+                  placeholder="5"
                   className="pl-9"
                   required
                 />
@@ -241,131 +224,29 @@ export function CreateCampaignModal({
             </div>
           </div>
 
-          {/* Requirements & Deliverables */}
+          {/* Requirements */}
           <div>
-            <Label>Requirements</Label>
-            <div className="space-y-2 mt-2">
-              {formData.requirements.map((requirement, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    value={requirement}
-                    onChange={(e) =>
-                      handleArrayFieldChange(
-                        "requirements",
-                        index,
-                        e.target.value
-                      )
-                    }
-                    placeholder="Enter requirement"
-                  />
-                  {formData.requirements.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        handleArrayFieldRemove("requirements", index)
-                      }
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => handleArrayFieldAdd("requirements")}
-                className="w-full"
-              >
-                <Plus className="w-4 h-4 mr-2" /> Add Requirement
-              </Button>
-            </div>
+            <Label htmlFor="requirements">Requirements</Label>
+            <Textarea
+              id="requirements"
+              value={formData.requirements}
+              onChange={(e) => handleInputChange("requirements", e.target.value)}
+              placeholder="List the specific requirements for this campaign..."
+              rows={4}
+              required
+            />
           </div>
 
-          {/* Target Niches */}
+          {/* Proposal Message */}
           <div>
-            <Label>Target Niches</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {availableNiches.map((niche) => (
-                <Button
-                  key={niche}
-                  type="button"
-                  variant={
-                    formData.targetNiches.includes(niche)
-                      ? "default"
-                      : "outline"
-                  }
-                  size="sm"
-                  onClick={() => handleNicheToggle(niche)}
-                  className={
-                    formData.targetNiches.includes(niche)
-                      ? "bg-gray-800 text-white"
-                      : ""
-                  }
-                >
-                  {niche}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Campaign Type & Deliverables */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="campaignType">Campaign Type</Label>
-              <Input
-                id="campaignType"
-                value={formData.campaignType}
-                onChange={(e) =>
-                  handleInputChange("campaignType", e.target.value)
-                }
-                placeholder="e.g., Instagram Reel"
-                required
-              />
-            </div>
-            <div>
-              <Label>Deliverables</Label>
-              <div className="space-y-2 mt-2">
-                {formData.deliverables.map((deliverable, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      value={deliverable}
-                      onChange={(e) =>
-                        handleArrayFieldChange(
-                          "deliverables",
-                          index,
-                          e.target.value
-                        )
-                      }
-                      placeholder="Enter deliverable"
-                    />
-                    {formData.deliverables.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleArrayFieldRemove("deliverables", index)
-                        }
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleArrayFieldAdd("deliverables")}
-                  className="w-full"
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Add Deliverable
-                </Button>
-              </div>
-            </div>
+            <Label htmlFor="proposal_message">Proposal Message</Label>
+            <Textarea
+              id="proposal_message"
+              value={formData.proposal_message}
+              onChange={(e) => handleInputChange("proposal_message", e.target.value)}
+              placeholder="Write a message to ambassadors about this campaign opportunity..."
+              rows={3}
+            />
           </div>
 
           {/* Submit Button */}

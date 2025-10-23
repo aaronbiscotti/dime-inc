@@ -52,18 +52,39 @@ export async function getCampaignSubmissionsForClient(
     .single();
 
   if (profileError || !clientProfile) {
+    console.log("[getCampaignSubmissionsForClient] No client profile found for user:", userId);
     return [];
   }
 
-  // Only submissions that belong to the client's campaign
+  // Get submissions through campaign_ambassadors relationship
+  // First get all campaign_ambassadors for this campaign
+  const { data: campaignAmbassadors, error: caError } = await supabase
+    .from("campaign_ambassadors")
+    .select("id")
+    .eq("campaign_id", campaignId);
+
+  if (caError) {
+    console.log("[getCampaignSubmissionsForClient] Error fetching campaign ambassadors:", caError);
+    return [];
+  }
+
+  if (!campaignAmbassadors || campaignAmbassadors.length === 0) {
+    console.log("[getCampaignSubmissionsForClient] No campaign ambassadors found for campaign:", campaignId);
+    return [];
+  }
+
+  // Get submissions for these campaign ambassadors
   const { data, error } = await supabase
     .from("campaign_submissions")
     .select("*")
-    .eq("campaign_id", campaignId)
-    .eq("client_id", clientProfile.id)
+    .in("campaign_ambassador_id", campaignAmbassadors.map(ca => ca.id))
     .order("submitted_at", { ascending: false });
 
-  if (error) notFound();
+  if (error) {
+    console.log("[getCampaignSubmissionsForClient] Error fetching submissions:", error);
+    return []; // Return empty array instead of calling notFound()
+  }
+  
   return data ?? [];
 }
 

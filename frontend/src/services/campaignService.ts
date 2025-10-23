@@ -16,13 +16,13 @@ export interface CampaignData {
   id?: string;
   title: string;
   description: string;
-  budget: string;
-  timeline: string;
+  budget_min: number;
+  budget_max: number;
+  deadline: string | null;
   requirements?: string | null;
-  targetNiches?: string[];
-  campaignType?: string;
-  deliverables?: string[];
-  clientId?: string; // Add client_id
+  proposal_message?: string | null;
+  max_ambassadors?: number | null;
+  client_id?: string;
 }
 
 // Type used by the client-side creation form
@@ -93,28 +93,19 @@ class CampaignService {
    */
   async createCampaign(campaignData: CampaignData) {
     try {
-      // Parse budget range (e.g., "$1000 - $5000" -> min: 1000, max: 5000)
-      const budgetRange = campaignData.budget.replace(/[$,]/g, '').split(' - ');
-      const budgetMin = parseFloat(budgetRange[0]) || 0;
-      const budgetMax = parseFloat(budgetRange[1]) || budgetMin;
-
-      // Parse timeline to deadline (assuming timeline is in days)
-      const timelineDays = parseInt(campaignData.timeline) || 30;
-      const deadline = new Date();
-      deadline.setDate(deadline.getDate() + timelineDays);
-
       const { data, error } = await this.supabase
         .from("campaigns")
         .insert({
           title: campaignData.title,
           description: campaignData.description,
-          budget_min: budgetMin,
-          budget_max: budgetMax,
-          deadline: deadline.toISOString(),
+          budget_min: campaignData.budget_min,
+          budget_max: campaignData.budget_max,
+          deadline: campaignData.deadline,
           requirements: campaignData.requirements,
-          max_ambassadors: 10, // Default value
+          proposal_message: campaignData.proposal_message,
+          max_ambassadors: campaignData.max_ambassadors,
           status: "draft", // Start as draft
-          client_id: campaignData.clientId || "", // Provide fallback for required field
+          client_id: campaignData.client_id || "", // Provide fallback for required field
         })
         .select()
         .single();
