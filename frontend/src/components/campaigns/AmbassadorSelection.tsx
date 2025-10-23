@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,49 +40,57 @@ export function AmbassadorSelection({
   onClose,
 }: AmbassadorSelectionProps) {
   const [ambassadors, setAmbassadors] = useState<Ambassador[]>([]);
-  const [filteredAmbassadors, setFilteredAmbassadors] = useState<Ambassador[]>(
-    []
-  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAmbassadors, setSelectedAmbassadors] = useState<Set<string>>(
     new Set()
   );
-  const [invitationMessage, setInvitationMessage] = useState("");
   const [sentInvitations] = useState<Set<string>>(new Set());
   const [targetNiches, setTargetNiches] = useState<string[]>([]);
+  const [editableInvitationMessage, setEditableInvitationMessage] =
+    useState("");
 
   useEffect(() => {
     fetchAmbassadors();
 
-    // Parse campaign metadata from requirements field
+    // Parse campaign metadata from requirements field with error handling
     try {
-      if (campaign.requirements) {
-        const metadata = JSON.parse(campaign.requirements);
-        if (metadata.targetNiches) {
-          setTargetNiches(metadata.targetNiches);
+      if (campaign.requirements && typeof campaign.requirements === "string") {
+        // Only parse if it's a string and looks like JSON
+        if (campaign.requirements.trim().startsWith("{")) {
+          const metadata = JSON.parse(campaign.requirements);
+          if (metadata && Array.isArray(metadata.targetNiches)) {
+            setTargetNiches(metadata.targetNiches);
+          }
         }
       }
-    } catch {
+    } catch (error) {
       // If parsing fails, requirements is probably a string
-      console.log("Campaign requirements is not JSON metadata");
+      console.log("Campaign requirements is not JSON metadata:", error);
     }
   }, [campaign.requirements]);
 
-  useEffect(() => {
-    // Generate default invitation message
+  // Memoized invitation message to prevent unnecessary re-renders
+  const defaultInvitationMessage = useMemo(() => {
     const budgetText = campaign.budget ? `$${campaign.budget}` : "TBD";
     const timelineText = campaign.timeline || "TBD";
 
-    setInvitationMessage(
+    return (
       `Hi! I'd like to invite you to participate in our "${campaign.campaign_title}" campaign. ` +
-        `Budget: ${budgetText}, Timeline: ${timelineText}. ` +
-        `This opportunity aligns with your content style and we'd love to collaborate with you!`
+      `Budget: ${budgetText}, Timeline: ${timelineText}. ` +
+      `This opportunity aligns with your content style and we'd love to collaborate with you!`
     );
-  }, [campaign]);
+  }, [campaign.campaign_title, campaign.budget, campaign.timeline]);
 
+  // Initialize editable message with default
   useEffect(() => {
-    // Filter ambassadors based on search term and campaign niches
+    if (!editableInvitationMessage) {
+      setEditableInvitationMessage(defaultInvitationMessage);
+    }
+  }, [defaultInvitationMessage, editableInvitationMessage]);
+
+  // Memoized filtering to prevent unnecessary re-renders and reduce webpack serialization
+  const filteredAmbassadors = useMemo(() => {
     let filtered = ambassadors;
 
     if (searchTerm) {
@@ -107,7 +115,7 @@ export function AmbassadorSelection({
       });
     }
 
-    setFilteredAmbassadors(filtered);
+    return filtered;
   }, [ambassadors, searchTerm, targetNiches]);
 
   const fetchAmbassadors = async () => {
@@ -142,19 +150,25 @@ export function AmbassadorSelection({
     }
   };
 
-  const toggleAmbassadorSelection = (ambassadorId: string) => {
-    const newSelection = new Set(selectedAmbassadors);
-    if (newSelection.has(ambassadorId)) {
-      newSelection.delete(ambassadorId);
-    } else {
-      newSelection.add(ambassadorId);
-    }
-    setSelectedAmbassadors(newSelection);
-  };
+  // Memoized callbacks to prevent unnecessary re-renders
+  const toggleAmbassadorSelection = useCallback((ambassadorId: string) => {
+    setSelectedAmbassadors((prev) => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(ambassadorId)) {
+        newSelection.delete(ambassadorId);
+      } else {
+        newSelection.add(ambassadorId);
+      }
+      return newSelection;
+    });
+  }, []);
 
-  const hasNicheMatch = (ambassador: Ambassador) => {
-    return ambassador.niche?.some((n) => targetNiches.includes(n)) || false;
-  };
+  const hasNicheMatch = useCallback(
+    (ambassador: Ambassador) => {
+      return ambassador.niche?.some((n) => targetNiches.includes(n)) || false;
+    },
+    [targetNiches]
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -201,8 +215,8 @@ export function AmbassadorSelection({
             <Label htmlFor="invitation">Invitation Message</Label>
             <Textarea
               id="invitation"
-              value={invitationMessage}
-              onChange={(e) => setInvitationMessage(e.target.value)}
+              value={editableInvitationMessage}
+              onChange={(e) => setEditableInvitationMessage(e.target.value)}
               rows={3}
               className="mt-1"
             />

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Database } from "@/types/database";
 
-type UserRole = Database['public']['Tables']['profiles']['Row']['role'];
+type UserRole = Database["public"]["Tables"]["profiles"]["Row"]["role"];
 import { AmbassadorCard } from "./AmbassadorCard";
 import { ClientCard } from "./ClientCard";
 // Using Next.js API routes instead of external API
@@ -14,6 +14,8 @@ interface ExploreGridProps {
   filters: Record<string, string[]>;
 }
 
+const ITEMS_PER_PAGE = 12; // Limit items per page to reduce memory usage
+
 export function ExploreGrid({
   userRole,
   searchQuery,
@@ -21,8 +23,18 @@ export function ExploreGrid({
 }: ExploreGridProps) {
   const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Fetch real data from FastAPI using cookie-based auth
+  // Memoized pagination calculations to prevent unnecessary re-renders
+  const paginationInfo = useMemo(() => {
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return { totalPages, startIndex, endIndex };
+  }, [currentPage, totalCount]);
+
+  // Fetch real data from FastAPI using cookie-based auth with pagination
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -37,6 +49,9 @@ export function ExploreGrid({
           if (filters.location && filters.location.length > 0) {
             params.append("location", filters.location[0]);
           }
+          // Add pagination parameters
+          params.append("page", currentPage.toString());
+          params.append("limit", ITEMS_PER_PAGE.toString());
 
           const response = await fetch(
             `/api/explore/ambassadors?${params.toString()}`,
@@ -48,6 +63,7 @@ export function ExploreGrid({
           if (response.ok) {
             const result = await response.json();
             setData(result.data || []);
+            setTotalCount(result.total || 0);
           }
         } else {
           // Ambassador is looking for clients
@@ -56,6 +72,9 @@ export function ExploreGrid({
           if (filters.industry && filters.industry.length > 0) {
             params.append("industry", filters.industry[0]);
           }
+          // Add pagination parameters
+          params.append("page", currentPage.toString());
+          params.append("limit", ITEMS_PER_PAGE.toString());
 
           const response = await fetch(
             `/api/explore/clients?${params.toString()}`,
@@ -67,6 +86,7 @@ export function ExploreGrid({
           if (response.ok) {
             const result = await response.json();
             setData(result.data || []);
+            setTotalCount(result.total || 0);
           }
         }
       } catch (error) {
@@ -77,7 +97,12 @@ export function ExploreGrid({
     };
 
     fetchData();
-  }, [userRole, searchQuery, filters]);
+  }, [userRole, searchQuery, filters, currentPage]);
+
+  // Reset to first page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filters]);
 
   if (loading) {
     return (
@@ -140,9 +165,14 @@ export function ExploreGrid({
       {/* Results Header */}
       <div className="flex items-center justify-between mb-6">
         <p className="text-gray-600">
-          Showing {data.length}{" "}
+          Showing {data.length} of {totalCount}{" "}
           {userRole === "client" ? "ambassadors" : "clients"}
         </p>
+        {paginationInfo.totalPages > 1 && (
+          <div className="text-sm text-gray-500">
+            Page {currentPage} of {paginationInfo.totalPages}
+          </div>
+        )}
       </div>
 
       {/* Grid */}
@@ -157,6 +187,57 @@ export function ExploreGrid({
           )
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {paginationInfo.totalPages > 1 && (
+        <div className="flex justify-center items-center mt-8 space-x-2">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+
+          {/* Page numbers */}
+          <div className="flex space-x-1">
+            {Array.from(
+              { length: Math.min(5, paginationInfo.totalPages) },
+              (_, i) => {
+                const pageNum = Math.max(
+                  1,
+                  Math.min(paginationInfo.totalPages, currentPage - 2 + i)
+                );
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      currentPage === pageNum
+                        ? "bg-[#f5d82e] text-black"
+                        : "text-gray-500 bg-white border border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              }
+            )}
+          </div>
+
+          <button
+            onClick={() =>
+              setCurrentPage(
+                Math.min(paginationInfo.totalPages, currentPage + 1)
+              )
+            }
+            disabled={currentPage === paginationInfo.totalPages}
+            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }
