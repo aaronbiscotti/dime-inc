@@ -10,7 +10,10 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
-import { UserRole, Contract } from "@/types/database";
+import { Database } from "@/types/database";
+
+type UserRole = Database["public"]["Enums"]["user_role"];
+type Contract = Database["public"]["Tables"]["contracts"]["Row"];
 import { chatService, ChatParticipant, ChatRoom } from "@/services/chatService";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -27,7 +30,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
   const [otherParticipant, setOtherParticipant] =
     useState<ChatParticipant | null>(null);
-  const [contract, setContract] = useState<Contract | null>(null);
+  const [contract, setContract] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -48,10 +51,13 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     const loadChatContext = async () => {
       try {
         console.log("[ContextPanel] Loading chat context for:", selectedChatId);
-        
+
         const chatRoomRes = await chatService.getChatRoom(selectedChatId);
         if (chatRoomRes.error || !chatRoomRes.data) {
-          console.error("[ContextPanel] Failed to load chat room:", chatRoomRes.error);
+          console.error(
+            "[ContextPanel] Failed to load chat room:",
+            chatRoomRes.error
+          );
           throw new Error("Failed to load chat information");
         }
 
@@ -64,36 +70,53 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             selectedChatId
           );
           if (participantsRes.error) {
-            console.error("[ContextPanel] Failed to load participants:", participantsRes.error);
+            console.error(
+              "[ContextPanel] Failed to load participants:",
+              participantsRes.error
+            );
             throw new Error("Failed to load participants");
           }
           setParticipants(participantsRes.data || []);
-          console.log("[ContextPanel] Participants loaded:", participantsRes.data?.length);
+          console.log(
+            "[ContextPanel] Participants loaded:",
+            participantsRes.data?.length
+          );
         } else {
           const participantRes = await chatService.getOtherParticipant(
             selectedChatId
           );
           if (participantRes.error || !participantRes.data) {
-            console.error("[ContextPanel] Failed to load other participant:", participantRes.error);
-            
+            console.error(
+              "[ContextPanel] Failed to load other participant:",
+              participantRes.error
+            );
+
             // Check if this is an orphaned chat that should be cleaned up
             if (participantRes.error?.shouldRemove) {
-              console.log("[ContextPanel] Chat appears to be orphaned, attempting cleanup");
+              console.log(
+                "[ContextPanel] Chat appears to be orphaned, attempting cleanup"
+              );
               try {
                 await chatService.cleanupOrphanedChat(selectedChatId);
                 console.log("[ContextPanel] Orphaned chat cleaned up");
                 // Redirect to chats page without the problematic chat
-                router.push('/chats');
+                router.push("/chats");
                 return;
               } catch (cleanupError) {
-                console.error("[ContextPanel] Failed to cleanup orphaned chat:", cleanupError);
+                console.error(
+                  "[ContextPanel] Failed to cleanup orphaned chat:",
+                  cleanupError
+                );
               }
             }
-            
+
             throw new Error("Failed to load participant information");
           }
           setOtherParticipant(participantRes.data);
-          console.log("[ContextPanel] Other participant loaded:", participantRes.data.name);
+          console.log(
+            "[ContextPanel] Other participant loaded:",
+            participantRes.data.name
+          );
 
           const contractRes = await chatService.getContractByChatId(
             selectedChatId

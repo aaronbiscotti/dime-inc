@@ -1,70 +1,64 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { signIn } from '@/app/auth/actions'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertCircle, Loader2, ArrowLeft } from 'lucide-react'
-import { useAuth } from '@/components/providers/AuthProvider'
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { signIn } from "@/app/auth/actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, Loader2, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function SignInPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const role = searchParams.get('role') as 'ambassador' | 'client' | null
-  const { user, profile, loading: authLoading } = useAuth()
-  
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams();
+  const role = searchParams.get("role") as "ambassador" | "client" | null;
+  const { user, profile, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    if (!authLoading && user && profile) {
-      const redirectPath = profile.role === 'client' ? '/client-dashboard' : '/ambassador-dashboard'
-      router.push(redirectPath)
-    }
-  }, [user, profile, authLoading, router])
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e]"></div>
       </div>
-    )
+    );
   }
 
+  // If user is already authenticated, middleware will handle redirect
   if (user && profile) {
-    return null // Will redirect via useEffect
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e]"></div>
+      </div>
+    );
   }
 
   async function handleSubmit(formData: FormData) {
-    setLoading(true)
-    setError(null)
-    
-    const result = await signIn(formData)
-    
+    setLoading(true);
+    setError(null);
+
+    const result = await signIn(formData);
+
     if (result?.error) {
-      setError(result.error)
-      setLoading(false)
+      setError(result.error);
+      setLoading(false);
     } else if (result?.success) {
-      // On success, the AuthProvider's onAuthStateChange will trigger.
-      // The page will either redirect via its own useEffect or the middleware
-      // will catch the next navigation. The loading spinner will continue until
-      // the redirect is complete, which is the desired behavior.
-      // No need to setLoading(false) here.
+      // Server action handles redirect automatically
+      // Keep loading state until redirect completes
     } else {
       // Handle unexpected case
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link 
-          href="/" 
+        <Link
+          href="/"
           className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
@@ -124,14 +118,14 @@ export default function SignInPage() {
                     Signing in...
                   </>
                 ) : (
-                  'Sign In'
+                  "Sign In"
                 )}
               </Button>
 
               <div className="text-center text-sm text-gray-600">
-                Don't have an account?{' '}
-                <Link 
-                  href={role ? `/signup?role=${role}` : '/'}
+                Don't have an account?{" "}
+                <Link
+                  href={role ? `/signup?role=${role}` : "/"}
                   className="text-[#f5d82e] hover:underline font-semibold"
                 >
                   Sign up
@@ -142,5 +136,5 @@ export default function SignInPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

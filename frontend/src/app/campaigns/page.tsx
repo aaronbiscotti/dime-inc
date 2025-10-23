@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
-import { Campaign } from "@/types/database";
+import { Database } from "@/types/database";
+
+type Campaign = Database["public"]["Tables"]["campaigns"]["Row"];
 import { ChevronRight } from "lucide-react";
 import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 

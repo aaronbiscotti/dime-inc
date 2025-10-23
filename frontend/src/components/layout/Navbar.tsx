@@ -4,22 +4,44 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { signOut } from "@/app/auth/actions";
 import Image from "next/image";
 
 export function Navbar() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.push("/");
+      // Server action handles redirect automatically
     } catch (error) {
       console.error("Failed to sign out:", error);
       // You could add a toast notification here to show the error to the user
     }
   };
+
+  // Show loading skeleton while auth state is being determined
+  if (loading) {
+    return (
+      <nav className="bg-white border-b border-gray-300 w-full">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-8">
+              <div className="h-8 w-32 bg-gray-200 animate-pulse rounded"></div>
+              <div className="flex space-x-6">
+                <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+                <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
+                <div className="h-4 w-18 bg-gray-200 animate-pulse rounded"></div>
+              </div>
+            </div>
+            <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
 
   if (!user || !profile) {
     return null;

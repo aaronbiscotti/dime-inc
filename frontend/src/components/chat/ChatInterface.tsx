@@ -5,7 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatArea } from "./ChatArea";
 import { ContextPanel } from "./ContextPanel";
-import { UserRole } from "@/types/database";
+import { Database } from "@/types/database";
+
+type UserRole = Database["public"]["Enums"]["user_role"];
 
 interface ChatInterfaceProps {
   userRole: UserRole;

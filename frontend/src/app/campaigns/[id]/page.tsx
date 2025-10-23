@@ -6,7 +6,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { campaignService } from "@/services/campaignService";
 import { submissionService, Submission } from "@/services/submissionService";
-import { Campaign, CampaignStatus } from "@/types/database";
+import { Database } from "@/types/database";
 import { ClientReviewModal } from "@/components/submissions/ClientReviewModal";
 import { SubmissionsList } from "@/components/submissions/SubmissionsList";
 import { AmbassadorSelection } from "@/components/campaigns/AmbassadorSelection";
@@ -27,12 +27,16 @@ type Tab = "details" | "submissions";
 
 export default function CampaignDetails() {
   const [loading, setLoading] = useState(true);
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [campaign, setCampaign] = useState<
+    Database["public"]["Tables"]["campaigns"]["Row"] | null
+  >(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editedCampaign, setEditedCampaign] = useState<Campaign | null>(null);
+  const [editedCampaign, setEditedCampaign] = useState<
+    Database["public"]["Tables"]["campaigns"]["Row"] | null
+  >(null);
   const [activeTab, setActiveTab] = useState<Tab>("details");
   const [submissionToReview, setSubmissionToReview] =
     useState<Submission | null>(null);
@@ -86,7 +90,7 @@ export default function CampaignDetails() {
     if (!campaign) return;
     setIsUpdating(true);
     try {
-      const newStatus: CampaignStatus =
+      const newStatus: Database["public"]["Enums"]["campaign_status"] =
         campaign.status === "active" ? "draft" : "active";
       await campaignService.updateCampaignStatus(campaign.id, newStatus);
       setCampaign({ ...campaign, status: newStatus });
@@ -112,7 +116,7 @@ export default function CampaignDetails() {
   };
 
   const handleFieldChange = (
-    field: keyof Campaign,
+    field: keyof Database["public"]["Tables"]["campaigns"]["Row"],
     value: string | number | boolean | null
   ) => {
     if (editedCampaign)
@@ -123,7 +127,9 @@ export default function CampaignDetails() {
     if (!editedCampaign || !campaign) return;
     setIsUpdating(true);
     try {
-      const updateData: Partial<Campaign> = {
+      const updateData: Partial<
+        Database["public"]["Tables"]["campaigns"]["Row"]
+      > = {
         title: editedCampaign.title,
         description: editedCampaign.description,
         budget_min: editedCampaign.budget_min,

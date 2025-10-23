@@ -1,24 +1,29 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Users, Building } from 'lucide-react'
-import { useAuth } from '@/components/providers/AuthProvider'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Users, Building } from "lucide-react";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function Home() {
-  const [selectedRole, setSelectedRole] = useState<'ambassador' | 'client' | null>(null)
-  const { user, profile, loading } = useAuth()
-  const router = useRouter()
+  const [selectedRole, setSelectedRole] = useState<
+    "ambassador" | "client" | null
+  >(null);
+  const { user, profile, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!loading && user && profile) {
-      const redirectPath = profile.role === 'client' ? '/client-dashboard' : '/ambassador-dashboard'
-      router.push(redirectPath)
+      const redirectPath =
+        profile.role === "client"
+          ? "/client/dashboard"
+          : "/ambassador/dashboard";
+      router.push(redirectPath);
     }
-  }, [user, profile, loading, router])
+  }, [user, profile, loading, router]);
 
   // If user is authenticated but profile is still loading, show a loading state
   if (!loading && user && !profile) {
@@ -29,7 +34,7 @@ export default function Home() {
           <p className="text-gray-600">Loading your profile...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (loading) {
@@ -37,11 +42,11 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f5d82e]"></div>
       </div>
-    )
+    );
   }
 
   if (user && profile) {
-    return null // Will redirect via useEffect
+    return null; // Will redirect via useEffect
   }
 
   return (
@@ -51,19 +56,17 @@ export default function Home() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Welcome to Dime
           </h1>
-          <p className="text-gray-600">
-            Choose how you want to join us
-          </p>
+          <p className="text-gray-600">Choose how you want to join us</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card 
+          <Card
             className={`cursor-pointer transition-all hover:shadow-lg ${
-              selectedRole === 'ambassador' 
-                ? 'ring-2 ring-[#f5d82e] shadow-lg' 
-                : ''
+              selectedRole === "ambassador"
+                ? "ring-2 ring-[#f5d82e] shadow-lg"
+                : ""
             }`}
-            onClick={() => setSelectedRole('ambassador')}
+            onClick={() => setSelectedRole("ambassador")}
           >
             <CardContent className="p-8 text-center">
               <div className="w-20 h-20 bg-[#f5d82e]/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -83,13 +86,11 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className={`cursor-pointer transition-all hover:shadow-lg ${
-              selectedRole === 'client' 
-                ? 'ring-2 ring-[#f5d82e] shadow-lg' 
-                : ''
+              selectedRole === "client" ? "ring-2 ring-[#f5d82e] shadow-lg" : ""
             }`}
-            onClick={() => setSelectedRole('client')}
+            onClick={() => setSelectedRole("client")}
           >
             <CardContent className="p-8 text-center">
               <div className="w-20 h-20 bg-[#f5d82e]/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -113,16 +114,17 @@ export default function Home() {
         {selectedRole && (
           <div className="flex justify-center gap-4">
             <Link href={`/signup?role=${selectedRole}`}>
-              <Button 
+              <Button
                 size="lg"
                 className="bg-[#f5d82e] hover:bg-[#f5d82e]/90 text-gray-900 font-semibold px-8"
               >
-                Sign Up as {selectedRole === 'ambassador' ? 'Ambassador' : 'Client'}
+                Sign Up as{" "}
+                {selectedRole === "ambassador" ? "Ambassador" : "Client"}
               </Button>
             </Link>
             <Link href={`/signin?role=${selectedRole}`}>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="outline"
                 className="border-gray-300 hover:bg-gray-50 px-8"
               >
@@ -133,5 +135,5 @@ export default function Home() {
         )}
       </div>
     </div>
-  )
+  );
 }
