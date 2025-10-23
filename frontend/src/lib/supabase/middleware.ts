@@ -121,7 +121,6 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.pathname.startsWith("/ambassador");
     const isClientOnlyRoute =
       request.nextUrl.pathname.startsWith("/client") ||
-      request.nextUrl.pathname.startsWith("/contracts") ||
       request.nextUrl.pathname.startsWith("/campaigns");
 
     // If ambassador tries to access client-only routes

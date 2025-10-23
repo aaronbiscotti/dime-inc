@@ -34,7 +34,7 @@ export const exploreService = {
           tiktok_handle,
           twitter_handle,
           user_id,
-          profiles!inner(
+          profiles(
             id,
             email,
             role,

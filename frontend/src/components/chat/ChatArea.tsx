@@ -404,7 +404,7 @@ export function ChatArea({
     setErrorMessage(null);
 
     try {
-      const result = await chatService.deleteChat(selectedChatId);
+      const result = await chatService.deleteChatRoom(selectedChatId);
 
       if (result.error) {
         setErrorMessage(`Failed to delete chat: ${result.error.message}`);

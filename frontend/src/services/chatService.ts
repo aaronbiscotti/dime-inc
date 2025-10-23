@@ -253,9 +253,7 @@ class ChatService {
   }
 
   /**
-   * Enhanced invite workflow: Creates chat room, adds both participants, 
-   * creates campaign_ambassador relationship, and sends invite message
-   * This is an atomic operation that handles the complete invite process
+   * Simplified invite workflow: Just logs the IDs for debugging
    */
   async createEnhancedInvite(params: EnhancedInviteParams) {
     try {
@@ -268,241 +266,318 @@ class ChatService {
         };
       }
 
-      console.log("[ChatService] Starting enhanced invite workflow:", {
-        currentUser: user.id,
-        ambassadorId: params.ambassador_id,
-        ambassadorUserId: params.ambassador_user_id,
-        campaignId: params.campaign_id,
-      });
+      // Fetch the ambassador's user_id from ambassador_profiles
+      const { data: ambassadorProfile, error: profileError } = await this.supabase
+        .from("ambassador_profiles")
+        .select("user_id")
+        .eq("id", params.ambassador_id)
+        .single();
 
-      // Step 1: Check if campaign_ambassador relationship already exists
-      const { data: existingRelationship, error: checkError } = await this.supabase
-        .from("campaign_ambassadors")
-        .select("id, chat_room_id")
-        .eq("campaign_id", params.campaign_id)
-        .eq("ambassador_id", params.ambassador_id)
-        .maybeSingle();
-
-      if (checkError) {
-        console.error("[ChatService] Error checking existing relationship:", checkError);
-        throw checkError;
-      }
-
-      if (existingRelationship) {
-        // If relationship exists and has a chat room, return it
-        if (existingRelationship.chat_room_id) {
-          const { data: existingChat, error: chatError } = await this.supabase
-            .from("chat_rooms")
-            .select("*")
-            .eq("id", existingRelationship.chat_room_id)
-            .single();
-
-          if (chatError) {
-            console.error("[ChatService] Error fetching existing chat:", chatError);
-            throw chatError;
-          }
-
-          return {
-            data: {
-              chatRoom: existingChat,
-              campaignAmbassadorId: existingRelationship.id,
-              existed: true,
-            },
-            error: null,
-          };
-        }
-
-        // If relationship exists but no chat room, create one and link it
-        const { data: newChat, error: createChatError } = await this.supabase
-          .from("chat_rooms")
-          .insert({
-            name: `campaign-ambassador-${params.campaign_id}-${params.ambassador_id}`,
-            is_group: false,
-            created_by: user.id,
-          })
-          .select()
-          .single();
-
-        if (createChatError) {
-          console.error("[ChatService] Error creating chat:", createChatError);
-          throw createChatError;
-        }
-
-        // Add both participants
-        console.log("[ChatService] Adding participants to existing relationship chat:", {
-          chatRoomId: newChat.id,
-          currentUserId: user.id,
-          ambassadorUserId: params.ambassador_user_id,
-        });
-
-        const { error: participantError } = await this.supabase
-          .from("chat_participants")
-          .insert([
-            { chat_room_id: newChat.id, user_id: user.id },
-            { chat_room_id: newChat.id, user_id: params.ambassador_user_id },
-          ]);
-
-        if (participantError) {
-          console.error("[ChatService] Error adding participants:", participantError);
-          throw participantError;
-        }
-
-        console.log("[ChatService] Participants added successfully to existing relationship");
-
-        // Verify participants were added
-        const { data: verifyParticipants, error: verifyError } = await this.supabase
-          .from("chat_participants")
-          .select("*")
-          .eq("chat_room_id", newChat.id);
-
-        if (verifyError) {
-          console.error("[ChatService] Error verifying participants:", verifyError);
-        } else {
-          console.log("[ChatService] Verified participants for existing relationship:", verifyParticipants);
-        }
-
-        // Update campaign_ambassador with chat_room_id
-        const { error: updateError } = await this.supabase
-          .from("campaign_ambassadors")
-          .update({ chat_room_id: newChat.id })
-          .eq("id", existingRelationship.id);
-
-        if (updateError) {
-          console.error("[ChatService] Error updating campaign_ambassador:", updateError);
-          throw updateError;
-        }
-
-        // Send invite message if provided
-        if (params.invite_message?.trim()) {
-          await this.sendMessage(newChat.id, {
-            content: params.invite_message.trim(),
-          });
-        }
-
+      if (profileError) {
+        console.log("[ChatService] Error fetching ambassador profile:", profileError);
         return {
-          data: {
-            chatRoom: newChat,
-            campaignAmbassadorId: existingRelationship.id,
-            existed: false,
-          },
-          error: null,
+          data: null,
+          error: { message: "Failed to fetch ambassador profile", shouldRemove: true } as any,
         };
       }
 
-      // Step 2: Create new campaign_ambassador relationship
-      const { data: campaignAmbassador, error: campaignError } = await this.supabase
-        .from("campaign_ambassadors")
-        .insert({
-          campaign_id: params.campaign_id,
-          ambassador_id: params.ambassador_id,
-        })
-        .select()
-        .single();
+      console.log("[ChatService] SIMPLIFIED INVITE - IDs:", {
+        ambassador_id: params.ambassador_id,
+        ambassador_user_id: ambassadorProfile?.user_id,
+        campaign_id: params.campaign_id,
+        client_id: user.id,
+      });
 
-      if (campaignError) {
-        console.error("[ChatService] Error creating campaign_ambassador:", campaignError);
-        throw campaignError;
-      }
-
-      // Step 3: Create chat room with custom name
-      const { data: newChat, error: createChatError } = await this.supabase
+      // Create a chat room
+      const chatRoomId = crypto.randomUUID();
+      const { data: chatRoom, error: chatError } = await this.supabase
         .from("chat_rooms")
         .insert({
+          id: chatRoomId,
           name: `campaign-ambassador-${params.campaign_id}-${params.ambassador_id}`,
-          is_group: false,
           created_by: user.id,
         })
         .select()
         .single();
 
-      if (createChatError) {
-        console.error("[ChatService] Error creating chat:", createChatError);
-        throw createChatError;
+      if (chatError) {
+        console.log("[ChatService] Error creating chat room:", chatError);
+        return {
+          data: null,
+          error: { message: "Failed to create chat room", shouldRemove: true } as any,
+        };
       }
 
-      // Step 4: Add both participants
-      console.log("[ChatService] Adding participants to chat:", {
-        chatRoomId: newChat.id,
-        currentUserId: user.id,
-        ambassadorUserId: params.ambassador_user_id,
+      console.log("[ChatService] Chat room created successfully:", {
+        chat_room_id: chatRoom.id,
+        chat_room_name: chatRoom.name,
       });
 
-      const { error: participantError } = await this.supabase
+      // Add the creator (client) to chat participants
+      const { data: participant, error: participantError } = await this.supabase
         .from("chat_participants")
-        .insert([
-          { chat_room_id: newChat.id, user_id: user.id },
-          { chat_room_id: newChat.id, user_id: params.ambassador_user_id },
-        ]);
+        .insert({
+          chat_room_id: chatRoom.id,
+          user_id: user.id,
+          joined_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
       if (participantError) {
-        console.error("[ChatService] Error adding participants:", participantError);
-        throw participantError;
+        console.log("[ChatService] Error adding client to chat participants:", participantError);
+        return {
+          data: null,
+          error: { message: "Failed to add client to chat participants", shouldRemove: true } as any,
+        };
       }
 
-      console.log("[ChatService] Participants added successfully");
+      console.log("[ChatService] Client added to chat participants:", {
+        participant_id: participant.id,
+        user_id: participant.user_id,
+        chat_room_id: participant.chat_room_id,
+      });
 
-      // Verify participants were added
-      const { data: verifyParticipants, error: verifyError } = await this.supabase
+      // Add the ambassador to chat participants
+      const { data: ambassadorParticipant, error: ambassadorError } = await this.supabase
         .from("chat_participants")
-        .select("*")
-        .eq("chat_room_id", newChat.id);
+        .insert({
+          chat_room_id: chatRoom.id,
+          user_id: ambassadorProfile.user_id,
+          joined_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-      if (verifyError) {
-        console.error("[ChatService] Error verifying participants:", verifyError);
-      } else {
-        console.log("[ChatService] Verified participants:", verifyParticipants);
+      if (ambassadorError) {
+        console.log("[ChatService] Error adding ambassador to chat participants:", ambassadorError);
+        return {
+          data: null,
+          error: { message: "Failed to add ambassador to chat participants", shouldRemove: true } as any,
+        };
       }
 
-      // Step 5: Link chat room to campaign_ambassador
-      const { error: updateError } = await this.supabase
+      console.log("[ChatService] Ambassador added to chat participants:", {
+        participant_id: ambassadorParticipant.id,
+        user_id: ambassadorParticipant.user_id,
+        chat_room_id: ambassadorParticipant.chat_room_id,
+      });
+
+      // Send initial welcome message using the invite message from the modal
+      const welcomeMessage = params.invite_message?.trim() || "Welcome! This chat was created for campaign collaboration.";
+      const { data: initialMessage, error: messageError } = await this.supabase
+        .from("messages")
+        .insert({
+          chat_room_id: chatRoom.id,
+          sender_id: user.id,
+          content: welcomeMessage,
+          message_type: "text",
+        })
+        .select()
+        .single();
+
+      if (messageError) {
+        console.log("[ChatService] Error sending initial message:", messageError);
+        return {
+          data: null,
+          error: { message: "Failed to send initial message", shouldRemove: true } as any,
+        };
+      }
+
+      console.log("[ChatService] Initial message sent:", {
+        message_id: initialMessage.id,
+        content: initialMessage.content,
+        sender_id: initialMessage.sender_id,
+        chat_room_id: initialMessage.chat_room_id,
+      });
+
+      // Create campaign_ambassador relationship
+      const { data: campaignAmbassador, error: campaignAmbassadorError } = await this.supabase
         .from("campaign_ambassadors")
-        .update({ chat_room_id: newChat.id })
-        .eq("id", campaignAmbassador.id);
+        .insert({
+          campaign_id: params.campaign_id,
+          ambassador_id: params.ambassador_id,
+          chat_room_id: chatRoom.id,
+          status: "proposal_received",
+        })
+        .select()
+        .single();
 
-      if (updateError) {
-        console.error("[ChatService] Error linking chat to campaign_ambassador:", updateError);
-        throw updateError;
+      if (campaignAmbassadorError) {
+        console.log("[ChatService] Error creating campaign_ambassador relationship:", campaignAmbassadorError);
+        return {
+          data: null,
+          error: { message: "Failed to create campaign_ambassador relationship", shouldRemove: true } as any,
+        };
       }
 
-      // Step 6: Send invite message if provided
-      if (params.invite_message?.trim()) {
-        const messageResult = await this.sendMessage(newChat.id, {
-          content: params.invite_message.trim(),
-        });
+      console.log("[ChatService] Campaign_ambassador relationship created:", {
+        relationship_id: campaignAmbassador.id,
+        campaign_id: campaignAmbassador.campaign_id,
+        ambassador_id: campaignAmbassador.ambassador_id,
+        chat_room_id: campaignAmbassador.chat_room_id,
+        status: campaignAmbassador.status,
+      });
 
-        if (messageResult.error) {
-          console.warn("[ChatService] Failed to send invite message:", messageResult.error);
-          // Don't fail the entire operation for message sending
-        }
-      }
-
-      console.log("[ChatService] Enhanced invite workflow completed successfully");
-
-      // Final verification - wait a moment and check again
-      await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
-      
-      const { data: finalCheck, error: finalError } = await this.supabase
-        .from("chat_participants")
-        .select("*")
-        .eq("chat_room_id", newChat.id);
-
-      if (finalError) {
-        console.error("[ChatService] Final verification error:", finalError);
-      } else {
-        console.log("[ChatService] Final verification - participants:", finalCheck);
-      }
-
+      // Return success without doing anything else
       return {
         data: {
-          chatRoom: newChat,
-          campaignAmbassadorId: campaignAmbassador.id,
-          existed: false,
+          success: true,
+          message: "Chat room created, participants added, initial message sent, and campaign_ambassador relationship created successfully",
+          chatRoom: chatRoom,
+          clientParticipant: participant,
+          ambassadorParticipant: ambassadorParticipant,
+          initialMessage: initialMessage,
+          campaignAmbassador: campaignAmbassador,
         },
         error: null,
       };
     } catch (error) {
-      console.error("[ChatService] Enhanced invite workflow failed:", error);
+      console.error("[ChatService] Simplified invite failed:", error);
       return handleError(error, "createEnhancedInvite");
+    }
+  }
+
+  /**
+   * Delete chat room and all related data (cascade delete)
+   * This will delete: chat room, chat participants, messages, and campaign_ambassador relationship
+   */
+  async deleteChatRoom(chatRoomId: string) {
+    try {
+      // Get current user for verification
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) {
+        return {
+          data: null,
+          error: { message: "User not authenticated", shouldRemove: true } as any,
+        };
+      }
+
+      console.log("[ChatService] Starting cascade delete for chat room:", chatRoomId);
+
+      // 1. First, get the campaign_ambassador_id to delete related contracts
+      const { data: campaignAmbassador, error: fetchError } = await this.supabase
+        .from("campaign_ambassadors")
+        .select("id")
+        .eq("chat_room_id", chatRoomId)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.log("[ChatService] Error fetching campaign_ambassador:", fetchError);
+        return {
+          data: null,
+          error: { message: "Failed to fetch campaign_ambassador relationship", shouldRemove: true } as any,
+        };
+      }
+
+      // 2. Delete contracts that reference this campaign_ambassador
+      if (campaignAmbassador) {
+        console.log("[ChatService] Deleting contracts for campaign_ambassador_id:", campaignAmbassador.id);
+        
+        // First, let's see what contracts exist
+        const { data: existingContracts, error: fetchContractsError } = await this.supabase
+          .from("contracts")
+          .select("id")
+          .eq("campaign_ambassador_id", campaignAmbassador.id);
+
+        if (fetchContractsError) {
+          console.log("[ChatService] Error fetching contracts:", fetchContractsError);
+        } else {
+          console.log("[ChatService] Found contracts to delete:", existingContracts?.length || 0);
+        }
+
+        const { error: contractsError } = await this.supabase
+          .from("contracts")
+          .delete()
+          .eq("campaign_ambassador_id", campaignAmbassador.id);
+
+        if (contractsError) {
+          console.log("[ChatService] Error deleting contracts:", contractsError);
+          return {
+            data: null,
+            error: { message: "Failed to delete contracts", shouldRemove: true } as any,
+          };
+        }
+
+        console.log("[ChatService] Contracts deleted successfully");
+      } else {
+        console.log("[ChatService] No campaign_ambassador found, skipping contract deletion");
+      }
+
+      // 3. Now delete campaign_ambassador relationship
+      const { error: campaignAmbassadorError } = await this.supabase
+        .from("campaign_ambassadors")
+        .delete()
+        .eq("chat_room_id", chatRoomId);
+
+      if (campaignAmbassadorError) {
+        console.log("[ChatService] Error deleting campaign_ambassador:", campaignAmbassadorError);
+        return {
+          data: null,
+          error: { message: "Failed to delete campaign_ambassador relationship", shouldRemove: true } as any,
+        };
+      }
+
+      console.log("[ChatService] Campaign_ambassador relationship deleted");
+
+      // 4. Delete all messages in the chat room
+      const { error: messagesError } = await this.supabase
+        .from("messages")
+        .delete()
+        .eq("chat_room_id", chatRoomId);
+
+      if (messagesError) {
+        console.log("[ChatService] Error deleting messages:", messagesError);
+        return {
+          data: null,
+          error: { message: "Failed to delete messages", shouldRemove: true } as any,
+        };
+      }
+
+      console.log("[ChatService] Messages deleted");
+
+      // 5. Delete all chat participants
+      const { error: participantsError } = await this.supabase
+        .from("chat_participants")
+        .delete()
+        .eq("chat_room_id", chatRoomId);
+
+      if (participantsError) {
+        console.log("[ChatService] Error deleting chat participants:", participantsError);
+        return {
+          data: null,
+          error: { message: "Failed to delete chat participants", shouldRemove: true } as any,
+        };
+      }
+
+      console.log("[ChatService] Chat participants deleted");
+
+      // 6. Finally, delete the chat room itself
+      const { error: chatRoomError } = await this.supabase
+        .from("chat_rooms")
+        .delete()
+        .eq("id", chatRoomId);
+
+      if (chatRoomError) {
+        console.log("[ChatService] Error deleting chat room:", chatRoomError);
+        return {
+          data: null,
+          error: { message: "Failed to delete chat room", shouldRemove: true } as any,
+        };
+      }
+
+      console.log("[ChatService] Chat room deleted successfully");
+
+      return {
+        data: {
+          success: true,
+          message: "Chat room and all related data deleted successfully",
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("[ChatService] Delete chat room failed:", error);
+      return handleError(error, "deleteChatRoom");
     }
   }
 
@@ -558,51 +633,6 @@ class ChatService {
     } catch (error) {
       console.error("[ChatService] Debug error:", error);
       return { error };
-    }
-  }
-
-  /**
-   * Clean up orphaned chats that have no participants or only one participant
-   */
-  async cleanupOrphanedChat(chatRoomId: string) {
-    try {
-      console.log("[ChatService] Cleaning up potentially orphaned chat:", chatRoomId);
-      
-      // Check if chat has participants
-      const { data: participants } = await this.supabase
-        .from("chat_participants")
-        .select("user_id")
-        .eq("chat_room_id", chatRoomId);
-
-      if (!participants || participants.length <= 1) {
-        console.log("[ChatService] Chat has insufficient participants, cleaning up");
-        
-        // Delete chat participants first
-        await this.supabase
-          .from("chat_participants")
-          .delete()
-          .eq("chat_room_id", chatRoomId);
-
-        // Delete chat messages
-        await this.supabase
-          .from("messages")
-          .delete()
-          .eq("chat_room_id", chatRoomId);
-
-        // Delete the chat room
-        await this.supabase
-          .from("chat_rooms")
-          .delete()
-          .eq("id", chatRoomId);
-
-        console.log("[ChatService] Orphaned chat cleaned up successfully");
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error("[ChatService] Error cleaning up orphaned chat:", error);
-      return false;
     }
   }
 
@@ -731,7 +761,7 @@ class ChatService {
         .from("chat_participants")
         .select(`
           *,
-          profiles!inner(
+          profiles(
             id,
             email,
             role,
@@ -847,26 +877,122 @@ class ChatService {
       }
 
       console.log("[ChatService] Raw participants data:", data);
+      console.log("[ChatService] Raw participants data details:", data?.map(p => ({ 
+        user_id: p.user_id, 
+        profiles: p.profiles ? 'has profile' : 'null profile',
+        profile_role: p.profiles?.role,
+        ambassador_name: p.profiles?.ambassador_profiles?.full_name,
+        client_name: p.profiles?.client_profiles?.company_name
+      })));
 
       // Transform the data to match the expected format
-      const participants = data?.map((p: any) => ({
-        user_id: p.user_id,
-        role: p.profiles.role,
-        name: p.profiles.ambassador_profiles?.full_name || p.profiles.client_profiles?.company_name || 'Unknown',
-        profile_photo: p.profiles.ambassador_profiles?.profile_photo_url || p.profiles.client_profiles?.logo_url,
-        bio: p.profiles.ambassador_profiles?.bio,
-        location: p.profiles.ambassador_profiles?.location,
-        niche: p.profiles.ambassador_profiles?.niche,
-        instagram_handle: p.profiles.ambassador_profiles?.instagram_handle,
-        tiktok_handle: p.profiles.ambassador_profiles?.tiktok_handle,
-        twitter_handle: p.profiles.ambassador_profiles?.twitter_handle,
-        company_description: p.profiles.client_profiles?.company_description,
-        industry: p.profiles.client_profiles?.industry,
-        logo_url: p.profiles.client_profiles?.logo_url,
-        website: p.profiles.client_profiles?.website,
-        ambassador_profile_id: p.profiles.ambassador_profiles?.id,
-        client_profile_id: p.profiles.client_profiles?.id,
-      })) || [];
+      const participants = [];
+      
+      for (const p of data || []) {
+        let displayName = 'Unknown';
+        let role = 'client';
+        let profilePhoto = null;
+        let bio = null;
+        let location = null;
+        let niche = null;
+        let instagramHandle = null;
+        let tiktokHandle = null;
+        let twitterHandle = null;
+        let companyDescription = null;
+        let industry = null;
+        let logoUrl = null;
+        let website = null;
+        let ambassadorProfileId = null;
+        let clientProfileId = null;
+        
+        if (p.profiles) {
+          // Profile data is available from the main query
+          displayName = p.profiles.ambassador_profiles?.full_name || 
+                       p.profiles.client_profiles?.company_name || 
+                       'Unknown';
+          role = p.profiles.role || 'client';
+          profilePhoto = p.profiles.ambassador_profiles?.profile_photo_url || p.profiles.client_profiles?.logo_url;
+          bio = p.profiles.ambassador_profiles?.bio;
+          location = p.profiles.ambassador_profiles?.location;
+          niche = p.profiles.ambassador_profiles?.niche;
+          instagramHandle = p.profiles.ambassador_profiles?.instagram_handle;
+          tiktokHandle = p.profiles.ambassador_profiles?.tiktok_handle;
+          twitterHandle = p.profiles.ambassador_profiles?.twitter_handle;
+          companyDescription = p.profiles.client_profiles?.company_description;
+          industry = p.profiles.client_profiles?.industry;
+          logoUrl = p.profiles.client_profiles?.logo_url;
+          website = p.profiles.client_profiles?.website;
+          ambassadorProfileId = p.profiles.ambassador_profiles?.id;
+          clientProfileId = p.profiles.client_profiles?.id;
+        } else {
+          // Profile data is blocked by RLS - try to get it directly from ambassador/client tables
+          try {
+            // Try ambassador profile first
+            const { data: ambassadorData } = await this.supabase
+              .from("ambassador_profiles")
+              .select("*")
+              .eq("user_id", p.user_id)
+              .single();
+
+            if (ambassadorData) {
+              displayName = ambassadorData.full_name || `User ${p.user_id.slice(0, 8)}`;
+              role = 'ambassador';
+              profilePhoto = ambassadorData.profile_photo_url;
+              bio = ambassadorData.bio;
+              location = ambassadorData.location;
+              niche = ambassadorData.niche;
+              instagramHandle = ambassadorData.instagram_handle;
+              tiktokHandle = ambassadorData.tiktok_handle;
+              twitterHandle = ambassadorData.twitter_handle;
+              ambassadorProfileId = ambassadorData.id;
+            } else {
+              // Try client profile
+              const { data: clientData } = await this.supabase
+                .from("client_profiles")
+                .select("*")
+                .eq("user_id", p.user_id)
+                .single();
+
+              if (clientData) {
+                displayName = clientData.company_name || `User ${p.user_id.slice(0, 8)}`;
+                role = 'client';
+                profilePhoto = clientData.logo_url;
+                companyDescription = clientData.company_description;
+                industry = clientData.industry;
+                logoUrl = clientData.logo_url;
+                website = clientData.website;
+                clientProfileId = clientData.id;
+              } else {
+                displayName = `User ${p.user_id.slice(0, 8)}`;
+                role = 'client';
+              }
+            }
+          } catch (error) {
+            console.log(`[ChatService] Could not fetch profile for ${p.user_id}:`, error);
+            displayName = `User ${p.user_id.slice(0, 8)}`;
+            role = 'client';
+          }
+        }
+
+        participants.push({
+          user_id: p.user_id,
+          role: role,
+          name: displayName,
+          profile_photo: profilePhoto,
+          bio: bio,
+          location: location,
+          niche: niche,
+          instagram_handle: instagramHandle,
+          tiktok_handle: tiktokHandle,
+          twitter_handle: twitterHandle,
+          company_description: companyDescription,
+          industry: industry,
+          logo_url: logoUrl,
+          website: website,
+          ambassador_profile_id: ambassadorProfileId,
+          client_profile_id: clientProfileId,
+        });
+      }
 
       console.log("[ChatService] Transformed participants:", participants);
 
@@ -912,15 +1038,12 @@ class ChatService {
 
       console.log("[ChatService] Current user ID:", user.id);
 
-      // If no participants found, this might be an orphaned chat
+      // If no participants found, return null
       if (!participantsResult.data || participantsResult.data.length === 0) {
-        console.log("[ChatService] No participants found, chat may be orphaned");
+        console.log("[ChatService] No participants found");
         return {
           data: null,
-          error: {
-            message: "Chat no longer available",
-            shouldRemove: true,
-          } as any,
+          error: null,
         };
       }
 
@@ -930,26 +1053,10 @@ class ChatService {
       console.log("[ChatService] Other participant found:", otherParticipant ? otherParticipant.name : "None");
       
       if (!otherParticipant) {
-        console.error("[ChatService] No other participant found. Available participants:", participantsResult.data?.map(p => ({ id: p.user_id, name: p.name })));
-        
-        // If we only have the current user, this is an orphaned chat
-        if (participantsResult.data.length === 1 && participantsResult.data[0].user_id === user.id) {
-          console.log("[ChatService] Only current user found, marking chat as orphaned");
-          return {
-            data: null,
-            error: {
-              message: "Chat no longer available",
-              shouldRemove: true,
-            } as any,
-          };
-        }
-        
+        console.log("[ChatService] No other participant found. Available participants:", participantsResult.data?.map(p => ({ id: p.user_id, name: p.name })));
         return {
           data: null,
-          error: {
-            message: "Chat no longer available",
-            shouldRemove: true,
-          } as any,
+          error: null,
         };
       }
 
@@ -1010,6 +1117,54 @@ class ChatService {
    */
   async deleteChat(chatRoomId: string) {
     try {
+      // First, check if there are any campaign_ambassador references
+      const { data: campaignAmbassadors, error: caError } = await this.supabase
+        .from("campaign_ambassadors")
+        .select("id")
+        .eq("chat_room_id", chatRoomId);
+
+      if (caError) {
+        console.log("[ChatService] Error checking campaign_ambassadors:", caError);
+        throw caError;
+      }
+
+      // If there are campaign_ambassador references, delete them first
+      if (campaignAmbassadors && campaignAmbassadors.length > 0) {
+        console.log("[ChatService] Deleting campaign_ambassador records before chat deletion");
+        const { error: deleteCAError } = await this.supabase
+          .from("campaign_ambassadors")
+          .delete()
+          .eq("chat_room_id", chatRoomId);
+
+        if (deleteCAError) {
+          console.log("[ChatService] Error deleting campaign_ambassadors:", deleteCAError);
+          throw deleteCAError;
+        }
+      }
+
+      // Delete chat participants first
+      const { error: participantsError } = await this.supabase
+        .from("chat_participants")
+        .delete()
+        .eq("chat_room_id", chatRoomId);
+
+      if (participantsError) {
+        console.log("[ChatService] Error deleting participants:", participantsError);
+        throw participantsError;
+      }
+
+      // Delete messages
+      const { error: messagesError } = await this.supabase
+        .from("messages")
+        .delete()
+        .eq("chat_room_id", chatRoomId);
+
+      if (messagesError) {
+        console.log("[ChatService] Error deleting messages:", messagesError);
+        throw messagesError;
+      }
+
+      // Finally, delete the chat room
       const { error } = await this.supabase
         .from("chat_rooms")
         .delete()
@@ -1039,6 +1194,25 @@ class ChatService {
         };
       }
 
+      // First, get all chat_room_ids where the current user is a participant
+      const { data: userChatIds, error: participantError } = await this.supabase
+        .from("chat_participants")
+        .select("chat_room_id")
+        .eq("user_id", user.id);
+
+      if (participantError) throw participantError;
+
+      if (!userChatIds || userChatIds.length === 0) {
+        return {
+          data: [],
+          error: null,
+        };
+      }
+
+      // Extract the chat room IDs
+      const chatRoomIds = userChatIds.map(p => p.chat_room_id);
+
+      // Now get only the chat rooms where the user is a participant
       const { data, error } = await this.supabase
         .from("chat_rooms")
         .select(`
@@ -1060,45 +1234,85 @@ class ChatService {
             sender_id
           )
         `)
+        .in("id", chatRoomIds)
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
 
       // Transform the data to include display_name and latest_message
-      const transformedData = data?.map((chatRoom: any) => {
+      const transformedData = [];
+      
+      for (const chatRoom of data || []) {
         // Get latest message
         const latestMessage = chatRoom.messages?.sort((a: any, b: any) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )[0];
 
         // Generate display name based on chat type and participants
-        let displayName = chatRoom.name;
+        let displayName = null; // Don't use chatRoom.name, always generate our own
         
-        if (!displayName && !chatRoom.is_group) {
-          // For private chats, use participant names
+        if (!chatRoom.is_group) {
+          // For private chats, use participant names - same logic as center interface
           const participants = chatRoom.chat_participants || [];
           const otherParticipants = participants.filter((p: any) => p.user_id !== user.id);
           
           if (otherParticipants.length > 0) {
             const otherParticipant = otherParticipants[0];
-            const name = otherParticipant.profiles?.ambassador_profiles?.full_name || 
-                        otherParticipant.profiles?.client_profiles?.company_name || 
-                        otherParticipant.profiles?.email || 
-                        'Unknown User';
+            let name = 'Unknown User';
+            
+            // Try to get name from profiles if available
+            if (otherParticipant.profiles) {
+              name = otherParticipant.profiles.ambassador_profiles?.full_name || 
+                     otherParticipant.profiles.client_profiles?.company_name || 
+                     otherParticipant.profiles.email || 
+                     'Unknown User';
+            } else {
+              // Profile data blocked by RLS - try direct queries
+              try {
+                // Try ambassador profile first
+                const { data: ambassadorData } = await this.supabase
+                  .from("ambassador_profiles")
+                  .select("full_name")
+                  .eq("user_id", otherParticipant.user_id)
+                  .single();
+
+                if (ambassadorData?.full_name) {
+                  name = ambassadorData.full_name;
+                } else {
+                  // Try client profile
+                  const { data: clientData } = await this.supabase
+                    .from("client_profiles")
+                    .select("company_name")
+                    .eq("user_id", otherParticipant.user_id)
+                    .single();
+
+                  if (clientData?.company_name) {
+                    name = clientData.company_name;
+                  } else {
+                    name = `User ${otherParticipant.user_id.slice(0, 8)}`;
+                  }
+                }
+              } catch (error) {
+                console.log(`[ChatService] Could not fetch name for ${otherParticipant.user_id}:`, error);
+                name = `User ${otherParticipant.user_id.slice(0, 8)}`;
+              }
+            }
+            
+            // Use the same format as center interface
             displayName = `Chat with ${name}`;
           } else {
             displayName = 'Private Chat';
           }
-        } else if (!displayName && chatRoom.is_group) {
-          displayName = 'Group Chat';
+        } else if (chatRoom.is_group) {
+          displayName = chatRoom.name || 'Group Chat';
         }
 
-        return {
+        transformedData.push({
           ...chatRoom,
           display_name: displayName,
           latest_message: latestMessage,
-        };
-      }) || [];
+        });
+      }
 
       return {
         data: transformedData,

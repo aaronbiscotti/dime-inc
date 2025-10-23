@@ -128,13 +128,33 @@ class CampaignService {
 
   /**
    * Get all campaigns for the currently logged-in client.
-   * RLS policy ensures they can only see their own campaigns.
+   * Only returns campaigns where the client_id matches the authenticated user's client profile.
    */
   async getMyClientCampaigns() {
     try {
+      // First, get the current user
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) {
+        return { data: [], error: null };
+      }
+
+      // Get the user's client profile ID
+      const { data: clientProfile, error: profileError } = await this.supabase
+        .from("client_profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileError || !clientProfile) {
+        console.log("[CampaignService] No client profile found for user:", user.id);
+        return { data: [], error: null };
+      }
+
+      // Now get campaigns filtered by the client's ID
       const { data, error } = await this.supabase
         .from("campaigns")
         .select("*")
+        .eq("client_id", clientProfile.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

@@ -303,7 +303,7 @@ export function ExploreInterface() {
     setInvitingId(selectedAmbassador.userId);
 
     try {
-      // Use the new enhanced invite workflow
+      // Use the enhanced invite workflow
       const result = await chatService.createEnhancedInvite({
         ambassador_id: selectedAmbassador.id,
         ambassador_user_id: selectedAmbassador.userId,
@@ -312,20 +312,12 @@ export function ExploreInterface() {
       });
 
       if (result.error) {
-        console.error("Enhanced invite failed:", result.error);
-
-        // Handle specific error cases
-        if (result.error.message?.includes("already been added")) {
-          alert(
-            "This ambassador has already been added to this campaign. Please select a different ambassador or campaign."
-          );
-        } else {
-          alert(`Failed to send invite: ${result.error.message}`);
-        }
+        console.error("Invite failed:", result.error);
+        alert(`Failed to send invite: ${result.error.message}`);
         return;
       }
 
-      console.log("Enhanced invite completed successfully:", result.data);
+      console.log("Invite completed successfully:", result.data);
 
       // Close modal and redirect to the specific chat
       setShowInviteModal(false);
