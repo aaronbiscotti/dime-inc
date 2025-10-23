@@ -71,7 +71,7 @@ export function AmbassadorDashboardClient({
           <div
             key={campaign.id}
             onClick={() =>
-              router.push(`/ambassador-dashboard/campaigns/${campaign.id}`)
+              router.push(`/ambassador/dashboard/campaigns/${campaign.id}`)
             }
             className="bg-white rounded-xl border border-gray-300 p-6 hover:shadow-md transition-all cursor-pointer hover:border-[#f5d82e] flex justify-between items-center"
           >

@@ -18,6 +18,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  clearAuthState: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,6 +29,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
+  clearAuthState: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -120,11 +122,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setClientProfile(null);
   }
 
+  // Manual method to clear all state (useful after server actions)
+  function clearAuthState() {
+    setUser(null);
+    setProfile(null);
+    setAmbassadorProfile(null);
+    setClientProfile(null);
+    setLoading(false);
+  }
+
   useEffect(() => {
     let mounted = true;
 
     // Set initial loading state
     setLoading(true);
+
+    // Check current session immediately on mount
+    const checkInitialSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        console.log("Initial session check:", session?.user?.id);
+
+        if (!mounted) return;
+
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (currentUser) {
+          await fetchUserProfile(currentUser.id);
+        } else {
+          console.log("No initial session found, clearing all profile data");
+          setProfile(null);
+          setAmbassadorProfile(null);
+          setClientProfile(null);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Error checking initial session:", error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Check session immediately
+    checkInitialSession();
 
     // onAuthStateChange fires an INITIAL_SESSION event on page load,
     // which is more reliable than getSession() after a redirect.
@@ -135,6 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log("Auth state change:", event, session?.user?.id);
+
       const currentUser = session?.user ?? null;
       setUser(currentUser);
 
@@ -143,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchUserProfile(currentUser.id);
       } else {
         // If no user is found (on initial load or after sign out), clear all profile data.
+        console.log("No user found, clearing all profile data");
         setProfile(null);
         setAmbassadorProfile(null);
         setClientProfile(null);
@@ -167,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signOut,
         refreshProfile,
+        clearAuthState,
       }}
     >
       {children}

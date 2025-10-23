@@ -1,25 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { signOut } from "@/app/auth/actions";
 import Image from "next/image";
 
 export function Navbar() {
-  const { user, profile, loading } = useAuth();
-  const router = useRouter();
+  const { user, profile, loading, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      // Server action handles redirect automatically
-    } catch (error) {
-      console.error("Failed to sign out:", error);
-      // You could add a toast notification here to show the error to the user
-    }
+    await signOut(); // Call the AuthProvider's signOut to clear local state
+    router.push("/"); // Then navigate to root
   };
 
   // Show loading skeleton while auth state is being determined
@@ -56,8 +50,8 @@ export function Navbar() {
             <Link
               href={
                 profile.role === "client"
-                  ? "/client-dashboard"
-                  : "/ambassador-dashboard"
+                  ? "/client/dashboard"
+                  : "/ambassador/dashboard"
               }
               className="flex items-center"
             >
@@ -76,9 +70,9 @@ export function Navbar() {
                 <>
                   {/* Client Navigation */}
                   <Link
-                    href="/client-dashboard"
+                    href="/client/dashboard"
                     className={`text-sm font-medium transition-colors ${
-                      pathname === "/client-dashboard"
+                      pathname === "/client/dashboard"
                         ? "text-yellow-600 font-bold"
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
@@ -146,9 +140,9 @@ export function Navbar() {
                 <>
                   {/* Ambassador Navigation */}
                   <Link
-                    href="/ambassador-dashboard"
+                    href="/ambassador/dashboard"
                     className={`text-sm font-medium transition-colors ${
-                      pathname === "/ambassador-dashboard"
+                      pathname === "/ambassador/dashboard"
                         ? "text-yellow-600 font-bold"
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}

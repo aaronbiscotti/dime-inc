@@ -115,7 +115,7 @@ export async function requireRole(requiredRole: UserRole): Promise<AuthUser> {
 
   if (user.role !== requiredRole) {
     const redirectPath =
-      user.role === "client" ? "/client-dashboard" : "/ambassador-dashboard";
+      user.role === "client" ? "/client/dashboard" : "/ambassador/dashboard";
     redirect(redirectPath);
   }
 

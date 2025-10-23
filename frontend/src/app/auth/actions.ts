@@ -28,10 +28,13 @@ export async function signUp(formData: FormData) {
     return { error: error.message };
   }
 
-  // If email confirmation is disabled, redirect to onboarding
+  // If email confirmation is disabled, return redirect path
   if (data.user) {
     revalidatePath("/", "layout");
-    redirect(`/onboarding/${role}`);
+    return {
+      success: true,
+      redirectTo: `/onboarding/${role}`,
+    };
   }
 
   return {
@@ -71,25 +74,32 @@ export async function signIn(formData: FormData) {
     .single();
 
   revalidatePath("/", "layout");
-  revalidatePath("/client-dashboard", "layout");
-  revalidatePath("/ambassador-dashboard", "layout");
+  revalidatePath("/client/dashboard", "layout");
+  revalidatePath("/ambassador/dashboard", "layout");
 
-  // Redirect based on onboarding status and role
+  // Return the redirect path instead of redirecting
   if (!profile || !profile.onboarding_completed) {
-    redirect(`/onboarding/${profile?.role || "client"}`);
+    return {
+      success: true,
+      redirectTo: `/onboarding/${profile?.role || "client"}`,
+    };
   }
 
   const dashboardPath =
-    profile.role === "client" ? "/client-dashboard" : "/ambassador-dashboard";
-  redirect(dashboardPath);
+    profile.role === "client" ? "/client/dashboard" : "/ambassador/dashboard";
+
+  return { success: true, redirectTo: dashboardPath };
 }
 
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+
+  // Clear all cached data
   revalidatePath("/", "layout");
-  revalidatePath("/client-dashboard", "layout");
-  revalidatePath("/ambassador-dashboard", "layout");
+  revalidatePath("/client/dashboard", "layout");
+  revalidatePath("/ambassador/dashboard", "layout");
+
   redirect("/");
 }
 

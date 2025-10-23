@@ -45,9 +45,9 @@ export default function SignInPage() {
     if (result?.error) {
       setError(result.error);
       setLoading(false);
-    } else {
-      // Server action handles redirect automatically
-      // Keep loading state until redirect completes
+    } else if (result?.success && result?.redirectTo) {
+      // Use window.location.href for a full page reload to ensure fresh auth state
+      window.location.href = result.redirectTo;
     }
   }
 

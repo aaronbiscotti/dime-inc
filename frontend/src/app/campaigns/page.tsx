@@ -43,7 +43,7 @@ export default function Campaigns() {
 
     // If not a client, redirect to ambassador dashboard
     if (profile?.role !== "client") {
-      router.push("/ambassador-dashboard");
+      router.push("/ambassador/dashboard");
       return;
     }
 

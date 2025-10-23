@@ -3,25 +3,30 @@ import { NextResponse, type NextRequest } from "next/server";
 import { Database } from "@/types/database";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Create an initial response; we will mutate cookies on this response.
+  let response = NextResponse.next();
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
+        // Read the incoming cookies
         getAll: () => request.cookies.getAll(),
+        // IMPORTANT: write mutated cookies onto the OUTGOING RESPONSE,
+        // not onto the request. This is what actually updates the browser.
         setAll: (cookies) => {
-          cookies.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request });
-          cookies.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
+          cookies.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
   );
+
+  // Touch the auth session so Supabase can refresh / clear cookies as needed.
+  // If this fails, we still let the request pass through.
+  await supabase.auth.getUser().catch(() => {});
 
   // Get user and handle authentication
   const {
@@ -90,7 +95,7 @@ export async function updateSession(request: NextRequest) {
   ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname =
-      profile.role === "client" ? "/client-dashboard" : "/ambassador-dashboard";
+      profile.role === "client" ? "/client/dashboard" : "/ambassador/dashboard";
     console.log(
       "Redirecting authenticated, onboarded user to their dashboard:",
       redirectUrl.pathname
@@ -105,7 +110,7 @@ export async function updateSession(request: NextRequest) {
   ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname =
-      profile.role === "client" ? "/client-dashboard" : "/ambassador-dashboard";
+      profile.role === "client" ? "/client/dashboard" : "/ambassador/dashboard";
     console.log("Redirecting from /dashboard to:", redirectUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
@@ -122,7 +127,7 @@ export async function updateSession(request: NextRequest) {
     // If ambassador tries to access client-only routes
     if (profile.role === "ambassador" && isClientOnlyRoute) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/ambassador-dashboard";
+      redirectUrl.pathname = "/ambassador/dashboard";
       console.log(
         "Ambassador trying to access client route, redirecting to ambassador dashboard"
       );
@@ -132,7 +137,7 @@ export async function updateSession(request: NextRequest) {
     // If client tries to access ambassador-only routes
     if (profile.role === "client" && isAmbassadorOnlyRoute) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/client-dashboard";
+      redirectUrl.pathname = "/client/dashboard";
       console.log(
         "Client trying to access ambassador route, redirecting to client dashboard"
       );
