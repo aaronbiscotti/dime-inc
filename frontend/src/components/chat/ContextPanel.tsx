@@ -11,6 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Database } from "@/types/database";
+import { ActivityTimeline } from "./ActivityTimeline";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 type Contract = Database["public"]["Tables"]["contracts"]["Row"];
@@ -31,6 +32,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [otherParticipant, setOtherParticipant] =
     useState<ChatParticipant | null>(null);
   const [contract, setContract] = useState<any>(null);
+  const [campaignAmbassador, setCampaignAmbassador] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -40,6 +42,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
       setOtherParticipant(null);
       setParticipants([]);
       setContract(null);
+      setCampaignAmbassador(null);
       setError(null);
       setIsGroupChat(false);
       return;
@@ -96,18 +99,9 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
               console.log(
                 "[ContextPanel] Chat appears to be orphaned, attempting cleanup"
               );
-              try {
-                await chatService.cleanupOrphanedChat(selectedChatId);
-                console.log("[ContextPanel] Orphaned chat cleaned up");
-                // Redirect to chats page without the problematic chat
-                router.push("/chats");
-                return;
-              } catch (cleanupError) {
-                console.error(
-                  "[ContextPanel] Failed to cleanup orphaned chat:",
-                  cleanupError
-                );
-              }
+              // Redirect to chats page without the problematic chat
+              router.push("/chats");
+              return;
             }
 
             throw new Error("Failed to load participant information");
@@ -126,6 +120,31 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             console.log("[ContextPanel] Contract loaded:", contractRes.data.id);
           } else {
             console.log("[ContextPanel] No contract found for this chat");
+          }
+
+          // Fetch campaign ambassador status
+          const campaignAmbassadorRes = await chatService.getCampaignAmbassadorStatus(
+            selectedChatId
+          );
+          if (!campaignAmbassadorRes.error && campaignAmbassadorRes.data) {
+            let campaignAmbassadorData = campaignAmbassadorRes.data;
+            
+            // Frontend guard: If contract is active but campaign_ambassador_status is not contract_signed,
+            // override the status to show the correct state
+            if (contractRes.data && (contractRes.data as any).status === "active" && 
+                campaignAmbassadorData.status !== "contract_signed") {
+              console.log("[ContextPanel] Frontend guard: Contract is active but campaign_ambassador_status is", 
+                campaignAmbassadorData.status, "- overriding to contract_signed");
+              campaignAmbassadorData = {
+                ...campaignAmbassadorData,
+                status: "contract_signed"
+              };
+            }
+            
+            setCampaignAmbassador(campaignAmbassadorData);
+            console.log("[ContextPanel] Campaign ambassador status loaded:", campaignAmbassadorData.status);
+          } else {
+            console.log("[ContextPanel] No campaign ambassador found for this chat");
           }
         }
       } catch (err) {
@@ -273,6 +292,20 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             </Button>
           )}
         </div>
+        
+        {/* Activity Timeline */}
+        {campaignAmbassador && (
+          <div className="mt-6">
+            <ActivityTimeline
+              status={campaignAmbassador.status}
+              createdAt={campaignAmbassador.created_at}
+              selectedAt={campaignAmbassador.selected_at}
+              contractCreatedAt={contract?.created_at}
+              campaignTitle={campaignAmbassador.campaigns?.title}
+              ambassadorName={campaignAmbassador.ambassador_profiles?.full_name}
+            />
+          </div>
+        )}
       </>
     );
   };

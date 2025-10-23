@@ -458,7 +458,7 @@ class ChatService {
       // 1. First, get the campaign_ambassador_id to delete related contracts
       const { data: campaignAmbassador, error: fetchError } = await this.supabase
         .from("campaign_ambassadors")
-        .select("id")
+        .select("id, ambassador_id, campaign_id")
         .eq("chat_room_id", chatRoomId)
         .single();
 
@@ -468,6 +468,42 @@ class ChatService {
           data: null,
           error: { message: "Failed to fetch campaign_ambassador relationship", shouldRemove: true } as any,
         };
+      }
+
+      // Check if user has permission to delete this campaign_ambassador
+      if (campaignAmbassador) {
+        // Get user's profile to check if they're the ambassador or client
+        const { data: userProfile } = await this.supabase
+          .from("profiles")
+          .select("role, ambassador_profiles(id), client_profiles(id)")
+          .eq("id", user.id)
+          .single();
+
+        if (userProfile) {
+          let hasPermission = false;
+          
+          if (userProfile.role === "ambassador" && userProfile.ambassador_profiles) {
+            // Check if this ambassador matches the campaign_ambassador
+            hasPermission = campaignAmbassador.ambassador_id === userProfile.ambassador_profiles.id;
+          } else if (userProfile.role === "client" && userProfile.client_profiles) {
+            // For clients, we need to check if they own the campaign
+            const { data: campaign } = await this.supabase
+              .from("campaigns")
+              .select("client_id")
+              .eq("id", campaignAmbassador.campaign_id)
+              .single();
+            
+            hasPermission = !!(campaign && campaign.client_id === userProfile.client_profiles.id);
+          }
+
+          if (!hasPermission) {
+            console.log("[ChatService] User does not have permission to delete this chat room");
+            return {
+              data: null,
+              error: { message: "You don't have permission to delete this chat room", shouldRemove: false } as any,
+            };
+          }
+        }
       }
 
       // 2. Delete contracts that reference this campaign_ambassador
@@ -505,6 +541,8 @@ class ChatService {
       }
 
       // 3. Now delete campaign_ambassador relationship
+      console.log("[ChatService] Attempting to delete campaign_ambassador for chat_room_id:", chatRoomId);
+      
       const { error: campaignAmbassadorError } = await this.supabase
         .from("campaign_ambassadors")
         .delete()
@@ -512,10 +550,29 @@ class ChatService {
 
       if (campaignAmbassadorError) {
         console.log("[ChatService] Error deleting campaign_ambassador:", campaignAmbassadorError);
-        return {
-          data: null,
-          error: { message: "Failed to delete campaign_ambassador relationship", shouldRemove: true } as any,
-        };
+        console.log("[ChatService] Campaign ambassador error details:", {
+          code: campaignAmbassadorError.code,
+          message: campaignAmbassadorError.message,
+          details: campaignAmbassadorError.details,
+          hint: campaignAmbassadorError.hint
+        });
+        
+        // Try fallback: set chat_room_id to null instead of deleting
+        console.log("[ChatService] Trying fallback: setting chat_room_id to null");
+        const { error: updateError } = await this.supabase
+          .from("campaign_ambassadors")
+          .update({ chat_room_id: null })
+          .eq("chat_room_id", chatRoomId);
+          
+        if (updateError) {
+          console.log("[ChatService] Fallback also failed:", updateError);
+          return {
+            data: null,
+            error: { message: "Failed to delete campaign_ambassador relationship", shouldRemove: true } as any,
+          };
+        } else {
+          console.log("[ChatService] Successfully set chat_room_id to null as fallback");
+        }
       }
 
       console.log("[ChatService] Campaign_ambassador relationship deleted");
@@ -766,6 +823,7 @@ class ChatService {
             email,
             role,
             ambassador_profiles(
+              id,
               full_name,
               bio,
               location,
@@ -776,6 +834,7 @@ class ChatService {
               profile_photo_url
             ),
             client_profiles(
+              id,
               company_name,
               company_description,
               industry,
@@ -1320,6 +1379,54 @@ class ChatService {
       };
     } catch (error) {
       return handleError(error, "getUserChats");
+    }
+  }
+
+  /**
+   * Get campaign ambassador status for a chat room
+   */
+  async getCampaignAmbassadorStatus(chatRoomId: string) {
+    try {
+      console.log("[ChatService] getCampaignAmbassadorStatus called for chat:", chatRoomId);
+      
+      const { data, error } = await this.supabase
+        .from("campaign_ambassadors")
+        .select(`
+          id,
+          status,
+          created_at,
+          selected_at,
+          agreed_budget,
+          campaigns (
+            id,
+            title,
+            description
+          ),
+          ambassador_profiles (
+            id,
+            full_name,
+            bio
+          )
+        `)
+        .eq("chat_room_id", chatRoomId)
+        .single();
+
+      if (error) {
+        console.log("[ChatService] Error fetching campaign_ambassador status:", error);
+        if (error.code === 'PGRST116') {
+          return {
+            data: null,
+            error: null,
+          };
+        }
+        throw error;
+      }
+
+      console.log("[ChatService] Campaign ambassador status loaded:", data.status);
+      return { data, error: null };
+    } catch (error) {
+      console.error("[ChatService] getCampaignAmbassadorStatus failed:", error);
+      return handleError(error, "getCampaignAmbassadorStatus");
     }
   }
 

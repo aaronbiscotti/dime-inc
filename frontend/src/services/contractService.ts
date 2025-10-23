@@ -102,6 +102,17 @@ export const contractService = {
         .single();
 
       if (error) throw error;
+
+      // Update campaign_ambassador status to contract_drafted when contract is created
+      const { error: caError } = await supabase
+        .from("campaign_ambassadors")
+        .update({ status: "contract_drafted" })
+        .eq("id", data.campaign_ambassador_id);
+      
+      if (caError) {
+        console.error("Failed to update campaign_ambassador status:", caError);
+      }
+
       return result;
     } catch (error) {
       handleError(error, "createContract");
@@ -253,6 +264,126 @@ export const contractService = {
       return result;
     } catch (error) {
       handleError(error, "signContract");
+    }
+  },
+
+  async signContractAsClient(contractId: string): Promise<Contract> {
+    try {
+      const supabase = createClient();
+      
+      // First, get the current contract to check if ambassador has already signed
+      const { data: currentContract, error: fetchError } = await supabase
+        .from("contracts")
+        .select("ambassador_signed_at")
+        .eq("id", contractId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Determine the new status based on whether both parties will have signed
+      const willBeFullySigned = currentContract.ambassador_signed_at !== null;
+      const newStatus = willBeFullySigned ? "active" : "pending_ambassador_signature";
+      
+      console.log("[ContractService] Client signing - willBeFullySigned:", willBeFullySigned, "newStatus:", newStatus);
+      
+      const { data: result, error } = await supabase
+        .from("contracts")
+        .update({
+          client_signed_at: new Date().toISOString(),
+          terms_accepted: true,
+          status: newStatus,
+        })
+        .eq("id", contractId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update campaign_ambassador status when contract becomes active
+      if (newStatus === "active" && result.campaign_ambassador_id) {
+        console.log("[ContractService] Contract became active, updating campaign_ambassador status");
+        console.log("[ContractService] campaign_ambassador_id:", result.campaign_ambassador_id);
+        
+        const { error: caError } = await supabase
+          .from("campaign_ambassadors")
+          .update({ status: "contract_signed" })
+          .eq("id", result.campaign_ambassador_id);
+        
+        if (caError) {
+          console.error("Failed to update campaign_ambassador status:", caError);
+        } else {
+          console.log("[ContractService] Successfully updated campaign_ambassador status to contract_signed");
+        }
+      } else {
+        console.log("[ContractService] Not updating campaign_ambassador status:", {
+          newStatus,
+          campaign_ambassador_id: result.campaign_ambassador_id
+        });
+      }
+
+      return result;
+    } catch (error) {
+      handleError(error, "signContractAsClient");
+    }
+  },
+
+  async signContractAsAmbassador(contractId: string): Promise<Contract> {
+    try {
+      const supabase = createClient();
+      
+      // First, get the current contract to check if client has already signed
+      const { data: currentContract, error: fetchError } = await supabase
+        .from("contracts")
+        .select("client_signed_at")
+        .eq("id", contractId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Determine the new status based on whether both parties will have signed
+      const willBeFullySigned = currentContract.client_signed_at !== null;
+      const newStatus = willBeFullySigned ? "active" : "pending_ambassador_signature";
+      
+      console.log("[ContractService] Ambassador signing - willBeFullySigned:", willBeFullySigned, "newStatus:", newStatus);
+      
+      const { data: result, error } = await supabase
+        .from("contracts")
+        .update({
+          ambassador_signed_at: new Date().toISOString(),
+          terms_accepted: true,
+          status: newStatus,
+        })
+        .eq("id", contractId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update campaign_ambassador status when contract becomes active
+      if (newStatus === "active" && result.campaign_ambassador_id) {
+        console.log("[ContractService] Contract became active, updating campaign_ambassador status");
+        console.log("[ContractService] campaign_ambassador_id:", result.campaign_ambassador_id);
+        
+        const { error: caError } = await supabase
+          .from("campaign_ambassadors")
+          .update({ status: "contract_signed" })
+          .eq("id", result.campaign_ambassador_id);
+        
+        if (caError) {
+          console.error("Failed to update campaign_ambassador status:", caError);
+        } else {
+          console.log("[ContractService] Successfully updated campaign_ambassador status to contract_signed");
+        }
+      } else {
+        console.log("[ContractService] Not updating campaign_ambassador status:", {
+          newStatus,
+          campaign_ambassador_id: result.campaign_ambassador_id
+        });
+      }
+
+      return result;
+    } catch (error) {
+      handleError(error, "signContractAsAmbassador");
     }
   },
 };

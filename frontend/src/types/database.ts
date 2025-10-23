@@ -896,9 +896,10 @@ export type Database = {
     Enums: {
       campaign_ambassador_status:
         | "proposal_received"
-        | "accepted"
+        | "contract_drafted"
+        | "contract_signed"
         | "active"
-        | "completed"
+        | "complete"
         | "terminated"
       campaign_status: "draft" | "active" | "completed" | "cancelled"
       contract_payment_type: "pay_per_post" | "pay_per_cpm"
@@ -1039,9 +1040,10 @@ export const Constants = {
     Enums: {
       campaign_ambassador_status: [
         "proposal_received",
-        "accepted",
+        "contract_drafted",
+        "contract_signed",
         "active",
-        "completed",
+        "complete",
         "terminated",
       ],
       campaign_status: ["draft", "active", "completed", "cancelled"],

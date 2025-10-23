@@ -31,65 +31,6 @@ export default function ContractTextEditor({
             onChange={(e) => setText(e.target.value)}
           />
         </div>
-        {/* Signature Section */}
-        <div className="w-full flex justify-center mt-8">
-          <div className="w-[900px] bg-gray-50 border border-gray-300 rounded-xl p-8 flex flex-col gap-8">
-            <div>
-              <div className="font-semibold text-lg mb-2">Client Signature</div>
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#f5d82e]"
-                    placeholder="Type your full name"
-                    required
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#f5d82e]"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-            <div>
-              <div className="font-semibold text-lg mb-2">
-                Ambassador Signature
-              </div>
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#f5d82e]"
-                    placeholder="(To be completed by ambassador)"
-                    disabled
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#f5d82e]"
-                    disabled
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
         <div className="flex justify-between w-[900px] mt-8 mb-10">
           <button
             className="px-10 py-3 rounded-full border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-100 transition text-lg"
