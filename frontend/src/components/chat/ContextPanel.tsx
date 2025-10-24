@@ -49,6 +49,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { createChatAction } from "@/app/(protected)/chat/actions";
 
 interface ContextPanelProps {
   selectedChatId: string | null;
@@ -67,6 +68,8 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [adCodeUrl, setAdCodeUrl] = useState("");
+  const [submittingAdCode, setSubmittingAdCode] = useState(false);
 
   useEffect(() => {
     if (!selectedChatId) {
@@ -256,23 +259,20 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     }
 
     try {
-      const { data: chatRoom, error: chatError } = await supabase
-        .from("chat_rooms")
-        .insert({
-          name: "Direct Chat",
-          is_group: false,
-        })
-        .select()
-        .single();
+      // Use server action to create-or-get a private chat with participant
+      const formData = new FormData();
+      formData.append("participantId", participant.user_id);
 
-      if (chatError || !chatRoom) {
-        console.error("Failed to create or find private chat:", chatError);
+      const result = await createChatAction(null as any, formData);
+
+      if (!result.ok || !result.data) {
+        console.error("Failed to create or find private chat:", result);
         setError("Could not open a private chat with this participant.");
         return;
       }
 
       // Navigate to the private chat, which will then show the contract panel
-      router.push(`/chats?chat=${chatRoom.id}`);
+      router.push(`/chats?chat=${result.data.id}`);
     } catch (err) {
       console.error("Error handling participant click:", err);
       setError("An unexpected error occurred while trying to open the chat.");
@@ -442,74 +442,89 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   if (isGroupChat) {
     return (
       <div className="h-full w-full overflow-auto flex flex-col gap-4">
-        {/* Campaign Overview card */}
+        {/* Campaign Overview card (matches design) */}
         <div className="bg-white rounded-xl border border-gray-300 p-5">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Campaign Overview</h3>
           </div>
-          <div className="mt-3 space-y-3 text-sm">
-            {campaignAmbassador?.campaigns?.title && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Campaign</span>
-                <span className="font-medium text-gray-900">
-                  {campaignAmbassador.campaigns.title}
-                </span>
-              </div>
+          <div className="mt-3 space-y-1 text-sm text-gray-700">
+            {campaignAmbassador?.campaigns?.client_profiles?.company_name && (
+              <p>
+                <span className="font-medium">Brand:</span>{" "}
+                {campaignAmbassador.campaigns.client_profiles.company_name}
+              </p>
             )}
-            {contract && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Contract</span>
-                <Button
-                  variant="outline"
-                  className="rounded-full h-8 px-3"
-                  onClick={() => router.push(`/contracts/${contract.id}`)}
-                >
-                  View
-                </Button>
-              </div>
+            {campaignAmbassador?.campaigns?.title && (
+              <p>
+                <span className="font-medium">Campaign:</span>{" "}
+                {campaignAmbassador.campaigns.title}
+              </p>
             )}
             {campaignAmbassador?.created_at && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Duration</span>
-                <span className="text-gray-900">
-                  {new Date(campaignAmbassador.created_at).toLocaleDateString()}
-                </span>
-              </div>
+              <p>
+                <span className="font-medium">Duration:</span>{" "}
+                {new Date(campaignAmbassador.created_at).toLocaleDateString()}
+              </p>
             )}
           </div>
 
-          {/* Optional timeline if available */}
-          {campaignAmbassador && (
-            <div className="mt-4">
-              <ActivityTimeline
-                status={campaignAmbassador.status}
-                createdAt={campaignAmbassador.created_at}
-                selectedAt={campaignAmbassador.selected_at}
-                contractCreatedAt={contract?.created_at}
-                campaignTitle={campaignAmbassador.campaigns?.title}
-                ambassadorName={campaignAmbassador.ambassador_profiles?.full_name}
-              />
-            </div>
-          )}
-
-          {/* Upload placeholders */}
+          {/* Upload + Link sections */}
           <div className="mt-4 space-y-3">
-            <details className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <summary className="cursor-pointer font-medium text-gray-900">Post Submission</summary>
-              <div className="flex items-center gap-2 mt-2">
-                <input type="file" className="text-sm" />
-                <Button className="bg-[#f5d82e] text-black font-semibold rounded-full h-8 px-3">
-                  Submit
-                </Button>
+            <details className="bg-white rounded-xl p-0 border border-gray-200 overflow-hidden">
+              <summary className="cursor-pointer font-semibold text-gray-900 px-4 py-3 flex items-center justify-between">
+                <span>Post Submission</span>
+                <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+              </summary>
+              <div className="px-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 flex items-center bg-white border border-gray-300 rounded-full h-11 px-4 text-sm text-gray-500">
+                    Upload here...
+                  </div>
+                  <Button className="bg-gray-200 text-gray-600 font-semibold rounded-full h-11 px-5" disabled>
+                    Submit
+                  </Button>
+                </div>
               </div>
             </details>
-            <details className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <summary className="cursor-pointer font-medium text-gray-900">Ad Codes</summary>
-              <div className="flex items-center gap-2 mt-2">
-                <input type="file" className="text-sm" />
-                <Button className="bg-[#f5d82e] text-black font-semibold rounded-full h-8 px-3">
-                  Submit
-                </Button>
+
+            <details className="bg-white rounded-xl p-0 border border-gray-200 overflow-hidden">
+              <summary className="cursor-pointer font-semibold text-gray-900 px-4 py-3 flex items-center justify-between">
+                <span>Ad Codes</span>
+                <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+              </summary>
+              <div className="px-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="url"
+                    placeholder="Paste a link..."
+                    value={adCodeUrl}
+                    onChange={(e) => setAdCodeUrl(e.target.value)}
+                    className="flex-1 bg-white border border-gray-300 rounded-full h-11 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#f5d82e]"
+                  />
+                  <Button
+                    onClick={async () => {
+                      if (!selectedChatId || !user?.id || !adCodeUrl.trim()) return;
+                      try {
+                        setSubmittingAdCode(true);
+                        await supabase
+                          .from("messages")
+                          .insert({
+                            chat_room_id: selectedChatId,
+                            sender_id: user.id,
+                            content: adCodeUrl.trim(),
+                            message_type: "ad_code",
+                          });
+                        setAdCodeUrl("");
+                      } finally {
+                        setSubmittingAdCode(false);
+                      }
+                    }}
+                    disabled={!adCodeUrl.trim() || submittingAdCode}
+                    className="bg-[#f5d82e] text-black font-semibold rounded-full h-11 px-5 disabled:opacity-50"
+                  >
+                    {submittingAdCode ? "Submitting..." : "Submit"}
+                  </Button>
+                </div>
               </div>
             </details>
           </div>

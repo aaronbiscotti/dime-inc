@@ -20,6 +20,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 import { MessageStatus } from "./MessageStatus";
+import { renameChatAction } from "@/app/(protected)/chat/actions";
 import { Modal } from "@/components/ui/modal";
 
 interface Message {
@@ -64,12 +65,17 @@ export function ChatArea({
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isGroupChat, setIsGroupChat] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [groupMemberCount, setGroupMemberCount] = useState<number>(0);
   const [otherParticipant, setOtherParticipant] =
     useState<ChatParticipant | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Real-time hooks
   const { typingUsers, startTyping, stopTyping, isTyping } = useTypingIndicator(
@@ -117,7 +123,8 @@ export function ChatArea({
         }
 
         const chatRoom = chatRoomResult.data;
-        setIsGroupChat(chatRoom?.is_group || false);
+        const group = !!chatRoom?.is_group;
+        setIsGroupChat(group);
 
         // Handle participant info
         if (!chatRoom?.is_group) {
@@ -142,6 +149,12 @@ export function ChatArea({
           }
         } else {
           setChatDisplayName(chatRoom?.name || "Group Chat");
+          // Fetch a precise member count for group chats
+          const countRes = await supabase
+            .from("chat_participants")
+            .select("id", { count: "exact", head: true })
+            .eq("chat_room_id", selectedChatId);
+          setGroupMemberCount(countRes.count || 0);
         }
 
         // Process messages
@@ -356,6 +369,41 @@ export function ChatArea({
     }
   };
 
+  const renderContentWithLinks = (text: string | null) => {
+    if (!text) return null;
+    const urlRegex = /\b(https?:\/\/[^\s]+)\b/gi;
+    const parts: Array<string | { url: string }> = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = urlRegex.exec(text)) !== null) {
+      const [full, url] = match;
+      const start = match.index;
+      if (start > lastIndex) parts.push(text.slice(lastIndex, start));
+      parts.push({ url });
+      lastIndex = start + full.length;
+    }
+    if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+    return (
+      <>
+        {parts.map((part, i) =>
+          typeof part === "string" ? (
+            <span key={i}>{part}</span>
+          ) : (
+            <a
+              key={i}
+              href={part.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-blue-600 break-all"
+            >
+              {part.url}
+            </a>
+          )
+        )}
+      </>
+    );
+  };
+
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedChatId || !user || sending) return;
 
@@ -386,13 +434,17 @@ export function ChatArea({
     setErrorMessage(null);
 
     try {
-      const result = await supabase.from("messages").insert({
-        chat_room_id: selectedChatId,
-        sender_id: user.id,
-        content: messageContent,
-        file_url: optimisticMessage.file_url,
-        reply_to_message_id: optimisticMessage.reply_to_message_id,
-      });
+      const result = await supabase
+        .from("messages")
+        .insert({
+          chat_room_id: selectedChatId,
+          sender_id: user.id,
+          content: messageContent,
+          file_url: optimisticMessage.file_url,
+          reply_to_message_id: optimisticMessage.reply_to_message_id,
+        })
+        .select()
+        .single();
 
       if (result.error || !result.data) {
         throw new Error(result.error?.message || "Failed to send message");
@@ -400,11 +452,9 @@ export function ChatArea({
 
       // Update optimistic message with real message data
       if (
-        result.data &&
-        Array.isArray(result.data) &&
-        (result.data as any[]).length > 0
+        result.data
       ) {
-        const messageData = result.data[0] as any;
+        const messageData = result.data as any;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === optimisticId
@@ -432,6 +482,8 @@ export function ChatArea({
       );
     } finally {
       setSending(false);
+      // Keep focus in the input after sending
+      inputRef.current?.focus();
     }
   };
 
@@ -598,7 +650,7 @@ export function ChatArea({
             <div>
               <h2 className="font-semibold text-gray-900">{chatDisplayName}</h2>
               <div className="text-sm text-gray-600">
-                {isGroupChat ? "Group chat" : "Private chat"}
+                {isGroupChat ? `${Math.max(1, groupMemberCount)} Members` : "Private chat"}
               </div>
             </div>
           </div>
@@ -616,19 +668,31 @@ export function ChatArea({
               <EllipsisVerticalIcon className="w-5 h-5" />
             </Button>
 
-            {showOptionsMenu && (
-              <div className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[150px]">
+          {showOptionsMenu && (
+            <div className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[150px]">
+              {isGroupChat && (
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={deleting}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => {
+                    setShowOptionsMenu(false);
+                    setRenameValue(chatDisplayName || "");
+                    setShowRenameModal(true);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 rounded-t-lg"
                 >
-                  <TrashIcon className="w-4 h-4" />
-                  {deleting ? "Deleting..." : "Delete Chat"}
+                  Rename Chat
                 </button>
-              </div>
-            )}
-          </div>
+              )}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deleting}
+                className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <TrashIcon className="w-4 h-4" />
+                {deleting ? "Deleting..." : "Delete Chat"}
+              </button>
+            </div>
+          )}
+        </div>
         </div>
       </div>
 
@@ -663,10 +727,23 @@ export function ChatArea({
         ) : (
           messages.map((message) => {
             const isCurrentUser = message.sender_id === user?.id;
+            const isSystem =
+              message.message_type === "system" ||
+              message.message_type === "announcement";
             const senderName = message.sender_name || "Unknown";
             const repliedMessage = message.reply_to_message_id
               ? messages.find((m) => m.id === message.reply_to_message_id)
               : null;
+
+            if (isSystem) {
+              return (
+                <div key={message.id} className="flex justify-center">
+                  <div className="max-w-[70%] bg-black text-white rounded-2xl px-4 py-3 text-sm">
+                    {message.content}
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div key={message.id}>
@@ -715,7 +792,7 @@ export function ChatArea({
                       )}
 
                       <p className="text-sm leading-relaxed break-all whitespace-pre-wrap">
-                        {message.content}
+                        {renderContentWithLinks(message.content)}
                       </p>
                     </div>
 
@@ -763,26 +840,27 @@ export function ChatArea({
         {renderReplyPreview()}
 
         <div className="p-4">
-          <div className="flex items-end gap-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 h-11 w-11 p-0"
             >
               <PaperClipIcon className="w-5 h-5" />
             </Button>
 
             <div className="flex-1">
               <textarea
+                ref={inputRef}
                 value={messageInput}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
                 placeholder="Write something..."
                 rows={1}
                 disabled={sending}
-                className="w-full resize-none border-0 bg-gray-50 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:bg-white max-h-24 disabled:opacity-50 text-sm"
+                className="w-full resize-none border-0 bg-gray-50 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300 focus:bg-white max-h-24 disabled:opacity-50 text-sm min-h-[44px]"
                 style={{
-                  minHeight: "42px",
+                  minHeight: "44px",
                   height: "auto",
                 }}
                 onInput={(e) => {
@@ -797,7 +875,7 @@ export function ChatArea({
             <Button
               onClick={handleSendMessage}
               disabled={!messageInput.trim() || sending}
-              className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-300 rounded-lg h-[42px] w-[42px] p-0"
+              className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:bg-gray-100 disabled:text-gray-300 rounded-lg h-11 w-11 p-0"
               size="sm"
             >
               <PaperAirplaneIcon
@@ -833,6 +911,57 @@ export function ChatArea({
               className="flex-1 bg-red-600 hover:bg-red-700 text-white"
             >
               Delete Chat
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Rename Chat Modal */}
+      <Modal
+        isOpen={showRenameModal}
+        onClose={() => setShowRenameModal(false)}
+        title="Rename Chat"
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Chat Name
+          </label>
+          <input
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            maxLength={80}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e]"
+          />
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowRenameModal(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedChatId || !renameValue.trim()) return;
+                setRenaming(true);
+                try {
+                  const formData = new FormData();
+                  formData.append("chatRoomId", selectedChatId);
+                  formData.append("name", renameValue.trim());
+                  const result = await renameChatAction(null as any, formData);
+                  if (result?.ok) {
+                    setChatDisplayName(renameValue.trim());
+                    setShowRenameModal(false);
+                  }
+                } finally {
+                  setRenaming(false);
+                }
+              }}
+              className="flex-1 bg-[#f5d82e] hover:bg-[#e5c820] text-black"
+              disabled={renaming || !renameValue.trim()}
+            >
+              {renaming ? "Saving..." : "Save"}
             </Button>
           </div>
         </div>

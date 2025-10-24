@@ -17,12 +17,58 @@ export async function createChatRoomAction(_: any, formData: FormData) {
   const participantIds = JSON.parse(
     String(formData.get("participantIds") ?? "[]")
   );
+  const initialMessage = String(formData.get("initialMessage") ?? "").trim();
 
   if (!participantIds.length) {
     return {
       ok: false,
       error: "At least one participant is required",
     } as const;
+  }
+
+  // If creating a 1:1 chat via this generic action, try to reuse existing
+  if (!isGroup && participantIds.length === 1) {
+    const otherId = String(participantIds[0]);
+
+    // Find any existing 1:1 chats the current user is in
+    const { data: existingForUser, error: existingErr } = await supabase
+      .from("chat_rooms")
+      .select(
+        `id, is_group, chat_participants!inner(user_id)`
+      )
+      .eq("is_group", false)
+      .eq("chat_participants.user_id", user.id);
+
+    if (!existingErr && existingForUser && existingForUser.length > 0) {
+      const candidateIds = existingForUser.map((c) => c.id);
+
+      // Check if the other participant is also in any of these rooms
+      const { data: overlap } = await supabase
+        .from("chat_participants")
+        .select("chat_room_id")
+        .eq("user_id", otherId)
+        .in("chat_room_id", candidateIds);
+
+      if (overlap && overlap.length > 0) {
+        const chatId = overlap[0].chat_room_id as unknown as string;
+
+        // Optionally send initial message
+        if (initialMessage) {
+          await supabase.from("messages").insert({
+            chat_room_id: chatId,
+            sender_id: user.id,
+            content: initialMessage,
+          });
+          await supabase
+            .from("chat_rooms")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", chatId);
+        }
+
+        revalidatePath("/chat");
+        return { ok: true, data: { id: chatId } } as const;
+      }
+    }
   }
 
   // Create chat room
@@ -55,6 +101,17 @@ export async function createChatRoomAction(_: any, formData: FormData) {
     // Clean up the chat room if participants failed
     await supabase.from("chat_rooms").delete().eq("id", chatRoom.id);
     return { ok: false, error: participantsError.message } as const;
+  }
+
+  // Send initial message if provided
+  if (initialMessage) {
+    await supabase
+      .from("messages")
+      .insert({
+        chat_room_id: chatRoom.id,
+        sender_id: user.id,
+        content: initialMessage,
+      });
   }
 
   revalidatePath("/chat");
@@ -285,7 +342,7 @@ export async function getUserChatsAction() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const { data: chatRooms, error } = await supabase
+  let query = supabase
     .from("chat_rooms")
     .select(
       `
@@ -324,6 +381,13 @@ export async function getUserChatsAction() {
     .eq("chat_participants.user_id", user.id)
     .order("updated_at", { ascending: false });
 
+  // Reduce payload: only the latest message per room
+  query = query
+    .order("created_at", { foreignTable: "messages", ascending: false })
+    .limit(1, { foreignTable: "messages" });
+
+  const { data: chatRooms, error } = await query;
+
   if (error) return { ok: false, error: error.message } as const;
   return { ok: true, data: chatRooms || [] } as const;
 }
@@ -336,6 +400,7 @@ export async function createGroupChatAction(_: any, formData: FormData) {
   const participantIds = JSON.parse(
     String(formData.get("participantIds") ?? "[]")
   );
+  const initialMessage = String(formData.get("initialMessage") ?? "").trim();
 
   if (!participantIds.length) {
     return {
@@ -376,6 +441,17 @@ export async function createGroupChatAction(_: any, formData: FormData) {
     return { ok: false, error: participantsError.message } as const;
   }
 
+  // Optional introductory message for groups too
+  if (initialMessage) {
+    await supabase
+      .from("messages")
+      .insert({
+        chat_room_id: chatRoom.id,
+        sender_id: user.id,
+        content: initialMessage,
+      });
+  }
+
   revalidatePath("/chat");
   return { ok: true, data: chatRoom } as const;
 }
@@ -385,6 +461,7 @@ export async function createChatAction(_: any, formData: FormData) {
   const supabase = await createClient();
 
   const participantId = String(formData.get("participantId") ?? "");
+  const initialMessage = String(formData.get("initialMessage") ?? "").trim();
 
   if (!participantId) {
     return {
@@ -413,10 +490,22 @@ export async function createChatAction(_: any, formData: FormData) {
     .in("chat_room_id", existingChat?.map((c) => c.id) || []);
 
   if (otherParticipant && otherParticipant.length > 0) {
-    return {
-      ok: true,
-      data: { id: otherParticipant[0].chat_room_id },
-    } as const;
+    const chatId = otherParticipant[0].chat_room_id as unknown as string;
+
+    // If caller supplied an intro message, send it into the existing chat
+    if (initialMessage) {
+      await supabase.from("messages").insert({
+        chat_room_id: chatId,
+        sender_id: user.id,
+        content: initialMessage,
+      });
+      await supabase
+        .from("chat_rooms")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", chatId);
+    }
+
+    return { ok: true, data: { id: chatId } } as const;
   }
 
   // Create new chat room
@@ -447,6 +536,53 @@ export async function createChatAction(_: any, formData: FormData) {
     return { ok: false, error: participantsError.message } as const;
   }
 
+  // Intro message for newly created 1:1 chat
+  if (initialMessage) {
+    await supabase.from("messages").insert({
+      chat_room_id: chatRoom.id,
+      sender_id: user.id,
+      content: initialMessage,
+    });
+  }
+
   revalidatePath("/chat");
   return { ok: true, data: chatRoom } as const;
+}
+
+// ============================================================================
+// CHAT METADATA ACTIONS
+// ============================================================================
+
+export async function renameChatAction(_: any, formData: FormData) {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const chatRoomId = String(formData.get("chatRoomId") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+
+  if (!chatRoomId || !name) {
+    return { ok: false, error: "Chat room ID and name are required" } as const;
+  }
+
+  // Ensure the user is a participant
+  const { data: participant } = await supabase
+    .from("chat_participants")
+    .select("user_id")
+    .eq("chat_room_id", chatRoomId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!participant) {
+    return { ok: false, error: "Access denied" } as const;
+  }
+
+  const { error } = await supabase
+    .from("chat_rooms")
+    .update({ name })
+    .eq("id", chatRoomId);
+
+  if (error) return { ok: false, error: error.message } as const;
+
+  revalidatePath(`/chat/${chatRoomId}`);
+  return { ok: true } as const;
 }

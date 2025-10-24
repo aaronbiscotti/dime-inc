@@ -41,10 +41,10 @@ export default function ClientDashboardClient({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-gray-900">Campaigns</h3>
+        <h3 className="text-xl font-medium text-gray-900">Campaigns</h3>
         <Button
           onClick={handleCreateCampaign}
-          className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900"
+          className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 rounded-full font-medium"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Campaign
@@ -60,7 +60,7 @@ export default function ClientDashboardClient({
                 <div className="w-16 h-16 bg-[#f5d82e] bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">🚀</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-base font-medium text-gray-900 mb-2">
                   No Campaigns Yet
                 </h3>
                 <p className="text-gray-600 mb-4">
@@ -69,7 +69,7 @@ export default function ClientDashboardClient({
                 </p>
                 <Button
                   onClick={handleCreateCampaign}
-                  className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900"
+                  className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 rounded-full font-medium"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Campaign
@@ -82,11 +82,11 @@ export default function ClientDashboardClient({
           campaigns.map((campaign) => (
             <div
               key={campaign.id}
-              className="bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors"
+              className="bg-white border border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => router.push(`/campaigns/${campaign.id}`)}
             >
               {/* Campaign Cover */}
-              <div className="h-32 bg-gray-100 rounded-t-lg overflow-hidden relative">
+              <div className="h-32 bg-gray-100 rounded-t-xl overflow-hidden relative">
                 <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                   <span className="text-gray-400 text-2xl">📸</span>
                 </div>
@@ -112,7 +112,7 @@ export default function ClientDashboardClient({
 
               {/* Campaign Info */}
               <div className="p-4 space-y-3">
-                <h4 className="text-gray-900 line-clamp-1 text-sm">
+                <h4 className="text-gray-900 line-clamp-1 text-sm font-medium">
                   {campaign.title}
                 </h4>
 

@@ -23,12 +23,12 @@ interface CreateCampaignModalProps {
 interface CampaignFormData {
   title: string;
   description: string;
-  budget_min: number;
-  budget_max: number;
+  budget_min: string; // strings make typing easier (no leading 0)
+  budget_max: string;
   deadline: string;
   requirements: string;
   proposal_message: string;
-  max_ambassadors: number;
+  max_ambassadors: string;
 }
 
 export function CreateCampaignModal({
@@ -47,12 +47,12 @@ export function CreateCampaignModal({
   const [formData, setFormData] = useState<CampaignFormData>({
     title: "",
     description: "",
-    budget_min: 0,
-    budget_max: 0,
+    budget_min: "",
+    budget_max: "",
     deadline: "",
     requirements: "",
     proposal_message: "",
-    max_ambassadors: 1,
+    max_ambassadors: "",
   });
 
   const handleInputChange = (
@@ -75,14 +75,20 @@ export function CreateCampaignModal({
       const formDataForAction = new FormData();
       formDataForAction.append("title", formData.title);
       formDataForAction.append("description", formData.description);
-      formDataForAction.append("budget_min", formData.budget_min.toString());
-      formDataForAction.append("budget_max", formData.budget_max.toString());
+      formDataForAction.append(
+        "budget_min",
+        (parseFloat(formData.budget_min || "0") || 0).toString()
+      );
+      formDataForAction.append(
+        "budget_max",
+        (parseFloat(formData.budget_max || "0") || 0).toString()
+      );
       formDataForAction.append("deadline", formData.deadline);
       formDataForAction.append("requirements", formData.requirements);
       formDataForAction.append("proposal_message", formData.proposal_message);
       formDataForAction.append(
         "max_ambassadors",
-        formData.max_ambassadors.toString()
+        (parseInt(formData.max_ambassadors || "1") || 1).toString()
       );
 
       const result = await createCampaignAction(null, formDataForAction);
@@ -176,12 +182,7 @@ export function CreateCampaignModal({
                   min="0"
                   step="100"
                   value={formData.budget_min}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "budget_min",
-                      parseFloat(e.target.value) || 0
-                    )
-                  }
+                  onChange={(e) => handleInputChange("budget_min", e.target.value)}
                   placeholder="1000"
                   className="pl-9"
                   required
@@ -198,12 +199,7 @@ export function CreateCampaignModal({
                   min="0"
                   step="100"
                   value={formData.budget_max}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "budget_max",
-                      parseFloat(e.target.value) || 0
-                    )
-                  }
+                  onChange={(e) => handleInputChange("budget_max", e.target.value)}
                   placeholder="5000"
                   className="pl-9"
                   required
@@ -240,12 +236,7 @@ export function CreateCampaignModal({
                   min="1"
                   max="50"
                   value={formData.max_ambassadors}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "max_ambassadors",
-                      parseInt(e.target.value) || 1
-                    )
-                  }
+                  onChange={(e) => handleInputChange("max_ambassadors", e.target.value)}
                   placeholder="5"
                   className="pl-9"
                   required
@@ -289,14 +280,14 @@ export function CreateCampaignModal({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="flex-1"
+              className="flex-1 rounded-full"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isCreating}
-              className="flex-1 bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-0"
+              className="flex-1 bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 border-0 rounded-full font-medium"
             >
               <Users className="w-4 h-4 mr-2" />
               {isCreating ? "Creating..." : "Create Campaign"}
@@ -305,19 +296,19 @@ export function CreateCampaignModal({
         </form>
       ) : (
         <div className="text-center py-8">
-          <h2 className="text-2xl font-bold mb-4">Your campaign is ready!</h2>
+          <h2 className="text-xl font-medium mb-4">Your campaign is ready!</h2>
           <p className="text-gray-600 mb-8">
             Activate your campaign now to make it visible to ambassadors, or you
             can do it later.
           </p>
           <div className="flex gap-4 justify-center">
-            <Button onClick={handleKeepAsDraft} variant="outline" size="lg">
+            <Button onClick={handleKeepAsDraft} variant="outline" size="lg" className="rounded-full font-medium">
               Keep as Draft
             </Button>
             <Button
               onClick={handleActivate}
               size="lg"
-              className="bg-green-500 hover:bg-green-600 text-white"
+              className="bg-green-500 hover:bg-green-600 text-white rounded-full font-medium"
             >
               Activate Campaign
             </Button>

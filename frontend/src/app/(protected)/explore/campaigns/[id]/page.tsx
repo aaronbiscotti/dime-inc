@@ -188,23 +188,57 @@ export default function AmbassadorCampaignDetails() {
         </div>
 
         {/* Campaign Header */}
-        <div className="bg-white rounded-xl border border-gray-300 p-8 mb-6">
-          <div className="flex items-start justify-between mb-6">
+        <div className="bg-white rounded-xl border border-gray-300 p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+            {/* Left: Title + Description */}
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {campaign.title}
-                </h1>
-                <span className="px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-700">
-                  Active
-                </span>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl font-bold text-gray-900">{campaign.title}</h1>
+                {campaign.status === "active" && (
+                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-700">
+                    Active
+                  </span>
+                )}
               </div>
-              <p className="text-gray-600 text-lg">{campaign.description}</p>
+              <p className="text-gray-700 text-base">{campaign.description}</p>
+            </div>
+
+            {/* Right: All info */}
+            <div className="w-full md:w-[380px] flex-shrink-0 grid grid-cols-1 gap-3">
+              <div className="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-700" />
+                  <span className="text-sm text-gray-600">Budget</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  ${campaign.budget_min.toFixed(0)} - ${campaign.budget_max.toFixed(0)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-gray-700" />
+                  <span className="text-sm text-gray-600">Positions</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {campaign.max_ambassadors} spot{campaign.max_ambassadors !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <div className="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-700" />
+                  <span className="text-sm text-gray-600">Deadline</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {campaign.deadline
+                    ? new Date(campaign.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                    : "No deadline"}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Apply Button */}
-          <div className="pt-6 border-t border-gray-300">
+          <div className="pt-4">
             <button
               onClick={() => setShowApplyModal(true)}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-[#f5d82e] text-black font-medium rounded-lg hover:bg-[#e5c820] transition-colors"

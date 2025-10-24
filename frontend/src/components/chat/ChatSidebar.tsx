@@ -63,24 +63,45 @@ export function ChatSidebar({
 
         const chatRooms = result.data || [];
 
-        // Transform backend data to frontend format
+        // Transform backend data to UI format using real participants/messages
         const formattedChats: Chat[] = chatRooms.map((chatRoom: any) => {
-          const latestMessage = chatRoom.latest_message;
+          // Determine display name
+          let displayName = "Unknown Chat";
+          if (chatRoom.is_group) {
+            displayName = chatRoom.name || "Group Chat";
+          } else if (Array.isArray(chatRoom.chat_participants)) {
+            const other = chatRoom.chat_participants.find(
+              (p: any) => p.user_id !== user?.id
+            );
+            displayName =
+              other?.profiles?.ambassador_profiles?.full_name ||
+              other?.profiles?.client_profiles?.company_name ||
+              other?.profiles?.email ||
+              "Private Chat";
+          }
 
-          // Format timestamp
+          // Latest message (server may return embedded messages; prefer newest)
+          const latestMessage = Array.isArray(chatRoom.messages)
+            ? [...chatRoom.messages].sort(
+                (a: any, b: any) =>
+                  new Date(b.created_at).getTime() -
+                  new Date(a.created_at).getTime()
+              )[0]
+            : undefined;
+
           const timestamp = latestMessage?.created_at
             ? new Date(latestMessage.created_at).toLocaleDateString()
             : new Date(chatRoom.created_at).toLocaleDateString();
 
           return {
             id: chatRoom.id,
-            name: chatRoom.display_name || "Unknown Chat",
+            name: displayName,
             lastMessage: latestMessage?.content || "No messages yet",
             timestamp,
-            unreadCount: 0, // TODO: Implement unread count tracking
-            isOnline: false, // TODO: Implement online status
-            isGroup: chatRoom.is_group,
-            participants: [],
+            unreadCount: 0, // TODO: implement unread count
+            isOnline: false,
+            isGroup: !!chatRoom.is_group,
+            participants: chatRoom.chat_participants?.map((p: any) => p.user_id) || [],
           };
         });
 
@@ -190,6 +211,11 @@ export function ChatSidebar({
         </div>
       </div>
 
+      {/* Desktop title to match spec */}
+      <div className="p-4 border-b border-gray-300 hidden lg:block">
+        <h2 className="text-lg font-semibold">Messages</h2>
+      </div>
+
       {/* Search Bar and Group Creation Button */}
       <div className="p-4 border-b border-gray-300 space-y-3">
         <div className="relative">
@@ -199,7 +225,7 @@ export function ChatSidebar({
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
           />
         </div>
 

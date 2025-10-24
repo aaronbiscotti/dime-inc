@@ -248,13 +248,13 @@ export default function ContractDraftForm({
       style={{ maxWidth: "100vw" }}
       onSubmit={handleSubmit}
     >
-      <div className="flex flex-row gap-10 w-full">
+      <div className="flex flex-row gap-8 w-full">
         {/* Main Form Card */}
-        <div className="grow flex flex-col gap-8 min-w-0">
-          <div className="bg-white rounded-2xl border border-gray-300 p-12 mb-0 w-full">
+        <div className="grow flex flex-col gap-6 min-w-0">
+          <div className="bg-white rounded-xl border border-gray-300 p-6 mb-0 w-full">
             <div className="flex items-center gap-2 mb-6">
               <FileText className="w-5 h-5 text-gray-700" />
-              <span className="font-semibold text-lg text-gray-900">
+              <span className="font-medium text-base text-gray-900">
                 Contract Details
               </span>
             </div>
@@ -325,10 +325,10 @@ export default function ContractDraftForm({
               )}
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-300 p-12 w-full">
+          <div className="bg-white rounded-xl border border-gray-300 p-6 w-full">
             <div className="flex items-center gap-2 mb-6">
               <Eye className="w-5 h-5 text-gray-700" />
-              <span className="font-semibold text-lg text-gray-900">
+              <span className="font-medium text-base text-gray-900">
                 Contract Terms<span className="text-[#f5d82e]">*</span>
               </span>
             </div>
@@ -385,16 +385,16 @@ export default function ContractDraftForm({
                 I agree to the Terms & Conditions
               </label>
             </div>
-            <div className="flex justify-end gap-4 mt-8">
+            <div className="flex justify-end gap-4 mt-6">
               <button
                 type="button"
-                className="px-6 py-2 rounded-full border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-100 transition"
+                className="px-6 py-2 rounded-full border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-100 transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-8 py-2 rounded-full bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold shadow-sm border-none transition disabled:opacity-60"
+                className="px-8 py-2 rounded-full bg-[#f5d82e] hover:bg-[#ffe066] text-black font-medium border-none transition disabled:opacity-60"
                 disabled={!payType || !agreed}
               >
                 Continue
@@ -405,7 +405,7 @@ export default function ContractDraftForm({
         {/* Ambassador Card (Right) */}
         <div className="flex-shrink-0 w-[320px]">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-base font-medium text-gray-900">
               Select Ambassadors
             </h2>
           </div>

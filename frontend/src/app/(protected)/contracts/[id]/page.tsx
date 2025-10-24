@@ -195,13 +195,13 @@ export default function ContractDetailPage() {
 
   return (
     <main className="max-w-7xl mx-auto px-6 py-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Contract Document</h1>
-        <Button variant="outline" onClick={() => router.push("/contracts")}>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-medium text-gray-900">Contract Document</h1>
+        <Button variant="outline" className="rounded-full font-medium" onClick={() => router.push("/contracts")}>
           Back to Contracts
         </Button>
       </div>
-      <div className="bg-white rounded-xl border border-gray-300 p-6 mb-6">
+      <div className="bg-white rounded-xl border border-gray-300 p-5 mb-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-gray-700">
           <div>
             <div className="text-sm font-semibold text-gray-500 mb-1">
@@ -236,14 +236,14 @@ export default function ContractDetailPage() {
           </div>
         </div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-300 p-8 whitespace-pre-wrap font-serif text-base leading-relaxed min-h-[400px]">
+      <div className="bg-white rounded-xl border border-gray-300 p-6 whitespace-pre-wrap font-serif text-base leading-relaxed min-h-[360px]">
         {contract.contract_text}
       </div>
 
       {/* --- Signing Section --- */}
       {!signingAs && (
         <div
-          className={`rounded-xl border p-8 mt-6 ${
+          className={`rounded-xl border p-6 mt-5 ${
             contract.status === "active"
               ? "bg-green-50 border-green-200"
               : contract.status === "draft"
@@ -269,7 +269,7 @@ export default function ContractDetailPage() {
                 <span className="text-yellow-600 text-lg">⏳</span>
               )}
             </div>
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-lg font-medium text-gray-900">
               {contract.status === "active"
                 ? "Contract Active"
                 : contract.status === "draft"
@@ -280,7 +280,7 @@ export default function ContractDetailPage() {
 
           {contract.status === "active" && (
             <div className="bg-white rounded-lg border border-green-200 p-4 mb-6">
-              <p className="text-green-700 font-medium">
+              <p className="text-green-700">
                 🎉 This contract is now active! Both parties have signed and the
                 agreement is in effect.
               </p>
@@ -289,7 +289,7 @@ export default function ContractDetailPage() {
 
           {contract.status === "draft" && (
             <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-              <p className="text-gray-700 font-medium">
+              <p className="text-gray-700">
                 📝 This contract is in draft status. Once both parties sign, it
                 will become active.
               </p>
@@ -315,7 +315,7 @@ export default function ContractDetailPage() {
                     <span className="text-blue-600 text-2xl">C</span>
                   )}
                 </div>
-                <h3 className="font-semibold text-lg mb-2">Client Signature</h3>
+                <h3 className="font-medium text-base mb-2">Client Signature</h3>
                 {contract.client_signed_at ? (
                   <p className="text-green-600 text-sm">
                     Signed on{" "}
@@ -324,7 +324,7 @@ export default function ContractDetailPage() {
                 ) : isClientOwner && contract.status !== "active" ? (
                   <Button
                     onClick={() => setSigningAs("client")}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium"
                   >
                     Sign as Client
                   </Button>
@@ -356,7 +356,7 @@ export default function ContractDetailPage() {
                     <span className="text-purple-600 text-2xl">A</span>
                   )}
                 </div>
-                <h3 className="font-semibold text-lg mb-2">
+                <h3 className="font-medium text-base mb-2">
                   Ambassador Signature
                 </h3>
                 {contract.ambassador_signed_at ? (
@@ -369,7 +369,7 @@ export default function ContractDetailPage() {
                 ) : isAmbassadorSignee && contract.status !== "active" ? (
                   <Button
                     onClick={() => setSigningAs("ambassador")}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full font-medium"
                   >
                     Sign as Ambassador
                   </Button>
@@ -388,8 +388,8 @@ export default function ContractDetailPage() {
 
       {/* Signature Form */}
       {signingAs && (
-        <div className="bg-white rounded-xl border-2 border-dashed border-yellow-400 p-8 mt-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
+        <div className="bg-white rounded-xl border-2 border-dashed border-yellow-400 p-6 mt-5">
+          <h2 className="text-lg font-medium text-gray-900 mb-3">
             Sign as {signingAs === "client" ? "Client" : "Ambassador"}
           </h2>
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
@@ -443,7 +443,7 @@ export default function ContractDetailPage() {
                   setError(null);
                 }}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 rounded-full font-medium"
               >
                 Cancel
               </Button>
@@ -452,7 +452,7 @@ export default function ContractDetailPage() {
                 disabled={
                   isSigning || !agreeTerms || !signatureName.trim() || !!error
                 }
-                className={`flex-1 ${
+                className={`flex-1 rounded-full font-medium ${
                   signingAs === "client"
                     ? "bg-blue-600 hover:bg-blue-700"
                     : "bg-purple-600 hover:bg-purple-700"
@@ -466,11 +466,11 @@ export default function ContractDetailPage() {
       )}
 
       {/* --- Signature Display --- */}
-      <div className="bg-white rounded-xl border border-gray-300 p-8 mt-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Signatures</h2>
+      <div className="bg-white rounded-xl border border-gray-300 p-5 mt-5">
+        <h2 className="text-lg font-medium text-gray-900 mb-3">Signatures</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-semibold">Client Signature</h3>
+            <h3 className="font-medium">Client Signature</h3>
             {contract.client_signed_at ? (
               <p className="text-green-600 mt-2">
                 ✓ Signed on{" "}
@@ -481,7 +481,7 @@ export default function ContractDetailPage() {
             )}
           </div>
           <div>
-            <h3 className="font-semibold">Ambassador Signature</h3>
+            <h3 className="font-medium">Ambassador Signature</h3>
             {contract.ambassador_signed_at ? (
               <p className="text-green-600 mt-2">
                 ✓ Signed on{" "}

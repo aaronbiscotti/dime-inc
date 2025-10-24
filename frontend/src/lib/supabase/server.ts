@@ -25,3 +25,9 @@ export async function createClient() {
 
   return supabase;
 }
+
+// Service-role client for server actions that need to bypass RLS
+// Always uses anon client with proper RLS policies
+export async function createServiceClient() {
+  return createClient();
+}

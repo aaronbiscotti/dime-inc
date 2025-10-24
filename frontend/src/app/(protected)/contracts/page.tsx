@@ -14,7 +14,7 @@ type Contract = Database["public"]["Tables"]["contracts"]["Row"] & {
 import { useEffect, useState } from "react";
 
 export default function ContractsPage() {
-  const { user, clientProfile, ambassadorProfile } = useAuth();
+  const { user, clientProfile, ambassadorProfile, loading: authLoading } = useAuth();
   const router = useRouter();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,11 @@ export default function ContractsPage() {
 
   useEffect(() => {
     const fetchContracts = async () => {
-      if (!user) return;
+      if (authLoading) return; // wait for auth to resolve
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -46,7 +50,7 @@ export default function ContractsPage() {
       setLoading(false);
     };
     fetchContracts();
-  }, [user, clientProfile, ambassadorProfile]);
+  }, [user, clientProfile, ambassadorProfile, authLoading]);
 
   const getStatusChip = (status: string) => {
     switch (status) {
@@ -80,10 +84,10 @@ export default function ContractsPage() {
   return (
     <main className="max-w-7xl mx-auto px-6 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Contracts</h1>
+        <h1 className="text-2xl font-medium text-gray-900">Contracts</h1>
         {clientProfile && (
           <Button
-            className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
+            className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-medium border-none rounded-full px-6"
             onClick={() => router.push("/contracts/new")}
           >
             Draft Contract
@@ -99,13 +103,13 @@ export default function ContractsPage() {
       ) : contracts.length === 0 ? (
         <div className="text-center text-gray-500 py-12">
           <div className="text-2xl mb-2">📄</div>
-          <div className="text-lg font-semibold mb-1">No contracts yet</div>
+          <div className="text-base font-medium mb-1">No contracts yet</div>
           <div className="text-sm text-gray-500 mb-4">
             You have not created or received any contracts.
           </div>
           {clientProfile && (
             <Button
-              className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-semibold border-none shadow-sm rounded-full px-6"
+              className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-medium border-none rounded-full px-6"
               onClick={() => router.push("/contracts/new")}
             >
               Draft Contract

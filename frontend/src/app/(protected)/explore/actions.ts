@@ -1,7 +1,7 @@
 "use server";
 
 import { requireUser } from "@/lib/auth/requireUser";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 // ============================================================================
 // EXPLORE ACTIONS
@@ -29,9 +29,9 @@ export async function getAmbassadorsAction(params?: {
     instagram_handle,
     tiktok_handle,
     twitter_handle,
-    engagement_rate,
     user_id,
-    profiles!inner(
+    created_at,
+    profiles(
       id,
       email,
       role,
@@ -59,26 +59,23 @@ export async function getAmbassadorsAction(params?: {
   // Sorting
   const orderBy = params?.orderBy || "created_at";
   const orderDir = params?.orderDir || "desc";
-  // If engagement_rate column does not exist, Supabase will error; so we try/catch and fall back
+  
+  // Map engagement_rate to created_at since engagement_rate column doesn't exist
+  const actualOrderBy = orderBy === "engagement_rate" ? "created_at" : orderBy;
+  
   let ambassadors = null as any;
   let error = null as any;
-  try {
-    if (params?.limit !== undefined) {
-      const from = params.offset ?? 0;
-      const to = from + params.limit - 1;
-      const resp = await query.order(orderBy, { ascending: orderDir === "asc" }).range(from, to);
-      ambassadors = resp.data;
-      error = resp.error as any;
-    } else {
-      const resp = await query.order(orderBy, { ascending: orderDir === "asc" });
-      ambassadors = resp.data;
-      error = resp.error as any;
-    }
-  } catch (e: any) {
-    // Fallback to created_at when ordering by a missing column
-    const fallback = await query.order("created_at", { ascending: false });
-    ambassadors = fallback.data;
-    error = fallback.error as any;
+  
+  if (params?.limit !== undefined) {
+    const from = params.offset ?? 0;
+    const to = from + params.limit - 1;
+    const resp = await query.order(actualOrderBy, { ascending: orderDir === "asc" }).range(from, to);
+    ambassadors = resp.data;
+    error = resp.error as any;
+  } else {
+    const resp = await query.order(actualOrderBy, { ascending: orderDir === "asc" });
+    ambassadors = resp.data;
+    error = resp.error as any;
   }
 
   if (error) return { ok: false, error: error.message } as const;
@@ -244,4 +241,80 @@ export async function getCampaignAction(campaignId: string) {
   }
 
   return { ok: true, data: campaign } as const;
+}
+
+// List client profiles for ambassadors browsing brands
+export async function getClientsAction(params?: {
+  search?: string;
+  industry?: string;
+  orderBy?: "created_at" | "company_name";
+  orderDir?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+}) {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  let query = supabase.from("client_profiles").select(`
+    id,
+    user_id,
+    company_name,
+    company_description,
+    logo_url,
+    industry,
+    website,
+    profiles(
+      id,
+      email,
+      role,
+      created_at
+    )
+  `);
+
+  if (params?.search) {
+    query = query.or(
+      `company_name.ilike.%${params.search}%,company_description.ilike.%${params.search}%`
+    );
+  }
+  if (params?.industry) {
+    query = query.ilike("industry", `%${params.industry}%`);
+  }
+
+  const orderBy = params?.orderBy || "created_at";
+  const orderDir = params?.orderDir || "desc";
+
+  let clients: any = null;
+  let error: any = null;
+  if (params?.limit !== undefined) {
+    const from = params.offset ?? 0;
+    const to = from + params.limit - 1;
+    const resp = await query.order(orderBy, { ascending: orderDir === "asc" }).range(from, to);
+    clients = resp.data;
+    error = resp.error as any;
+  } else {
+    const resp = await query.order(orderBy, { ascending: orderDir === "asc" });
+    clients = resp.data;
+    error = resp.error as any;
+  }
+
+  if (error) return { ok: false, error: error.message } as const;
+  return { ok: true, data: clients || [] } as const;
+}
+
+// Get user role to determine what profiles to show
+export async function getUserRoleAction() {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (error || !profile) {
+    return { ok: false, error: "User profile not found" } as const;
+  }
+
+  return { ok: true, data: { role: profile.role } } as const;
 }

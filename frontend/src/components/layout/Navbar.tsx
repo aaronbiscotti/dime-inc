@@ -145,11 +145,19 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Influencer
+                    Explore
                   </Link>
 
-                  {/* Optional placeholder for Reports if route exists in future */}
-                  <span className="text-sm font-medium text-gray-400">Reports</span>
+                  <Link
+                    href="/contracts"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/contracts"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
+                    }`}
+                  >
+                    Contracts
+                  </Link>
 
                   <Link
                     href="/chats"
@@ -184,7 +192,7 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Influencer
+                    Explore
                   </Link>
 
                   <Link
@@ -197,7 +205,16 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                   >
                     Messages
                   </Link>
-                  <span className="text-sm font-medium text-gray-400">Reports</span>
+                  <Link
+                    href="/contracts"
+                    className={`text-sm font-medium transition-colors ${
+                      pathname === "/contracts"
+                        ? "text-yellow-600 font-bold"
+                        : "text-gray-600 hover:text-yellow-600 font-bold"
+                    }`}
+                  >
+                    Contracts
+                  </Link>
                 </>
               )}
             </div>

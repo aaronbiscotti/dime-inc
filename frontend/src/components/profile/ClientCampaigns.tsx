@@ -34,10 +34,10 @@ export function ClientCampaigns({
       <div className="lg:col-span-2">
         <div className="mb-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">Campaigns</h3>
+            <h3 className="text-xl font-medium text-gray-900">Campaigns</h3>
             <Button
               onClick={onCreateCampaign}
-              className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900"
+              className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 rounded-full font-medium"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Campaign
@@ -89,7 +89,7 @@ export function ClientCampaigns({
                 <div className="w-16 h-16 bg-[#f5d82e] bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">🚀</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-base font-medium text-gray-900 mb-2">
                   No Campaigns Yet
                 </h3>
                 <p className="text-gray-600 mb-4">
@@ -98,7 +98,7 @@ export function ClientCampaigns({
                 </p>
                 <Button
                   onClick={onCreateCampaign}
-                  className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900"
+                  className="bg-[#f5d82e] hover:bg-[#FEE65D] text-gray-900 rounded-full font-medium"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Campaign
@@ -111,11 +111,11 @@ export function ClientCampaigns({
           campaigns.map((campaign: CampaignDisplay) => (
             <div
               key={campaign.id}
-              className="bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors"
+              className="bg-white border border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => router.push(`/campaigns/${campaign.id}`)}
             >
               {/* Campaign Cover */}
-              <div className="h-32 bg-gray-100 rounded-t-lg overflow-hidden relative">
+              <div className="h-32 bg-gray-100 rounded-t-xl overflow-hidden relative">
                 {campaign.coverImage ? (
                   <Image
                     src={campaign.coverImage}
@@ -150,7 +150,7 @@ export function ClientCampaigns({
 
               {/* Campaign Info */}
               <div className="p-4 space-y-3">
-                <h4 className="text-gray-900 line-clamp-1 text-sm">
+                <h4 className="text-gray-900 line-clamp-1 text-sm font-medium">
                   {campaign.title}
                 </h4>
 

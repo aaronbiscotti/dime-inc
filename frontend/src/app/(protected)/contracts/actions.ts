@@ -78,10 +78,7 @@ export async function getMyContractsAction() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const { data: contracts, error } = await supabase
-    .from("contracts")
-    .select(
-      `
+  const SELECT = `
       id,
       contract_text,
       terms_accepted,
@@ -100,6 +97,7 @@ export async function getMyContractsAction() {
       pdf_url,
       updated_at,
       campaign_ambassadors!inner(
+        ambassador_id,
         ambassador_profiles!inner(
           id,
           full_name
@@ -108,15 +106,26 @@ export async function getMyContractsAction() {
           title
         )
       )
-    `
-    )
-    .or(
-      `client_id.eq.${user.id},campaign_ambassadors.ambassador_id.eq.${user.id}`
-    )
-    .order("created_at", { ascending: false });
+    `;
 
-  if (error) return { ok: false, error: error.message } as const;
-  return { ok: true, data: contracts || [] } as const;
+  const [asClient, asAmbassador] = await Promise.all([
+    supabase.from("contracts").select(SELECT).eq("client_id", user.id),
+    supabase
+      .from("contracts")
+      .select(SELECT)
+      .eq("campaign_ambassadors.ambassador_id", user.id),
+  ]);
+
+  if (asClient.error) return { ok: false, error: asClient.error.message } as const;
+  if (asAmbassador.error)
+    return { ok: false, error: asAmbassador.error.message } as const;
+
+  const merged = [...(asClient.data || []), ...(asAmbassador.data || [])];
+  const dedup = Array.from(new Map(merged.map((c: any) => [c.id, c])).values());
+  dedup.sort(
+    (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  return { ok: true, data: dedup } as const;
 }
 
 export async function getContractAction(contractId: string) {
@@ -145,6 +154,7 @@ export async function getContractAction(contractId: string) {
       pdf_url,
       updated_at,
       campaign_ambassadors!inner(
+        ambassador_id,
         ambassador_profiles!inner(
           id,
           full_name
@@ -156,14 +166,17 @@ export async function getContractAction(contractId: string) {
     `
     )
     .eq("id", contractId)
-    .or(
-      `client_id.eq.${user.id},campaign_ambassadors.ambassador_id.eq.${user.id}`
-    )
     .single();
 
   if (error || !contract) {
     return { ok: false, error: "Contract not found" } as const;
   }
+
+  // Manual access check (avoid logic-tree parser issues on joins)
+  const allowed =
+    contract.client_id === user.id ||
+    (contract as any).campaign_ambassadors?.ambassador_id === user.id;
+  if (!allowed) return { ok: false, error: "Contract not found" } as const;
 
   return { ok: true, data: contract } as const;
 }
