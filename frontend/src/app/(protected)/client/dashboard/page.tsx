@@ -15,8 +15,7 @@ export default async function ClientDashboardPage() {
   const campaigns = campaignsResult.ok ? campaignsResult.data : [];
 
   return (
-    <div className="pt-4">
-      <div className="max-w-7xl mx-auto px-6 py-6">
+    <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid md:grid-cols-3 gap-6">
           <Card className="md:col-span-2">
             <CardHeader>
@@ -63,7 +62,6 @@ export default async function ClientDashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
     </div>
   );
 }

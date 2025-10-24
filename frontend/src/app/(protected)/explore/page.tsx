@@ -11,16 +11,14 @@ export default async function ExplorePage() {
     const clientsResult = await getClientsAction({ limit: 10, offset: 0 });
     const clients = clientsResult.ok ? clientsResult.data : [];
     return (
-      <div className="pt-4">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <h1 className="text-2xl font-semibold mb-6">Explore</h1>
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <h1 className="text-2xl font-semibold mb-6">Explore</h1>
           <ExploreInterfaceClient
             userRole="ambassador"
             initialClients={clients}
             initialAmbassadors={[]}
             initialCampaigns={[]}
           />
-        </div>
       </div>
     );
   }
@@ -37,15 +35,13 @@ export default async function ExplorePage() {
     : [];
 
   return (
-    <div className="pt-4">
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <h1 className="text-2xl font-semibold mb-6">Explore</h1>
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <h1 className="text-2xl font-semibold mb-6">Explore</h1>
         <ExploreInterfaceClient
           userRole="client"
           initialAmbassadors={ambassadors}
           initialCampaigns={campaigns}
         />
-      </div>
     </div>
   );
 }

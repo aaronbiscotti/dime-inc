@@ -68,20 +68,21 @@ export default function CampaignsListClient({
                 onClick={() => router.push(`/campaigns/${campaign.id}`)}
                 className="bg-white rounded-xl border border-gray-300 p-4 transition-colors cursor-pointer hover:bg-gray-50 hover:border-gray-400"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  {/* Left side: Name, Status, Description */}
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-base font-semibold text-gray-900">
+                      <h3 className="text-base font-semibold text-gray-900 truncate">
                         {campaign.title}
                       </h3>
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        className={`px-2 py-1 text-xs font-medium rounded-full flex-shrink-0 ${
                           campaign.status === "draft"
                             ? "bg-gray-100 text-gray-700"
                             : campaign.status === "active"
-                            ? "bg-green-100 text-green-700"
+                            ? "bg-[#f5d82e] text-black"
                             : campaign.status === "completed"
-                            ? "bg-blue-100 text-blue-700"
+                            ? "bg-green-100 text-green-700"
                             : "bg-red-100 text-red-700"
                         }`}
                       >
@@ -89,28 +90,41 @@ export default function CampaignsListClient({
                           campaign.status.slice(1)}
                       </span>
                     </div>
-                    <p className="text-gray-600 mb-3 line-clamp-2 text-sm">
+                    <p className="text-gray-600 text-sm line-clamp-1">
                       {campaign.description}
                     </p>
-                    <div className="flex gap-6 text-xs text-gray-600">
-                      <div>
-                        <span className="font-medium">Budget:</span> $
-                        {campaign.budget_min.toFixed(2)} - $
-                        {campaign.budget_max.toFixed(2)}
+                  </div>
+
+                  {/* Right side: Budget, Deadline, Max Ambassadors in a row */}
+                  <div className="flex items-center gap-6 ml-4 flex-shrink-0">
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500 mb-1">Budget</div>
+                      <div className="text-sm font-medium text-gray-900">
+                        ${campaign.budget_min.toFixed(0)} - ${campaign.budget_max.toFixed(0)}
                       </div>
-                      {campaign.deadline && (
-                        <div>
-                          <span className="font-medium">Deadline:</span>{" "}
-                          {new Date(campaign.deadline).toLocaleDateString()}
+                    </div>
+                    
+                    {campaign.deadline && (
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500 mb-1">Deadline</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {new Date(campaign.deadline).toLocaleDateString("en-US", { 
+                            month: "short", 
+                            day: "numeric" 
+                          })}
                         </div>
-                      )}
-                      <div>
-                        <span className="font-medium">Max Ambassadors:</span>{" "}
+                      </div>
+                    )}
+                    
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500 mb-1">Max Ambassadors</div>
+                      <div className="text-sm font-medium text-gray-900">
                         {campaign.max_ambassadors}
                       </div>
                     </div>
+                    
+                    <ChevronRight className="w-4 h-4 text-gray-400 ml-2" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 ml-4" />
                 </div>
               </div>
             ))
