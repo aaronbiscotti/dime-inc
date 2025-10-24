@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,21 @@ export default function ClientOnboardingPage() {
     website: '',
   })
 
+  // Handle browser extension errors
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      if (event.message.includes('message channel closed') || 
+          event.message.includes('asynchronous response')) {
+        console.warn('Browser extension conflict detected, but continuing...')
+        // Don't show this error to the user as it's typically harmless
+        event.preventDefault()
+      }
+    }
+
+    window.addEventListener('error', handleError)
+    return () => window.removeEventListener('error', handleError)
+  }, [])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -29,9 +44,30 @@ export default function ClientOnboardingPage() {
     try {
       const supabase = supabaseBrowser()
       
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError || !user) throw new Error('Not authenticated')
+      // Get current user with retry mechanism
+      let user = null
+      let userError = null
+      
+      // Try to get user with a small delay to ensure auth state is ready
+      for (let i = 0; i < 3; i++) {
+        const { data: { user: currentUser }, error: currentError } = await supabase.auth.getUser()
+        if (currentUser && !currentError) {
+          user = currentUser
+          userError = null
+          break
+        }
+        userError = currentError
+        if (i < 2) {
+          await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms before retry
+        }
+      }
+      
+      if (userError || !user) {
+        console.error('Authentication error:', userError)
+        throw new Error('Not authenticated. Please try refreshing the page.')
+      }
+
+      console.log('Creating client profile for user:', user.id)
 
       // Create client profile
       const { error: profileError } = await supabase
@@ -44,7 +80,12 @@ export default function ClientOnboardingPage() {
           website: formData.website || null,
         })
 
-      if (profileError) throw profileError
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+        throw new Error(`Failed to create profile: ${profileError.message}`)
+      }
+
+      console.log('Updating onboarding status for user:', user.id)
 
       // Update onboarding status
       const { error: updateError } = await supabase
@@ -52,12 +93,19 @@ export default function ClientOnboardingPage() {
         .update({ onboarding_completed: true })
         .eq('id', user.id)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Onboarding update error:', updateError)
+        throw new Error(`Failed to update onboarding status: ${updateError.message}`)
+      }
+
+      console.log('Profile creation completed successfully')
 
       // Redirect to dashboard
       router.push('/dashboard')
     } catch (err) {
+      console.error('Onboarding error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
       setLoading(false)
     }
   }

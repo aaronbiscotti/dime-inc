@@ -243,7 +243,7 @@ export function AuthProvider({
         console.log("Auth loading timeout - forcing loading to false");
         setLoading(false);
       }
-    }, 5000); // 5 second timeout - reduced from 10s
+    }, 3000); // 3 second timeout - reduced further
 
     // onAuthStateChange fires an INITIAL_SESSION event on page load,
     // which is more reliable than getSession() after a redirect.
