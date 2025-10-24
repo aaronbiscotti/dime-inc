@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,17 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
 
   const handleSignOut = async () => {
     if (signingOut) return; // Prevent multiple clicks
@@ -112,7 +123,7 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Dashboard
+                    Overview
                   </Link>
 
                   <Link
@@ -134,8 +145,11 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Explore
+                    Influencer
                   </Link>
+
+                  {/* Optional placeholder for Reports if route exists in future */}
+                  <span className="text-sm font-medium text-gray-400">Reports</span>
 
                   <Link
                     href="/chats"
@@ -145,30 +159,7 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Chats
-                  </Link>
-
-                  <Link
-                    href="/profile"
-                    className={`text-sm font-medium transition-colors ${
-                      pathname.startsWith("/profile")
-                        ? "text-yellow-600 font-bold"
-                        : "text-gray-600 hover:text-yellow-600 font-bold"
-                    }`}
-                  >
-                    Profile
-                  </Link>
-
-                  {/* Contracts (Client only) */}
-                  <Link
-                    href="/contracts"
-                    className={`text-sm font-medium transition-colors ${
-                      pathname.startsWith("/contracts")
-                        ? "text-yellow-600 font-bold"
-                        : "text-gray-600 hover:text-yellow-600 font-bold"
-                    }`}
-                  >
-                    Contracts
+                    Messages
                   </Link>
                 </>
               ) : (
@@ -182,18 +173,7 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Dashboard
-                  </Link>
-
-                  <Link
-                    href="/profile"
-                    className={`text-sm font-medium transition-colors ${
-                      pathname.startsWith("/profile")
-                        ? "text-yellow-600 font-bold"
-                        : "text-gray-600 hover:text-yellow-600 font-bold"
-                    }`}
-                  >
-                    Profile
+                    Overview
                   </Link>
 
                   <Link
@@ -204,7 +184,7 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Explore
+                    Influencer
                   </Link>
 
                   <Link
@@ -215,33 +195,67 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                         : "text-gray-600 hover:text-yellow-600 font-bold"
                     }`}
                   >
-                    Chats
+                    Messages
                   </Link>
-
-                  <Link
-                    href="/contracts"
-                    className={`text-sm font-medium transition-colors ${
-                      pathname.startsWith("/contracts")
-                        ? "text-yellow-600 font-bold"
-                        : "text-gray-600 hover:text-yellow-600 font-bold"
-                    }`}
-                  >
-                    Contracts
-                  </Link>
+                  <span className="text-sm font-medium text-gray-400">Reports</span>
                 </>
               )}
             </div>
           </div>
 
-          {/* Sign Out Button */}
-          <div>
-            <Button
-              onClick={handleSignOut}
-              variant="outline"
-              disabled={signingOut}
-            >
-              {signingOut ? "Signing Out..." : "Sign Out"}
-            </Button>
+          {/* Right side: Search + Profile menu */}
+          <div className="flex items-center gap-4 relative" ref={menuRef}>
+            <div className="hidden md:block">
+              <input
+                placeholder="Search influencers..."
+                className="px-3 py-1.5 border border-gray-300 rounded-full text-sm focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={() => setMenuOpen((s) => !s)}
+              className="flex items-center gap-2"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+           >
+              <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                {effectiveProfile?.avatar_url ? (
+                  <Image
+                    src={effectiveProfile.avatar_url}
+                    alt={effectiveProfile.full_name || "Profile"}
+                    width={36}
+                    height={36}
+                    className="w-9 h-9 object-cover"
+                  />
+                ) : (
+                  <span className="text-gray-700 text-sm font-semibold">
+                    {(effectiveProfile?.full_name || "U").charAt(0)}
+                  </span>
+                )}
+              </div>
+            </button>
+            {menuOpen && (
+              <div
+                className="absolute right-0 top-12 w-40 bg-white border border-gray-200 rounded-lg shadow-md z-50"
+                role="menu"
+              >
+                <button
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    router.push("/profile");
+                  }}
+                >
+                  Profile
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                >
+                  {signingOut ? "Signing out..." : "Sign out"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

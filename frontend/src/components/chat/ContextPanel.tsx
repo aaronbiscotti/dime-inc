@@ -439,9 +439,93 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
     </div>
   );
 
+  if (isGroupChat) {
+    return (
+      <div className="h-full w-full overflow-auto flex flex-col gap-4">
+        {/* Campaign Overview card */}
+        <div className="bg-white rounded-xl border border-gray-300 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Campaign Overview</h3>
+          </div>
+          <div className="mt-3 space-y-3 text-sm">
+            {campaignAmbassador?.campaigns?.title && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Campaign</span>
+                <span className="font-medium text-gray-900">
+                  {campaignAmbassador.campaigns.title}
+                </span>
+              </div>
+            )}
+            {contract && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Contract</span>
+                <Button
+                  variant="outline"
+                  className="rounded-full h-8 px-3"
+                  onClick={() => router.push(`/contracts/${contract.id}`)}
+                >
+                  View
+                </Button>
+              </div>
+            )}
+            {campaignAmbassador?.created_at && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Duration</span>
+                <span className="text-gray-900">
+                  {new Date(campaignAmbassador.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Optional timeline if available */}
+          {campaignAmbassador && (
+            <div className="mt-4">
+              <ActivityTimeline
+                status={campaignAmbassador.status}
+                createdAt={campaignAmbassador.created_at}
+                selectedAt={campaignAmbassador.selected_at}
+                contractCreatedAt={contract?.created_at}
+                campaignTitle={campaignAmbassador.campaigns?.title}
+                ambassadorName={campaignAmbassador.ambassador_profiles?.full_name}
+              />
+            </div>
+          )}
+
+          {/* Upload placeholders */}
+          <div className="mt-4 space-y-3">
+            <details className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <summary className="cursor-pointer font-medium text-gray-900">Post Submission</summary>
+              <div className="flex items-center gap-2 mt-2">
+                <input type="file" className="text-sm" />
+                <Button className="bg-[#f5d82e] text-black font-semibold rounded-full h-8 px-3">
+                  Submit
+                </Button>
+              </div>
+            </details>
+            <details className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <summary className="cursor-pointer font-medium text-gray-900">Ad Codes</summary>
+              <div className="flex items-center gap-2 mt-2">
+                <input type="file" className="text-sm" />
+                <Button className="bg-[#f5d82e] text-black font-semibold rounded-full h-8 px-3">
+                  Submit
+                </Button>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        {/* Participants card */}
+        <div className="bg-white rounded-xl border border-gray-300 p-5">
+          <GroupParticipantsView />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full w-full bg-white rounded-xl border border-gray-300 flex flex-col items-center p-6 flex-grow overflow-auto">
-      {isGroupChat ? <GroupParticipantsView /> : <SingleParticipantView />}
+      <SingleParticipantView />
     </div>
   );
 }

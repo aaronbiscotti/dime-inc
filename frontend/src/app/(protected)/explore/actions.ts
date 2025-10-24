@@ -11,6 +11,10 @@ export async function getAmbassadorsAction(params?: {
   search?: string;
   niches?: string[];
   location?: string;
+  orderBy?: "relevance" | "engagement_rate" | "created_at";
+  orderDir?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
 }) {
   const user = await requireUser();
   const supabase = await createClient();
@@ -25,6 +29,7 @@ export async function getAmbassadorsAction(params?: {
     instagram_handle,
     tiktok_handle,
     twitter_handle,
+    engagement_rate,
     user_id,
     profiles!inner(
       id,
@@ -51,9 +56,30 @@ export async function getAmbassadorsAction(params?: {
     query = query.ilike("location", `%${params.location}%`);
   }
 
-  const { data: ambassadors, error } = await query.order("created_at", {
-    ascending: false,
-  });
+  // Sorting
+  const orderBy = params?.orderBy || "created_at";
+  const orderDir = params?.orderDir || "desc";
+  // If engagement_rate column does not exist, Supabase will error; so we try/catch and fall back
+  let ambassadors = null as any;
+  let error = null as any;
+  try {
+    if (params?.limit !== undefined) {
+      const from = params.offset ?? 0;
+      const to = from + params.limit - 1;
+      const resp = await query.order(orderBy, { ascending: orderDir === "asc" }).range(from, to);
+      ambassadors = resp.data;
+      error = resp.error as any;
+    } else {
+      const resp = await query.order(orderBy, { ascending: orderDir === "asc" });
+      ambassadors = resp.data;
+      error = resp.error as any;
+    }
+  } catch (e: any) {
+    // Fallback to created_at when ordering by a missing column
+    const fallback = await query.order("created_at", { ascending: false });
+    ambassadors = fallback.data;
+    error = fallback.error as any;
+  }
 
   if (error) return { ok: false, error: error.message } as const;
   return { ok: true, data: ambassadors || [] } as const;
@@ -101,6 +127,10 @@ export async function getCampaignsAction(params?: {
   budgetMin?: number;
   budgetMax?: number;
   status?: string;
+  limit?: number;
+  offset?: number;
+  orderBy?: "created_at" | "budget_max" | "deadline";
+  orderDir?: "asc" | "desc";
 }) {
   const user = await requireUser();
   const supabase = await createClient();
@@ -151,9 +181,28 @@ export async function getCampaignsAction(params?: {
     );
   }
 
-  const { data: campaigns, error } = await query
-    .eq("status", "active")
-    .order("created_at", { ascending: false });
+  const orderBy = params?.orderBy || "created_at";
+  const orderDir = params?.orderDir || "desc";
+
+  if (params?.status) {
+    query = query.eq("status", params.status as any);
+  } else {
+    query = query.eq("status", "active");
+  }
+
+  let campaigns = null as any;
+  let error = null as any;
+  if (params?.limit !== undefined) {
+    const from = params.offset ?? 0;
+    const to = from + params.limit - 1;
+    const resp = await query.order(orderBy, { ascending: orderDir === "asc" }).range(from, to);
+    campaigns = resp.data;
+    error = resp.error as any;
+  } else {
+    const resp = await query.order(orderBy, { ascending: orderDir === "asc" });
+    campaigns = resp.data;
+    error = resp.error as any;
+  }
 
   if (error) return { ok: false, error: error.message } as const;
   return { ok: true, data: campaigns || [] } as const;

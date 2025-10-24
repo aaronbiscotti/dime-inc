@@ -1,15 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { Search, Heart, ChevronDown } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Search, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { CampaignCard } from "@/components/explore/CampaignCard";
 import { Modal } from "@/components/ui/modal";
-import {
-  getAmbassadorsAction,
-  getCampaignsAction,
-} from "@/app/(protected)/explore/actions";
+import { getAmbassadorsAction } from "@/app/(protected)/explore/actions";
 import { createChatRoomAction } from "@/app/(protected)/chat/actions";
 
 interface Influencer {
@@ -52,59 +48,41 @@ interface ExploreInterfaceClientProps {
 
 export default function ExploreInterfaceClient({
   initialAmbassadors,
-  initialCampaigns,
 }: ExploreInterfaceClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("Most relevant");
-  const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
-  const [showNicheDropdown, setShowNicheDropdown] = useState(false);
+  const [activeSort, setActiveSort] = useState<
+    "Most relevant" | "Highest engagement" | "Newest joined"
+  >("Most relevant");
   const [ambassadors, setAmbassadors] = useState(initialAmbassadors);
-  const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] =
     useState<Influencer | null>(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const { userRole } = useAuth();
   const router = useRouter();
 
-  const niches = [
-    "Fashion",
-    "Beauty",
-    "Fitness",
-    "Food",
-    "Travel",
-    "Tech",
-    "Gaming",
-    "Music",
-    "Art",
-    "Lifestyle",
-    "Business",
-    "Education",
-    "Health",
-    "Sports",
-  ];
-
   const handleSearch = async () => {
     setIsLoading(true);
     try {
-      const [ambassadorsResult, campaignsResult] = await Promise.all([
-        getAmbassadorsAction({
-          search: searchQuery,
-          niches: selectedNiche ? [selectedNiche] : undefined,
-        }),
-        getCampaignsAction({
-          search: searchQuery,
-          status: "active",
-        }),
-      ]);
+      const orderBy =
+        activeSort === "Highest engagement"
+          ? ("engagement_rate" as const)
+          : ("created_at" as const);
+
+      const ambassadorsResult = await getAmbassadorsAction({
+        search: searchQuery,
+        orderBy,
+        orderDir: "desc",
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      });
 
       if (ambassadorsResult.ok) {
         setAmbassadors(ambassadorsResult.data);
-      }
-      if (campaignsResult.ok) {
-        setCampaigns(campaignsResult.data);
       }
     } catch (error) {
       console.error("Search failed:", error);
@@ -112,6 +90,12 @@ export default function ExploreInterfaceClient({
       setIsLoading(false);
     }
   };
+
+  // Re-run when sort/page changes
+  useEffect(() => {
+    handleSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSort, page]);
 
   const handleStartChat = async (influencer: Influencer) => {
     setSelectedInfluencer(influencer);
@@ -146,135 +130,182 @@ export default function ExploreInterfaceClient({
     }
   };
 
-  const handleNicheSelect = (niche: string) => {
-    setSelectedNiche(selectedNiche === niche ? null : niche);
-    setShowNicheDropdown(false);
-  };
-
   return (
     <div className="space-y-6">
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search influencers or campaigns..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-          />
-        </div>
-
-        <div className="relative">
-          <button
-            onClick={() => setShowNicheDropdown(!showNicheDropdown)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            {selectedNiche || "All Niches"}
-            <ChevronDown className="w-4 h-4" />
-          </button>
-
-          {showNicheDropdown && (
-            <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-              <button
-                onClick={() => handleNicheSelect("")}
-                className={`w-full text-left px-4 py-2 hover:bg-gray-50 ${
-                  !selectedNiche ? "bg-blue-50 text-blue-600" : ""
-                }`}
-              >
-                All Niches
-              </button>
-              {niches.map((niche) => (
-                <button
-                  key={niche}
-                  onClick={() => handleNicheSelect(niche)}
-                  className={`w-full text-left px-4 py-2 hover:bg-gray-50 ${
-                    selectedNiche === niche ? "bg-blue-50 text-blue-600" : ""
-                  }`}
-                >
-                  {niche}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={handleSearch}
-          disabled={isLoading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {isLoading ? "Searching..." : "Search"}
-        </button>
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900">
+          Find the right influencers for your brand
+        </h1>
       </div>
 
-      {/* Results */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Ambassadors */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Influencers</h2>
-          <div className="space-y-3">
-            {ambassadors.map((influencer) => (
-              <div
-                key={influencer.id}
-                className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+      {/* Search + Sort */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search keywords..."
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#f5d82e]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setPage(1);
+                  handleSearch();
+                }
+              }}
+            />
+          </div>
+          <button
+            onClick={() => {
+              setPage(1);
+              handleSearch();
+            }}
+            className="px-5 py-2 rounded-full bg-[#f5d82e] text-black font-medium hover:bg-[#e5c820]"
+          >
+            {isLoading ? "Searching..." : "Search"}
+          </button>
+        </div>
+
+        <div className="flex gap-2">
+          {(["Most relevant", "Highest engagement", "Newest joined"] as const).map(
+            (label) => (
+              <button
+                key={label}
+                onClick={() => {
+                  setActiveSort(label);
+                  setPage(1);
+                }}
+                className={`px-4 py-1.5 rounded-full text-sm border ${
+                  activeSort === label
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-700 border-gray-300"
+                }`}
               >
-                <div className="flex items-start gap-3">
+                {label}
+              </button>
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
+        {/* Filters */}
+        <aside className="space-y-3">
+          <div className="bg-white rounded-xl border border-gray-300 p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">
+              Influencer Type Filters
+            </h3>
+            <div className="space-y-2 text-sm">
+              {[
+                "UGC (New Account Farmers)",
+                "Influencers in network",
+                "Influencer search",
+                "Followers",
+              ].map((label) => (
+                <label key={label} className="flex items-center gap-2">
+                  <input type="checkbox" className="rounded" disabled />
+                  <span className="text-gray-700">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* Influencer List */}
+        <section className="space-y-3">
+          {ambassadors.map((influencer) => (
+            <div
+              key={influencer.id}
+              className="bg-white rounded-xl border border-gray-300 p-5 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
                   <img
                     src={influencer.profile_photo_url || "/default-avatar.png"}
                     alt={influencer.full_name}
                     className="w-12 h-12 rounded-full object-cover"
                   />
-                  <div className="flex-1">
-                    <h3 className="font-medium">{influencer.full_name}</h3>
-                    <p className="text-sm text-gray-600">{influencer.bio}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {influencer.niche?.map((n) => (
-                        <span
-                          key={n}
-                          className="px-2 py-1 bg-gray-100 text-xs rounded-full"
-                        >
-                          {n}
-                        </span>
-                      ))}
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      {influencer.full_name}
                     </div>
-                    <div className="flex gap-2 mt-3">
-                      {influencer.instagram_handle && (
-                        <span className="text-sm text-gray-500">
-                          @{influencer.instagram_handle}
-                        </span>
-                      )}
-                      {influencer.tiktok_handle && (
-                        <span className="text-sm text-gray-500">
-                          @{influencer.tiktok_handle}
-                        </span>
-                      )}
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {[
+                        influencer.twitter_handle && `@${influencer.twitter_handle} · Twitter`,
+                        influencer.instagram_handle && `@${influencer.instagram_handle} · Instagram`,
+                        influencer.tiktok_handle && `@${influencer.tiktok_handle} · TikTok`,
+                      ]
+                        .filter(Boolean)
+                        .join("  ·  ")}
                     </div>
+                    {influencer.niche && influencer.niche.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {influencer.niche.slice(0, 4).map((n) => (
+                          <span
+                            key={n}
+                            className="px-2 py-0.5 bg-gray-100 text-[11px] rounded-full text-gray-700"
+                          >
+                            {n}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => handleStartChat(influencer)}
-                    className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                    aria-label="favorite"
+                    className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                    disabled
                   >
                     <Heart className="w-4 h-4" />
-                    Connect
+                  </button>
+                  <button
+                    onClick={() => handleStartChat(influencer)}
+                    className="px-5 py-2 rounded-full bg-[#f5d82e] text-black font-medium hover:bg-[#e5c820]"
+                  >
+                    Invite
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          ))}
 
-        {/* Campaigns */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Campaigns</h2>
-          <div className="space-y-3">
-            {campaigns.map((campaign) => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
-            ))}
+          {/* Pagination */}
+          <div className="flex items-center justify-center gap-1 mt-4">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="w-7 h-7 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50"
+              disabled={page === 1}
+            >
+              ‹
+            </button>
+            {Array.from({ length: 5 }, (_, i) => i + Math.max(1, page - 2)).map(
+              (p) => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-7 h-7 text-sm rounded-full border ${
+                    p === page
+                      ? "bg-[#f5d82e] border-[#f5d82e] text-black"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              className="w-7 h-7 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              ›
+            </button>
           </div>
-        </div>
+        </section>
       </div>
 
       {/* Chat Modal */}
@@ -298,9 +329,7 @@ export default function ExploreInterfaceClient({
               />
               <div>
                 <h3 className="font-medium">{selectedInfluencer.full_name}</h3>
-                <p className="text-sm text-gray-600">
-                  {selectedInfluencer.bio}
-                </p>
+                <p className="text-sm text-gray-600">{selectedInfluencer.bio}</p>
               </div>
             </div>
             <p className="text-sm text-gray-600">
@@ -331,3 +360,4 @@ export default function ExploreInterfaceClient({
     </div>
   );
 }
+
