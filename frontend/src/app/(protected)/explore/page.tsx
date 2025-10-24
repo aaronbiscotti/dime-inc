@@ -6,7 +6,7 @@ import ExploreInterfaceClient from "@/components/explore/ExploreInterfaceClient"
 export default async function ExplorePage() {
   const { profile } = await requireOnboardedProfile();
 
-  if (profile.role === "ambassador") {
+  if (profile && profile.role === "ambassador") {
     // Ambassadors browse clients
     const clientsResult = await getClientsAction({ limit: 10, offset: 0 });
     const clients = clientsResult.ok ? clientsResult.data : [];

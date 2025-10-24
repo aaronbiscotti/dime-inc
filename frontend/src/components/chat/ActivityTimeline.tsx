@@ -61,7 +61,7 @@ export function ActivityTimeline({
         icon: <EnvelopeIcon className="w-4 h-4" />,
         color: "text-yellow-600",
         bgColor: "bg-yellow-100",
-        isCompleted: true, // Always completed since we have this status
+        isCompleted: status !== "proposal_received",
         isActive: status === "proposal_received",
         date: createdAt ? new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined,
       },
@@ -69,7 +69,9 @@ export function ActivityTimeline({
         id: "contract_drafted",
         status: "contract_drafted",
         title: "Contract drafted",
-        description: "Contract has been created and is ready for review",
+        description: contractCreatedAt
+          ? "Contract drafted and ready for review"
+          : "Proposal accepted. Contract will be drafted next",
         icon: <DocumentTextIcon className="w-4 h-4" />,
         color: "text-blue-600",
         bgColor: "bg-blue-100",
@@ -218,7 +220,7 @@ export function ActivityTimeline({
                 <div className="space-y-3">
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-yellow-800 text-sm">
-                      📧 Campaign invitation has been sent. Waiting for ambassador to accept the proposal.
+                      Campaign invitation sent. Waiting for ambassador to accept the proposal.
                     </p>
                   </div>
                 </div>
@@ -228,7 +230,7 @@ export function ActivityTimeline({
                 <div className="space-y-3">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-blue-800 text-sm">
-                      📄 Contract has been drafted and is ready for both parties to review and sign.
+                      Contract drafted and ready for review and signatures.
                     </p>
                   </div>
                 </div>
@@ -238,7 +240,7 @@ export function ActivityTimeline({
                 <div className="space-y-3">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <p className="text-green-800 text-sm">
-                      ✅ Contract has been signed by both parties. Campaign is ready to begin.
+                      Contract signed by both parties. Campaign can begin.
                     </p>
                   </div>
                 </div>
@@ -248,7 +250,7 @@ export function ActivityTimeline({
                 <div className="space-y-3">
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
                     <p className="text-purple-800 text-sm">
-                      🚀 Campaign is now active! Work has begun and deliverables are being created.
+                      Campaign is active. Work has begun and deliverables are being created.
                     </p>
                   </div>
                   
@@ -297,7 +299,7 @@ export function ActivityTimeline({
                 <div className="space-y-3">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <p className="text-green-800 text-sm">
-                      🎉 Campaign has been completed successfully! All deliverables have been submitted and approved.
+                      Campaign completed. All deliverables have been submitted and approved.
                     </p>
                   </div>
                 </div>
@@ -307,7 +309,7 @@ export function ActivityTimeline({
                 <div className="space-y-3">
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                     <p className="text-red-800 text-sm">
-                      ⚠️ This campaign has been terminated. Please contact support if you have any questions.
+                      This campaign has been terminated. Contact support if you have questions.
                     </p>
                   </div>
                 </div>
@@ -325,11 +327,11 @@ export function ActivityTimeline({
             </div>
           )}
 
-          {/* Contract End */}
-          <div className="pt-4 border-t border-gray-200">
+          {/* Contract End (subtle, no divider line) */}
+          <div className="pt-3">
             <button className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-700">
               <DocumentTextIcon className="w-4 h-4" />
-              Contract ends
+              Contract end details
             </button>
           </div>
         </div>

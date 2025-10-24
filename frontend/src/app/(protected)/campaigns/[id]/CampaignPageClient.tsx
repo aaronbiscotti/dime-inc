@@ -6,7 +6,9 @@ import { CreateSubmissionForm } from "@/components/submissions/CreateSubmissionF
 import { CampaignEditModal } from "@/components/campaigns/CampaignEditModal";
 import { updateCampaign, updateCampaignStatus } from "@/app/(protected)/campaigns/actions";
 import { getAmbassadorsAction } from "@/app/(protected)/explore/actions";
+import { inviteAmbassadorToCampaignAction } from "@/app/(protected)/campaigns/actions";
 import { Search, UserPlus, X } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
 
 interface CampaignPageClientProps {
   campaign: any;
@@ -23,6 +25,12 @@ export function CampaignPageClient({ campaign, submissions }: CampaignPageClient
   const [searchQuery, setSearchQuery] = useState("");
   const [ambassadors, setAmbassadors] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Invitation modal state
+  const [showInvitationModal, setShowInvitationModal] = useState(false);
+  const [selectedAmbassador, setSelectedAmbassador] = useState<any>(null);
+  const [invitationMessage, setInvitationMessage] = useState("");
+  const [isSendingInvitation, setIsSendingInvitation] = useState(false);
 
   // Search ambassadors function
   const searchAmbassadors = async (query: string) => {
@@ -60,6 +68,42 @@ export function CampaignPageClient({ campaign, submissions }: CampaignPageClient
     }, 300);
     
     return () => clearTimeout(timeoutId);
+  };
+
+  // Handle invite button click
+  const handleInviteClick = (ambassador: any) => {
+    setSelectedAmbassador(ambassador);
+    setInvitationMessage(`Hi ${ambassador.full_name}! I'd like to invite you to participate in our "${currentCampaign.title}" campaign. This opportunity aligns with your content style and we'd love to collaborate with you!`);
+    setShowInvitationModal(true);
+  };
+
+  // Handle sending invitation
+  const handleSendInvitation = async () => {
+    if (!selectedAmbassador || !invitationMessage.trim()) return;
+    
+    setIsSendingInvitation(true);
+    try {
+      const formData = new FormData();
+      formData.append("campaignId", currentCampaign.id);
+      formData.append("ambassadorProfileId", selectedAmbassador.id);
+      formData.append("message", invitationMessage);
+      
+      const result = await inviteAmbassadorToCampaignAction(null, formData);
+      
+      if (result.ok) {
+        setShowInvitationModal(false);
+        setSelectedAmbassador(null);
+        setInvitationMessage("");
+        // You could add a success toast here
+      } else {
+        console.error("Error sending invitation:", result.error);
+        // You could add an error toast here
+      }
+    } catch (error) {
+      console.error("Error sending invitation:", error);
+    } finally {
+      setIsSendingInvitation(false);
+    }
   };
 
   const handleEditCampaign = async (updateData: any) => {
@@ -258,7 +302,10 @@ export function CampaignPageClient({ campaign, submissions }: CampaignPageClient
                           )}
                         </div>
                       </div>
-                      <button className="px-3 py-1.5 text-sm bg-[#f5d82e] text-black rounded-lg hover:bg-[#e5c820] font-medium">
+                      <button 
+                        onClick={() => handleInviteClick(ambassador)}
+                        className="px-3 py-1.5 text-sm bg-[#f5d82e] text-black rounded-lg hover:bg-[#e5c820] font-medium"
+                      >
                         Invite
                       </button>
                     </div>
@@ -330,6 +377,82 @@ export function CampaignPageClient({ campaign, submissions }: CampaignPageClient
         campaign={currentCampaign}
         onSave={handleEditCampaign}
       />
+
+      {/* Invitation Modal */}
+      <Modal
+        isOpen={showInvitationModal}
+        onClose={() => {
+          setShowInvitationModal(false);
+          setSelectedAmbassador(null);
+          setInvitationMessage("");
+        }}
+        title="Invite to Campaign"
+      >
+        {selectedAmbassador && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={
+                  selectedAmbassador.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedAmbassador.full_name)}&background=f5d82e&color=000000&size=48`
+                }
+                alt={selectedAmbassador.full_name}
+                className="w-12 h-12 rounded-full object-cover"
+              />
+              <div>
+                <h3 className="font-medium">{selectedAmbassador.full_name}</h3>
+                <p className="text-sm text-gray-600">{selectedAmbassador.bio}</p>
+                {selectedAmbassador.niche && selectedAmbassador.niche.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {selectedAmbassador.niche.join(", ")}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Campaign
+              </label>
+              <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900">
+                {currentCampaign.title}
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message
+              </label>
+              <textarea
+                value={invitationMessage}
+                onChange={(e) => setInvitationMessage(e.target.value)}
+                placeholder="Write your message..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
+                rows={4}
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowInvitationModal(false);
+                  setSelectedAmbassador(null);
+                  setInvitationMessage("");
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendInvitation}
+                disabled={isSendingInvitation || !invitationMessage.trim()}
+                className="flex-1 px-4 py-2 bg-[#f5d82e] text-black rounded-lg hover:bg-[#e5c820] disabled:opacity-50 disabled:bg-gray-300"
+              >
+                {isSendingInvitation ? "Sending..." : "Send Invitation"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   );
 }

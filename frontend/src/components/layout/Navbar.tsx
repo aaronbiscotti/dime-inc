@@ -8,6 +8,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { signOut } from "@/app/auth/actions";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
+import { getUnreadTotalAction } from "@/app/(protected)/chat/actions";
 
 type Props = {
   initialUser?: User | null;
@@ -30,6 +31,7 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [unreadTotal, setUnreadTotal] = useState<number>(0);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -38,6 +40,20 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
     }
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
+  }, []);
+
+  // Fetch unread total for navbar ping
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await getUnreadTotalAction();
+        if (mounted && res.ok) setUnreadTotal(res.data.total || 0);
+      } catch {}
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleSignOut = async () => {
@@ -165,9 +181,12 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                       pathname === "/chats"
                         ? "text-yellow-600 font-bold"
                         : "text-gray-600 hover:text-yellow-600 font-bold"
-                    }`}
+                    } relative`}
                   >
                     Messages
+                    {unreadTotal > 0 && (
+                      <span className="ml-1 inline-block align-middle w-2 h-2 rounded-full bg-red-500"></span>
+                    )}
                   </Link>
                 </>
               ) : (
@@ -201,9 +220,12 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
                       pathname === "/chats"
                         ? "text-yellow-600 font-bold"
                         : "text-gray-600 hover:text-yellow-600 font-bold"
-                    }`}
+                    } relative`}
                   >
                     Messages
+                    {unreadTotal > 0 && (
+                      <span className="ml-1 inline-block align-middle w-2 h-2 rounded-full bg-red-500"></span>
+                    )}
                   </Link>
                   <Link
                     href="/contracts"
@@ -235,17 +257,17 @@ export default function Navbar({ initialUser, initialProfile }: Props) {
               aria-expanded={menuOpen}
            >
               <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                {effectiveProfile?.avatar_url ? (
+                {effectiveProfile && 'avatar_url' in effectiveProfile && effectiveProfile.avatar_url ? (
                   <Image
                     src={effectiveProfile.avatar_url}
-                    alt={effectiveProfile.full_name || "Profile"}
+                    alt={'full_name' in effectiveProfile ? effectiveProfile.full_name || "Profile" : "Profile"}
                     width={36}
                     height={36}
                     className="w-9 h-9 object-cover"
                   />
                 ) : (
                   <span className="text-gray-700 text-sm font-semibold">
-                    {(effectiveProfile?.full_name || "U").charAt(0)}
+                    {effectiveProfile && 'full_name' in effectiveProfile ? effectiveProfile.full_name?.charAt(0) || "U" : "U"}
                   </span>
                 )}
               </div>

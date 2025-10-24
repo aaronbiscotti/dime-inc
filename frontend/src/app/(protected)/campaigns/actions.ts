@@ -326,6 +326,7 @@ export async function getClientCampaignsAction() {
       proposal_message,
       max_ambassadors,
       status,
+      client_id,
       created_at,
       updated_at
     `
@@ -445,11 +446,15 @@ export async function acceptCampaignInvitationAction(_: any, formData: FormData)
     .single();
   if (!amb || amb.user_id !== user.id) return { ok: false, error: "Not authorized" } as const;
 
-  const { error: upErr } = await supabase
+  // Update and return the updated row to the client
+  const { data: updated, error: upErr } = await supabase
     .from("campaign_ambassadors")
     .update({ status: "contract_drafted", selected_at: new Date().toISOString() })
-    .eq("id", ca.id);
+    .eq("id", ca.id)
+    .select("id,status,selected_at,campaign_id,ambassador_id,chat_room_id")
+    .single();
   if (upErr) return { ok: false, error: upErr.message } as const;
+  if (!updated) return { ok: false, error: "Update failed" } as const;
 
   // Send system message
   await supabase.from("messages").insert({
@@ -459,5 +464,5 @@ export async function acceptCampaignInvitationAction(_: any, formData: FormData)
     content: "Ambassador accepted the campaign invitation",
   });
 
-  return { ok: true } as const;
+  return { ok: true, data: updated } as const;
 }

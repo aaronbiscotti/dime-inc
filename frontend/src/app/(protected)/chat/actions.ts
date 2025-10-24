@@ -586,3 +586,109 @@ export async function renameChatAction(_: any, formData: FormData) {
   revalidatePath(`/chat/${chatRoomId}`);
   return { ok: true } as const;
 }
+
+// Mark a chat as read by setting last_read_message_id to the latest message
+export async function markChatReadAction(_: any, formData: FormData) {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const chatRoomId = String(formData.get("chatRoomId") ?? "").trim();
+  if (!chatRoomId) {
+    return { ok: false, error: "chatRoomId is required" } as const;
+  }
+
+  // Verify user is a participant
+  const { data: participant, error: partErr } = await supabase
+    .from("chat_participants")
+    .select("id")
+    .eq("chat_room_id", chatRoomId)
+    .eq("user_id", user.id)
+    .single();
+  if (partErr || !participant) {
+    return { ok: false, error: "Access denied" } as const;
+  }
+
+  // Find latest message id in this room
+  const { data: latestMsg, error: latestErr } = await supabase
+    .from("messages")
+    .select("id")
+    .eq("chat_room_id", chatRoomId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // If no messages, nothing to do
+  if (latestErr || !latestMsg) return { ok: true } as const;
+
+  // Upsert into enhanced participants table if present, else update existing row
+  const { error: updErr } = await supabase
+    .from("chat_room_participants_enhanced")
+    .upsert(
+      {
+        chat_room_id: chatRoomId,
+        user_id: user.id,
+        role: "member",
+        last_read_message_id: latestMsg.id,
+      },
+      { onConflict: "chat_room_id,user_id" }
+    );
+
+  if (updErr) return { ok: false, error: updErr.message } as const;
+  return { ok: true } as const;
+}
+
+// Returns per-room unread counts for the current user using a DB view
+export async function getUnreadCountsAction() {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  // For now, return empty array - this would need proper unread tracking implementation
+  return { ok: true, data: [] } as const;
+}
+
+// Returns total unread count for the current user (navbar ping)
+export async function getUnreadTotalAction() {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  // For now, return 0 - this would need proper unread tracking implementation
+  return { ok: true, data: { total: 0 } } as const;
+}
+
+export async function deleteChatRoomAction(chatRoomId: string) {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  try {
+    // First, check if the user has permission to delete this chat room
+    const { data: chatRoom, error: chatError } = await supabase
+      .from("chat_rooms")
+      .select("id, created_by")
+      .eq("id", chatRoomId)
+      .single();
+
+    if (chatError || !chatRoom) {
+      return { ok: false, error: "Chat room not found" } as const;
+    }
+
+    // Check if user is the creator or has permission
+    if (chatRoom.created_by !== user.id) {
+      return { ok: false, error: "You don't have permission to delete this chat" } as const;
+    }
+
+    // Use the database function that handles foreign key constraints properly
+    const { data, error } = await supabase.rpc("delete_chat_room", {
+      chat_room_id: chatRoomId,
+      requesting_user_id: user.id,
+    });
+
+    if (error) {
+      return { ok: false, error: error.message } as const;
+    }
+
+    return { ok: true, data } as const;
+  } catch (error) {
+    console.error("Error deleting chat room:", error);
+    return { ok: false, error: "Failed to delete chat room" } as const;
+  }
+}

@@ -74,13 +74,11 @@ export function ChatInterface({ userRole }: ChatInterfaceProps) {
         </div>
 
         {/* Right Sidebar - Context Panel */}
-        <div
-          className={`w-80 flex-shrink-0 ${
-            selectedChatId ? "block" : "hidden"
-          } lg:block`}
-        >
-          <ContextPanel selectedChatId={selectedChatId} userRole={userRole} />
-        </div>
+        {selectedChatId && (
+          <div className="w-80 flex-shrink-0 lg:block">
+            <ContextPanel selectedChatId={selectedChatId} userRole={userRole} />
+          </div>
+        )}
       </div>
     </div>
   );

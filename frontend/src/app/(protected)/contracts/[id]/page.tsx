@@ -281,8 +281,7 @@ export default function ContractDetailPage() {
           {contract.status === "active" && (
             <div className="bg-white rounded-lg border border-green-200 p-4 mb-6">
               <p className="text-green-700">
-                🎉 This contract is now active! Both parties have signed and the
-                agreement is in effect.
+                This contract is now active. Both parties have signed and the agreement is in effect.
               </p>
             </div>
           )}
@@ -290,8 +289,7 @@ export default function ContractDetailPage() {
           {contract.status === "draft" && (
             <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
               <p className="text-gray-700">
-                📝 This contract is in draft status. Once both parties sign, it
-                will become active.
+                This contract is in draft status. Once both parties sign, it will become active.
               </p>
             </div>
           )}

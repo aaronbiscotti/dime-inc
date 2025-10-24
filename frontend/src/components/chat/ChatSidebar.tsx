@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import {
   MagnifyingGlassIcon,
   XMarkIcon,
-  UserGroupIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { GroupChatModal } from "./GroupChatModal";
-import { getUserChatsAction } from "@/app/(protected)/chat/actions";
+import { CreateChatModal } from "./CreateChatModal";
+import { getUnreadCountsAction, getUserChatsAction } from "@/app/(protected)/chat/actions";
 
 // UI-specific chat type for sidebar display
 interface Chat {
@@ -40,7 +40,7 @@ export function ChatSidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showCreateChatModal, setShowCreateChatModal] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<
     Array<{ id: string; name: string; email: string }>
   >([]);
@@ -98,12 +98,26 @@ export function ChatSidebar({
             name: displayName,
             lastMessage: latestMessage?.content || "No messages yet",
             timestamp,
-            unreadCount: 0, // TODO: implement unread count
+            unreadCount: 0,
             isOnline: false,
             isGroup: !!chatRoom.is_group,
             participants: chatRoom.chat_participants?.map((p: any) => p.user_id) || [],
           };
         });
+
+        // Fetch per-room unread counts and merge
+        try {
+          const countsRes = await getUnreadCountsAction();
+          if (countsRes.ok) {
+            const map = new Map<string, number>();
+            for (const row of countsRes.data as unknown as any[]) {
+              map.set(row.chat_room_id, Number(row.unread_count) || 0);
+            }
+            for (const c of formattedChats) {
+              c.unreadCount = map.get(c.id) || 0;
+            }
+          }
+        } catch {}
 
         setChats(formattedChats);
       } catch (error) {
@@ -116,82 +130,6 @@ export function ChatSidebar({
     fetchChats();
   }, [user, chatsChanged]);
 
-  // Fetch available users for group creation
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        // Use Supabase directly instead of backend API
-        const { supabaseBrowser } = await import("@/lib/supabase/client");
-        const supabase = supabaseBrowser();
-
-        // Get ambassador profiles
-        const { data: ambassadorProfiles, error: ambassadorError } =
-          await supabase.from("ambassador_profiles").select(`
-            id,
-            user_id,
-            full_name,
-            profiles!inner(
-              email
-            )
-          `);
-
-        if (ambassadorError) {
-          console.error("Error fetching ambassador profiles:", ambassadorError);
-          return;
-        }
-
-        // Get client profiles
-        const { data: clientProfiles, error: clientError } =
-          await supabase.from("client_profiles").select(`
-            id,
-            user_id,
-            company_name,
-            profiles!inner(
-              email
-            )
-          `);
-
-        if (clientError) {
-          console.error("Error fetching client profiles:", clientError);
-          return;
-        }
-
-        // Combine and format users
-        const allUsers = [
-          ...(ambassadorProfiles || []).map((profile: any) => ({
-            id: profile.user_id,
-            name: profile.full_name,
-            email:
-              profile.profiles?.email ||
-              `user-${profile.id.slice(-4)}@dime.com`,
-          })),
-          ...(clientProfiles || []).map((profile: any) => ({
-            id: profile.user_id,
-            name: profile.company_name,
-            email:
-              profile.profiles?.email ||
-              `user-${profile.id.slice(-4)}@dime.com`,
-          })),
-        ];
-
-        // Filter out current user and duplicates
-        const uniqueUsers = allUsers.filter(
-          (u: { id: string | undefined }, index: any, self: any[]) =>
-            u.id &&
-            u.id !== user?.id &&
-            index === self.findIndex((t) => t.id === u.id)
-        );
-
-        setAvailableUsers(uniqueUsers);
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      }
-    };
-
-    if (showGroupModal) {
-      fetchUsers();
-    }
-  }, [showGroupModal, user?.id]);
 
   const filteredChats = chats.filter(
     (chat) =>
@@ -213,7 +151,16 @@ export function ChatSidebar({
 
       {/* Desktop title to match spec */}
       <div className="p-4 border-b border-gray-300 hidden lg:block">
-        <h2 className="text-lg font-semibold">Messages</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Messages</h2>
+          <button
+            onClick={() => setShowCreateChatModal(true)}
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Start a new conversation"
+          >
+            <PencilSquareIcon className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Search Bar and Group Creation Button */}
@@ -229,15 +176,6 @@ export function ChatSidebar({
           />
         </div>
 
-        {/* Create Group Chat Button */}
-        <Button
-          onClick={() => setShowGroupModal(true)}
-          className="w-full bg-[#f5d82e] hover:bg-[#ffe066] text-black font-medium"
-          size="sm"
-        >
-          <UserGroupIcon className="w-4 h-4 mr-2" />
-          Create Group Chat
-        </Button>
       </div>
 
       {/* Tabs */}
@@ -379,12 +317,11 @@ export function ChatSidebar({
         )}
       </div>
 
-      {/* Group Chat Modal */}
-      <GroupChatModal
-        isOpen={showGroupModal}
-        onClose={() => setShowGroupModal(false)}
-        availableUsers={availableUsers}
-        onGroupCreated={(chatId) => {
+      {/* Create Chat Modal */}
+      <CreateChatModal
+        isOpen={showCreateChatModal}
+        onClose={() => setShowCreateChatModal(false)}
+        onChatCreated={(chatId) => {
           onSelectChat(chatId);
           onCloseMobile();
           // Trigger chats refresh by notifying parent

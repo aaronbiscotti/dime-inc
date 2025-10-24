@@ -175,14 +175,25 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
 
           const contractRes = await supabase
             .from("contracts")
-            .select("*")
-            .eq("chat_room_id", selectedChatId)
-            .single();
-          if (!contractRes.error && contractRes.data) {
+            .select(
+              `
+              id,
+              status,
+              created_at,
+              campaign_ambassador_id,
+              campaign_ambassadors!inner(
+                chat_room_id
+              )
+            `
+            )
+            .eq("campaign_ambassadors.chat_room_id", selectedChatId)
+            .maybeSingle();
+          if (contractRes.data) {
             setContract(contractRes.data);
             console.log("[ContextPanel] Contract loaded:", contractRes.data.id);
           } else {
             console.log("[ContextPanel] No contract found for this chat");
+            setContract(null);
           }
 
           // Fetch campaign ambassador status
@@ -211,7 +222,9 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             `
             )
             .eq("chat_room_id", selectedChatId)
-            .single();
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
           if (!campaignAmbassadorRes.error && campaignAmbassadorRes.data) {
             let campaignAmbassadorData = campaignAmbassadorRes.data;
 
@@ -242,6 +255,7 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             console.log(
               "[ContextPanel] No campaign ambassador found for this chat"
             );
+            setCampaignAmbassador(null);
           }
         }
       } catch (err) {
@@ -328,7 +342,10 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
   }
 
   const SingleParticipantView = () => {
-    if (!otherParticipant) return null;
+    if (!otherParticipant) {
+      return null;
+    }
+    
     let avatar: string | null =
       otherParticipant.profiles?.ambassador_profiles?.profile_photo_url ||
       otherParticipant.profiles?.client_profiles?.logo_url ||
@@ -406,6 +423,92 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
       </>
     );
   };
+
+  // Subscribe to campaign_ambassadors updates for live timeline refresh
+  useEffect(() => {
+    if (!selectedChatId) return;
+    const channel = supabase
+      .channel(`ca-${selectedChatId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'campaign_ambassadors', filter: `chat_room_id=eq.${selectedChatId}` },
+        async () => {
+          try {
+            // Re-fetch campaign ambassador and related contract
+            const [caRes, contractRes] = await Promise.all([
+              supabase
+                .from("campaign_ambassadors")
+                .select(
+                  `
+                  id,
+                  status,
+                  created_at,
+                  selected_at,
+                  campaign_id,
+                  ambassador_id,
+                  chat_room_id,
+                  campaigns(
+                    id,
+                    title,
+                    client_profiles(
+                      company_name
+                    )
+                  ),
+                  ambassador_profiles(
+                    id,
+                    full_name
+                  )
+                `
+                )
+                .eq("chat_room_id", selectedChatId)
+                .maybeSingle(),
+              supabase
+                .from("contracts")
+                .select(
+                  `
+                  id,
+                  status,
+                  created_at,
+                  campaign_ambassador_id,
+                  campaign_ambassadors!inner(chat_room_id)
+                `
+                )
+                .eq("campaign_ambassadors.chat_room_id", selectedChatId)
+                .maybeSingle(),
+            ]);
+            if (caRes.data) setCampaignAmbassador(caRes.data);
+            if (contractRes.data) setContract(contractRes.data);
+          } catch (e) {
+            console.error('[ContextPanel] Refresh after CA update failed', e);
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedChatId, supabase]);
+
+  // Subscribe to contract changes for this chat (once we know the CA id)
+  useEffect(() => {
+    if (!campaignAmbassador?.id) return;
+    const caId = campaignAmbassador.id as string;
+    const channel = supabase
+      .channel(`contract-${caId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'contracts', filter: `campaign_ambassador_id=eq.${caId}` },
+        (payload) => {
+          if (payload.new) {
+            setContract(payload.new as any);
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [campaignAmbassador?.id, supabase]);
 
   const GroupParticipantsView = () => (
     <div className="w-full">

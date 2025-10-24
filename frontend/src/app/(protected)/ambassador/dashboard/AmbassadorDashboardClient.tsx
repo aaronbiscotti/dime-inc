@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getCampaignsAction } from "@/app/(protected)/explore/actions";
+import { getMyActiveCampaignsAction } from "@/app/(protected)/ambassador/dashboard/actions";
 import { Database } from "@/types/database";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export function AmbassadorDashboardClient({
   const loadCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await getCampaignsAction();
+      const result = await getMyActiveCampaignsAction();
       if (result.ok) {
         setCampaigns(result.data);
       } else {
@@ -56,9 +56,7 @@ export function AmbassadorDashboardClient({
     <div className="space-y-4">
       {campaigns.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-          <p className="text-gray-600">
-            You are not part of any active campaigns yet.
-          </p>
+          <p className="text-gray-600">No active campaigns yet.</p>
           <Button
             onClick={() => router.push("/explore")}
             className="mt-4 bg-[#f5d82e] hover:bg-[#e5c820] text-black"
