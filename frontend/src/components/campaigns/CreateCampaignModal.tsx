@@ -271,6 +271,7 @@ export function CreateCampaignModal({
               }
               placeholder="Write a message to ambassadors about this campaign opportunity..."
               rows={3}
+              className="focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
             />
           </div>
 

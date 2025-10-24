@@ -141,8 +141,11 @@ export function ChatArea({
             .single();
           if (participantResult.data) {
             setOtherParticipant(participantResult.data);
+            const explicitName = chatRoom?.name?.trim();
             setChatDisplayName(
-              `Chat with ${participantResult.data.profiles?.email || "Unknown"}`
+              explicitName && explicitName.length > 0
+                ? explicitName
+                : `Chat with ${participantResult.data.profiles?.email || "Unknown"}`
             );
           } else {
             setChatDisplayName("Private Chat");
@@ -668,25 +671,23 @@ export function ChatArea({
               <EllipsisVerticalIcon className="w-5 h-5" />
             </Button>
 
-          {showOptionsMenu && (
-            <div className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[150px]">
-              {isGroupChat && (
+            {showOptionsMenu && (
+              <div className="absolute right-0 top-8 bg-white border border-gray-300 rounded-lg shadow-lg z-10 min-w-[150px]">
                 <button
                   onClick={() => {
                     setShowOptionsMenu(false);
                     setRenameValue(chatDisplayName || "");
                     setShowRenameModal(true);
                   }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 rounded-t-lg"
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50"
                 >
                   Rename Chat
                 </button>
-              )}
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={deleting}
-                className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleting}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                 <TrashIcon className="w-4 h-4" />
                 {deleting ? "Deleting..." : "Delete Chat"}
               </button>

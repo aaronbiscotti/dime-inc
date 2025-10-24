@@ -209,7 +209,22 @@ export async function getCampaignAction(campaignId: string) {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const { data: campaign, error } = await supabase
+  // Get the user's client profile ID if they are a client
+  const { data: clientProfile } = await supabase
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  // Get the user's ambassador profile ID if they are an ambassador
+  const { data: ambassadorProfile } = await supabase
+    .from("ambassador_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  // Check if user has access to this campaign
+  let campaignQuery = supabase
     .from("campaigns")
     .select(
       `
@@ -233,8 +248,22 @@ export async function getCampaignAction(campaignId: string) {
       )
     `
     )
-    .eq("id", campaignId)
-    .single();
+    .eq("id", campaignId);
+
+  // If user is a client, they can only see their own campaigns
+  if (clientProfile) {
+    campaignQuery = campaignQuery.eq("client_id", clientProfile.id);
+  }
+  // If user is an ambassador, they can only see active campaigns
+  else if (ambassadorProfile) {
+    campaignQuery = campaignQuery.eq("status", "active");
+  }
+  // If user has no profile, deny access
+  else {
+    return { ok: false, error: "Access denied" } as const;
+  }
+
+  const { data: campaign, error } = await campaignQuery.single();
 
   if (error || !campaign) {
     return { ok: false, error: "Campaign not found" } as const;

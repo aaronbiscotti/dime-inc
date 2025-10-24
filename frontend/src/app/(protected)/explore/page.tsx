@@ -1,9 +1,6 @@
 import { requireOnboardedProfile } from "@/lib/auth/requireUser";
-import {
-  getAmbassadorsAction,
-  getCampaignsAction,
-  getClientsAction,
-} from "@/app/(protected)/explore/actions";
+import { getAmbassadorsAction, getClientsAction } from "@/app/(protected)/explore/actions";
+import { getClientCampaignsAction } from "@/app/(protected)/campaigns/actions";
 import ExploreInterfaceClient from "@/components/explore/ExploreInterfaceClient";
 
 export default async function ExplorePage() {
@@ -29,13 +26,15 @@ export default async function ExplorePage() {
   }
 
   // Clients browse ambassadors + see active campaigns context
-  const [ambassadorsResult, campaignsResult] = await Promise.all([
+  const [ambassadorsResult, clientCampaigns] = await Promise.all([
     getAmbassadorsAction({ limit: 10, offset: 0 }),
-    getCampaignsAction({ status: "active" }),
+    getClientCampaignsAction(),
   ]);
 
   const ambassadors = ambassadorsResult.ok ? ambassadorsResult.data : [];
-  const campaigns = campaignsResult.ok ? campaignsResult.data : [];
+  const campaigns = clientCampaigns.ok
+    ? (clientCampaigns.data || []).filter((c: any) => c.status === "active")
+    : [];
 
   return (
     <div className="pt-4">

@@ -95,6 +95,13 @@ export async function getCampaignSubmissionsAction(campaignId: string) {
   const user = await requireUser();
   const supabase = await createClient();
 
+  // Get the user's client profile ID if they are a client
+  const { data: clientProfile } = await supabase
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
   // Verify user has access to this campaign (either as client or ambassador)
   const { data: campaignAccess, error: accessError } = await supabase
     .from("campaigns")
@@ -109,7 +116,9 @@ export async function getCampaignSubmissionsAction(campaignId: string) {
     )
     .eq("id", campaignId)
     .or(
-      `client_id.eq.${user.id},campaign_ambassadors.ambassador_id.eq.${user.id}`
+      clientProfile 
+        ? `client_id.eq.${clientProfile.id},campaign_ambassadors.ambassador_id.eq.${user.id}`
+        : `campaign_ambassadors.ambassador_id.eq.${user.id}`
     )
     .single();
 

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Modal } from "@/components/ui/modal";
 import { getAmbassadorsAction, getClientsAction } from "@/app/(protected)/explore/actions";
-import { createChatAction } from "@/app/(protected)/chat/actions";
+import { inviteAmbassadorToCampaignAction } from "@/app/(protected)/campaigns/actions";
 import { ClientCard } from "@/components/explore/ClientCard";
 
 interface Influencer {
@@ -67,6 +67,7 @@ export default function ExploreInterfaceClient({
   const [showChatModal, setShowChatModal] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [invitationMessage, setInvitationMessage] = useState("");
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [lastPageCount, setLastPageCount] = useState(
@@ -145,22 +146,24 @@ export default function ExploreInterfaceClient({
   };
 
   const handleCreateChat = async () => {
-    if (!selectedInfluencer || !invitationMessage.trim()) return;
+    if (!selectedInfluencer || !invitationMessage.trim() || !selectedCampaignId) return;
 
     setIsCreatingChat(true);
     try {
       const formData = new FormData();
-      formData.append("participantId", selectedInfluencer.user_id);
-      formData.append("initialMessage", invitationMessage.trim());
+      formData.append("campaignId", selectedCampaignId);
+      formData.append("ambassadorProfileId", selectedInfluencer.id);
+      formData.append("message", invitationMessage.trim());
 
-      const result = await createChatAction(null, formData);
+      const result = await inviteAmbassadorToCampaignAction(null, formData);
 
       if (result.ok) {
         setShowChatModal(false);
         setSelectedInfluencer(null);
         setInvitationMessage("");
+        setSelectedCampaignId("");
         // Navigate to unified chats page with query param
-        router.push(`/chats?chat=${result.data.id}`);
+        router.push(`/chats?chat=${result.data.chatId}`);
       } else {
         console.error("Failed to create chat:", result.error);
       }
@@ -392,6 +395,7 @@ export default function ExploreInterfaceClient({
           setShowChatModal(false);
           setSelectedInfluencer(null);
           setInvitationMessage("");
+          setSelectedCampaignId("");
         }}
         title="Invite to Campaign"
       >
@@ -414,6 +418,23 @@ export default function ExploreInterfaceClient({
                   </p>
                 )}
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Campaign
+              </label>
+              <select
+                value={selectedCampaignId}
+                onChange={(e) => setSelectedCampaignId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f5d82e] focus:border-transparent"
+              >
+                <option value="">Choose a campaign...</option>
+                {initialCampaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div>
@@ -442,7 +463,7 @@ export default function ExploreInterfaceClient({
               </button>
               <button
                 onClick={handleCreateChat}
-                disabled={isCreatingChat || !invitationMessage.trim()}
+                disabled={isCreatingChat || !invitationMessage.trim() || !selectedCampaignId}
                 className="flex-1 px-4 py-2 bg-[#f5d82e] text-black rounded-lg hover:bg-[#e5c820] disabled:opacity-50 disabled:bg-gray-300"
               >
                 {isCreatingChat ? "Sending..." : "Send Invitation"}

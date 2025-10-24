@@ -66,10 +66,10 @@ export function ChatSidebar({
         // Transform backend data to UI format using real participants/messages
         const formattedChats: Chat[] = chatRooms.map((chatRoom: any) => {
           // Determine display name
-          let displayName = "Unknown Chat";
+          let displayName = chatRoom.name || "Unknown Chat";
           if (chatRoom.is_group) {
             displayName = chatRoom.name || "Group Chat";
-          } else if (Array.isArray(chatRoom.chat_participants)) {
+          } else if (!chatRoom.name && Array.isArray(chatRoom.chat_participants)) {
             const other = chatRoom.chat_participants.find(
               (p: any) => p.user_id !== user?.id
             );

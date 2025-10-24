@@ -19,30 +19,28 @@ export function MessageStatus({
   }
 
   if (status === "sent") {
-    return <div className="text-gray-400 text-xs">✓</div>;
+    return <div className="text-gray-500 text-xs">Delivered</div>;
   }
 
   if (status === "delivered") {
-    return <div className="text-gray-600 text-xs">✓✓</div>;
+    return <div className="text-gray-600 text-xs">Delivered</div>;
   }
 
   if (status === "read") {
     if (isGroupChat && readBy) {
       const readCount = Object.keys(readBy).length;
       return (
-        <div className="text-blue-500 text-xs" title={`Read by ${readCount}`}>
-          ✓✓
+        <div className="text-blue-600 text-xs" title={`Read by ${readCount}`}>
+          Read
         </div>
       );
     }
-    return <div className="text-blue-500 text-xs">✓✓</div>;
+    return <div className="text-blue-600 text-xs">Read</div>;
   }
 
   if (status === "error") {
     return (
-      <div className="text-red-500 font-bold text-xs" title="Failed to send">
-        !
-      </div>
+      <div className="text-red-500 text-xs" title="Failed to send">Failed</div>
     );
   }
 
