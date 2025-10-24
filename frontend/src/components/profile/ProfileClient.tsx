@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AmbassadorPortfolio } from "./AmbassadorPortfolio";
 import { ClientCampaigns } from "./ClientCampaigns";
 import { ProfileEditModal } from "./ProfileEditModal";
 import { AddContentModal } from "../portfolio/AddContentModal";
 import { CreateCampaignModal } from "../campaigns/CreateCampaignModal";
+import { getClientCampaignsAction } from "@/app/(protected)/campaigns/actions";
 
 interface PortfolioItem {
   id: string;
@@ -43,11 +44,42 @@ export function ProfileClient({
   ambassadorProfile,
   clientProfile,
   portfolioItems,
-  campaigns,
+  campaigns: initialCampaigns,
 }: ProfileClientProps) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddContentModal, setShowAddContentModal] = useState(false);
   const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
+  const [campaigns, setCampaigns] = useState<CampaignDisplay[]>(initialCampaigns);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+
+  // Fetch campaigns for client profiles
+  useEffect(() => {
+    if (profile.role === "client" && clientProfile) {
+      setCampaignsLoading(true);
+      getClientCampaignsAction()
+        .then((result) => {
+          if (result.ok) {
+            // Transform the raw campaign data to match the CampaignDisplay interface
+            const transformedCampaigns: CampaignDisplay[] = result.data.map((campaign: any) => ({
+              id: campaign.id,
+              title: campaign.title,
+              status: campaign.status,
+              budgetRange: `$${campaign.budget_min} - $${campaign.budget_max}`,
+              ambassadorCount: campaign.max_ambassadors || 1,
+              timeline: campaign.deadline ? new Date(campaign.deadline).toLocaleDateString() : 'No deadline',
+              coverImage: undefined, // You can add cover image logic here if needed
+            }));
+            setCampaigns(transformedCampaigns);
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching campaigns:', error);
+        })
+        .finally(() => {
+          setCampaignsLoading(false);
+        });
+    }
+  }, [profile.role, clientProfile]);
 
   return (
     <>
@@ -61,7 +93,7 @@ export function ProfileClient({
         ) : profile.role === "client" && clientProfile ? (
           <ClientCampaigns
             campaigns={campaigns}
-            loading={false}
+            loading={campaignsLoading}
             onCreateCampaign={() => setShowCreateCampaignModal(true)}
           />
         ) : (
@@ -105,7 +137,31 @@ export function ProfileClient({
           onClose={() => setShowCreateCampaignModal(false)}
           onCampaignCreated={() => {
             setShowCreateCampaignModal(false);
-            window.location.reload();
+            // Refresh campaigns instead of full page reload
+            if (profile.role === "client" && clientProfile) {
+              setCampaignsLoading(true);
+              getClientCampaignsAction()
+                .then((result) => {
+                  if (result.ok) {
+                    const transformedCampaigns: CampaignDisplay[] = result.data.map((campaign: any) => ({
+                      id: campaign.id,
+                      title: campaign.title,
+                      status: campaign.status,
+                      budgetRange: `$${campaign.budget_min} - $${campaign.budget_max}`,
+                      ambassadorCount: campaign.max_ambassadors || 1,
+                      timeline: campaign.deadline ? new Date(campaign.deadline).toLocaleDateString() : 'No deadline',
+                      coverImage: undefined,
+                    }));
+                    setCampaigns(transformedCampaigns);
+                  }
+                })
+                .catch((error) => {
+                  console.error('Error refreshing campaigns:', error);
+                })
+                .finally(() => {
+                  setCampaignsLoading(false);
+                });
+            }
           }}
         />
       )}

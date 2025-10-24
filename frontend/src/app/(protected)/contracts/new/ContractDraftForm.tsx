@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Paperclip, FileText, Eye, Calendar, CheckCircle } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { getCampaignsAction } from "@/app/(protected)/explore/actions";
 import {
+  getClientCampaignsAction,
   getCampaignAmbassadorsAction,
   getCampaignAmbassadorRowsAction,
 } from "@/app/(protected)/campaigns/actions";
@@ -95,9 +95,9 @@ export default function ContractDraftForm({
 
     const fetchCampaigns = async () => {
       try {
-        const result = await getCampaignsAction();
+        const result = await getClientCampaignsAction();
         const campaigns = result.ok ? result.data : [];
-        // Only include active campaigns
+        // Only include active campaigns for contract creation
         const activeCampaigns = campaigns.filter(
           (c: any) => c.status === "active"
         );
