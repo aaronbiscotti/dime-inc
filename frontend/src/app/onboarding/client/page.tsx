@@ -20,6 +20,7 @@ export default function ClientOnboardingPage() {
     industry: '',
     website: '',
   })
+  const [step, setStep] = useState<1 | 2 | 3>(1)
 
   // Handle browser extension errors
   useEffect(() => {
@@ -116,7 +117,7 @@ export default function ClientOnboardingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold">
-              Complete Your Company Profile
+              Brand Onboarding
             </CardTitle>
             <CardDescription>
               Tell us about your company to start creating campaigns
@@ -130,76 +131,111 @@ export default function ClientOnboardingPage() {
                   <span className="text-sm">{error}</span>
                 </div>
               )}
+              {/* Stepper */}
+              <div className="flex items-center justify-between mb-2">
+                {[1,2,3].map((s) => (
+                  <div key={s} className={`flex-1 h-1 mx-1 rounded ${step >= (s as 1|2|3) ? 'bg-[#f5d82e]' : 'bg-gray-200'}`}></div>
+                ))}
+              </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">Company Name *</Label>
-                  <Input
-                    id="company_name"
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    required
-                    placeholder="Acme Inc."
-                  />
+              {step === 1 && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company_name">Company Name *</Label>
+                    <Input
+                      id="company_name"
+                      value={formData.company_name}
+                      onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                      required
+                      placeholder="Acme Inc."
+                    />
+                  </div>
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="industry">Industry</Label>
-                  <Input
-                    id="industry"
-                    value={formData.industry}
-                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                    placeholder="Technology, Fashion, etc."
-                  />
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="industry">Industry</Label>
+                      <Input
+                        id="industry"
+                        value={formData.industry}
+                        onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                        placeholder="Technology, Fashion, etc."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        type="url"
+                        value={formData.website}
+                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                        placeholder="https://example.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Company Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.company_description}
+                      onChange={(e) => setFormData({ ...formData, company_description: e.target.value })}
+                      placeholder="Tell ambassadors about your company, your mission, and what kind of campaigns you run..."
+                      rows={4}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="website">Website</Label>
-                <Input
-                  id="website"
-                  type="url"
-                  value={formData.website}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                  placeholder="https://example.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Company Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.company_description}
-                  onChange={(e) => setFormData({ ...formData, company_description: e.target.value })}
-                  placeholder="Tell ambassadors about your company, your mission, and what kind of campaigns you run..."
-                  rows={4}
-                />
-              </div>
+              {step === 3 && (
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600">Review</div>
+                  <div className="bg-gray-50 rounded-lg border p-4">
+                    <div className="font-medium">{formData.company_name}</div>
+                    <div className="text-sm text-gray-600">{formData.industry}</div>
+                    <div className="text-sm text-gray-600">{formData.website}</div>
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2">{formData.company_description}</div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-between pt-4">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => (step === 1 ? router.push('/dashboard') : setStep((s) => (s === 2 ? 1 : 2)))}
                   disabled={loading}
                 >
-                  Skip for now
+                  {step === 1 ? 'Skip for now' : 'Back'}
                 </Button>
-                
-                <Button
-                  type="submit"
-                  className="bg-[#f5d82e] hover:bg-[#f5d82e]/90 text-gray-900 font-semibold"
-                  disabled={loading || !formData.company_name}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Complete Profile'
-                  )}
-                </Button>
+
+                {step < 3 ? (
+                  <Button
+                    type="button"
+                    className="bg-[#f5d82e] hover:bg-[#f5d82e]/90 text-gray-900 font-semibold"
+                    disabled={loading || (step === 1 && !formData.company_name)}
+                    onClick={() => setStep((s) => (s === 1 ? 2 : 3))}
+                  >
+                    Continue
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    className="bg-[#f5d82e] hover:bg-[#f5d82e]/90 text-gray-900 font-semibold"
+                    disabled={loading || !formData.company_name}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Complete Profile'
+                    )}
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>

@@ -22,6 +22,7 @@ export default function AmbassadorOnboardingPage() {
     tiktok_handle: '',
     twitter_handle: '',
   })
+  const [step, setStep] = useState<1 | 2 | 3>(1)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -72,7 +73,7 @@ export default function AmbassadorOnboardingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold">
-              Complete Your Ambassador Profile
+              Creator Onboarding
             </CardTitle>
             <CardDescription>
               Tell us about yourself to get started with campaigns
@@ -86,101 +87,121 @@ export default function AmbassadorOnboardingPage() {
                   <span className="text-sm">{error}</span>
                 </div>
               )}
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    required
-                    placeholder="John Doe"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="New York, NY"
-                  />
-                </div>
+              {/* Stepper */}
+              <div className="flex items-center justify-between mb-2">
+                {[1,2,3].map((s) => (
+                  <div key={s} className={`flex-1 h-1 mx-1 rounded ${step >= (s as 1|2|3) ? 'bg-[#f5d82e]' : 'bg-gray-200'}`}></div>
+                ))}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
-                <Textarea
-                  id="bio"
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  placeholder="Tell brands about yourself, your content style, and what makes you unique..."
-                  rows={4}
-                />
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-900">Social Media Handles</h3>
-                
+              {step === 1 && (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="instagram">Instagram</Label>
+                    <Label htmlFor="full_name">Full Name *</Label>
                     <Input
-                      id="instagram"
-                      value={formData.instagram_handle}
-                      onChange={(e) => setFormData({ ...formData, instagram_handle: e.target.value })}
-                      placeholder="@yourusername"
+                      id="full_name"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                      required
+                      placeholder="John Doe"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="tiktok">TikTok</Label>
+                    <Label htmlFor="location">Location</Label>
                     <Input
-                      id="tiktok"
-                      value={formData.tiktok_handle}
-                      onChange={(e) => setFormData({ ...formData, tiktok_handle: e.target.value })}
-                      placeholder="@yourusername"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="twitter">Twitter/X</Label>
-                    <Input
-                      id="twitter"
-                      value={formData.twitter_handle}
-                      onChange={(e) => setFormData({ ...formData, twitter_handle: e.target.value })}
-                      placeholder="@yourusername"
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="New York, NY"
                     />
                   </div>
                 </div>
-              </div>
+              )}
+
+              {step === 2 && (
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea
+                    id="bio"
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    placeholder="Tell brands about yourself, your content style, and what makes you unique..."
+                    rows={4}
+                  />
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-900">Social Media Handles</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="instagram">Instagram</Label>
+                      <Input
+                        id="instagram"
+                        value={formData.instagram_handle}
+                        onChange={(e) => setFormData({ ...formData, instagram_handle: e.target.value })}
+                        placeholder="@yourusername"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tiktok">TikTok</Label>
+                      <Input
+                        id="tiktok"
+                        value={formData.tiktok_handle}
+                        onChange={(e) => setFormData({ ...formData, tiktok_handle: e.target.value })}
+                        placeholder="@yourusername"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="twitter">Twitter/X</Label>
+                      <Input
+                        id="twitter"
+                        value={formData.twitter_handle}
+                        onChange={(e) => setFormData({ ...formData, twitter_handle: e.target.value })}
+                        placeholder="@yourusername"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-between pt-4">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => (step === 1 ? router.push('/dashboard') : setStep((s) => (s === 2 ? 1 : 2)))}
                   disabled={loading}
                 >
-                  Skip for now
+                  {step === 1 ? 'Skip for now' : 'Back'}
                 </Button>
-                
-                <Button
-                  type="submit"
-                  className="bg-[#f5d82e] hover:bg-[#f5d82e]/90 text-gray-900 font-semibold"
-                  disabled={loading || !formData.full_name}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Complete Profile'
-                  )}
-                </Button>
+
+                {step < 3 ? (
+                  <Button
+                    type="button"
+                    className="bg-[#f5d82e] hover:bg-[#f5d82e]/90 text-gray-900 font-semibold"
+                    disabled={loading || (step === 1 && !formData.full_name)}
+                    onClick={() => setStep((s) => (s === 1 ? 2 : 3))}
+                  >
+                    Continue
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    className="bg-[#f5d82e] hover:bg-[#f5d82e]/90 text-gray-900 font-semibold"
+                    disabled={loading || !formData.full_name}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Complete Profile'
+                    )}
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>

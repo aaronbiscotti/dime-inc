@@ -119,6 +119,22 @@ export async function updateCampaignStatus(formData: FormData) {
 
   if (!id || !status) return { ok: false, error: "Missing fields" } as const;
 
+  // Verify user owns this campaign (via client profile)
+  const { data: clientProfile } = await supabase
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!clientProfile) return { ok: false, error: "Access denied" } as const;
+
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("client_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!campaign || campaign.client_id !== clientProfile.id)
+    return { ok: false, error: "Access denied" } as const;
+
   const { error } = await supabase
     .from("campaigns")
     .update({ status })
@@ -146,14 +162,19 @@ export async function updateCampaign(formData: FormData) {
   if (!id || !title)
     return { ok: false, error: "ID and title are required" } as const;
 
-  // Verify user owns this campaign
+  // Verify user owns this campaign via client_profiles
+  const { data: clientProfile } = await supabase
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!clientProfile) return { ok: false, error: "Access denied" } as const;
   const { data: campaign, error: fetchError } = await supabase
     .from("campaigns")
     .select("client_id")
     .eq("id", id)
     .single();
-
-  if (fetchError || !campaign || campaign.client_id !== user.id) {
+  if (fetchError || !campaign || campaign.client_id !== clientProfile.id) {
     return { ok: false, error: "Access denied" } as const;
   }
 
@@ -185,14 +206,19 @@ export async function deleteCampaign(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "ID is required" } as const;
 
-  // Verify user owns this campaign
+  // Verify user owns this campaign via client_profiles
+  const { data: clientProfile } = await supabase
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!clientProfile) return { ok: false, error: "Access denied" } as const;
   const { data: campaign, error: fetchError } = await supabase
     .from("campaigns")
     .select("client_id")
     .eq("id", id)
     .single();
-
-  if (fetchError || !campaign || campaign.client_id !== user.id) {
+  if (fetchError || !campaign || campaign.client_id !== clientProfile.id) {
     return { ok: false, error: "Access denied" } as const;
   }
 
@@ -427,4 +453,3 @@ export async function inviteAmbassadorToCampaignAction(_: any, formData: FormDat
 
   return { ok: true, data: { chatId } } as const;
 }
-

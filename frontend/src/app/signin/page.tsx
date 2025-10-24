@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
@@ -48,6 +49,24 @@ export default function SignInPage() {
       setLoading(false);
     }
     // Server-side redirect will handle navigation, no client-side logic needed
+  }
+
+  async function handleGoogle() {
+    try {
+      setLoading(true);
+      setError(null);
+      const supabase = supabaseBrowser();
+      const redirectTo = window.location.origin; // Let middleware/pages route after return
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+      if (error) throw error;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Google sign-in failed";
+      setError(msg);
+      setLoading(false);
+    }
   }
 
   return (
@@ -116,6 +135,25 @@ export default function SignInPage() {
                 ) : (
                   "Sign In"
                 )}
+              </Button>
+
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-gray-500">Or</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading}
+                onClick={handleGoogle}
+              >
+                Continue with Google
               </Button>
 
               <div className="text-center text-sm text-gray-600">

@@ -16,7 +16,7 @@ export function ReviewSubmissionForm({ submissionId, campaignId }: Props) {
     <form action={formAction} className="flex gap-2 items-center">
       <select name="status" className="border rounded-xl px-2 py-1">
         <option value="approved">Approve</option>
-        <option value="rejected">Reject</option>
+        <option value="requires_changes">Request changes</option>
       </select>
       <button disabled={pending} className="rounded-xl border px-3 py-1">
         {pending ? "Saving…" : "Save"}

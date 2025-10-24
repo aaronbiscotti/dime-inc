@@ -201,23 +201,17 @@ Check if onboarding_completed is false in profiles table
 Verify middleware is checking the correct routes
 Check for errors in browser console
 
-📚 Resources
 
-Supabase Next.js Guide
-Supabase SSR Package
-Next.js 15 Documentation
 
-🤝 Support
-If you encounter issues:
+## Admin Access
 
-Check the browser console for errors
-Verify all environment variables are set
-Ensure your Supabase project is running
-Check that all database tables and columns exist
-Review the middleware logs in development
-
-🎉 You're All Set!
-Your authentication system is now ready. The flow is:
+- Admin pages live under `/admin`.
+- Admin status is derived from emails listed in the `NEXT_PUBLIC_ADMIN_EMAILS` environment variable (comma-separated).
+- Example: `NEXT_PUBLIC_ADMIN_EMAILS=admin@example.com,ops@example.com`
+- Admin dashboard provides:
+  - Overview counts of ambassadors, clients, campaigns
+  - Searchable lists of ambassadors and clients
+  - Campaign assignment tool to add a creator to a campaign
 
 User visits /auth → chooses role
 Signs up → automatically redirected to onboarding

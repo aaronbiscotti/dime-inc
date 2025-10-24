@@ -73,6 +73,7 @@ export function ChatArea({
     useState<ChatParticipant | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [proposalStatus, setProposalStatus] = useState<any>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
