@@ -22,7 +22,6 @@ export default function NewContractPage() {
           <span className="text-sm font-medium">Back to Contracts</span>
         </Link>
       </div>
-      <h1 className="text-2xl font-medium text-gray-900 mb-4">Draft New Contract</h1>
       <ContractDraftForm
         initialCampaignId={campaignId}
         initialAmbassadorIds={ambassadorId ? [ambassadorId] : []}

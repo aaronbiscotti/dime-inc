@@ -64,6 +64,7 @@ export async function createContractAction(_: any, formData: FormData) {
       start_date: startDate || null,
       usage_rights_duration: usageRightsDuration || null,
       contract_file_url: contractFileUrl || null,
+      contract_text: contractText || null,
     })
     .select()
     .single();
@@ -108,13 +109,24 @@ export async function getMyContractsAction() {
       )
     `;
 
-  const [asClient, asAmbassador] = await Promise.all([
-    supabase.from("contracts").select(SELECT).eq("client_id", user.id),
-    supabase
-      .from("contracts")
-      .select(SELECT)
-      .eq("campaign_ambassadors.ambassador_id", user.id),
+  // Resolve profile IDs for filtering
+  const [{ data: clientProfile }, { data: ambassadorProfile }] = await Promise.all([
+    supabase.from("client_profiles").select("id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("ambassador_profiles").select("id").eq("user_id", user.id).maybeSingle(),
   ]);
+
+  const asClient = clientProfile?.id
+    ? await supabase
+        .from("contracts")
+        .select(SELECT)
+        .eq("client_id", clientProfile.id)
+    : ({ data: [], error: null } as any);
+  const asAmbassador = ambassadorProfile?.id
+    ? await supabase
+        .from("contracts")
+        .select(SELECT)
+        .eq("campaign_ambassadors.ambassador_id", ambassadorProfile.id)
+    : ({ data: [], error: null } as any);
 
   if (asClient.error) return { ok: false, error: asClient.error.message } as const;
   if (asAmbassador.error)
@@ -173,9 +185,14 @@ export async function getContractAction(contractId: string) {
   }
 
   // Manual access check (avoid logic-tree parser issues on joins)
+  // Determine profile scopes
+  const [{ data: clientProfile }, { data: ambassadorProfile }] = await Promise.all([
+    supabase.from("client_profiles").select("id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("ambassador_profiles").select("id").eq("user_id", user.id).maybeSingle(),
+  ]);
   const allowed =
-    contract.client_id === user.id ||
-    (contract as any).campaign_ambassadors?.ambassador_id === user.id;
+    (clientProfile?.id && contract.client_id === clientProfile.id) ||
+    (ambassadorProfile?.id && (contract as any).campaign_ambassadors?.ambassador_id === ambassadorProfile.id);
   if (!allowed) return { ok: false, error: "Contract not found" } as const;
 
   return { ok: true, data: contract } as const;
@@ -204,6 +221,7 @@ export async function signContractAction(_: any, formData: FormData) {
       `
       id,
       client_id,
+      contract_text,
       campaign_ambassadors!inner(
         ambassador_id
       )
@@ -217,8 +235,14 @@ export async function signContractAction(_: any, formData: FormData) {
   }
 
   // Verify user has permission to sign
-  const isClient = contract.client_id === user.id;
-  const isAmbassador = contract.campaign_ambassadors.ambassador_id === user.id;
+  // Determine profile scopes for the current user
+  const [{ data: clientProfile }, { data: ambassadorProfile }] = await Promise.all([
+    supabase.from("client_profiles").select("id, company_name").eq("user_id", user.id).maybeSingle(),
+    supabase.from("ambassador_profiles").select("id, full_name").eq("user_id", user.id).maybeSingle(),
+  ]);
+  const isClient = !!clientProfile?.id && contract.client_id === clientProfile.id;
+  const isAmbassador =
+    !!ambassadorProfile?.id && contract.campaign_ambassadors.ambassador_id === ambassadorProfile.id;
 
   if (
     (signatureType === "client" && !isClient) ||
@@ -241,12 +265,96 @@ export async function signContractAction(_: any, formData: FormData) {
     updateData.status = "active";
   }
 
+  // Append signature to the contract text if not present yet
+  const existingText = (contract as any).contract_text || "";
+  const dateStr = new Date().toLocaleDateString();
+  let newText = existingText as string;
+  if (signatureType === "client") {
+    const tag = "Client Signature:";
+    if (!existingText.includes(tag)) {
+      const name = clientProfile?.company_name || "Client";
+      newText = `${existingText}\n\n${tag} ${name} — ${dateStr}`;
+    }
+  } else if (signatureType === "ambassador") {
+    const tag = "Ambassador Signature:";
+    if (!existingText.includes(tag)) {
+      const name = ambassadorProfile?.full_name || "Ambassador";
+      newText = `${existingText}\n\n${tag} ${name} — ${dateStr}`;
+    }
+  }
+  updateData.contract_text = newText;
+
   const { error } = await supabase
     .from("contracts")
     .update(updateData)
     .eq("id", contractId);
 
   if (error) return { ok: false, error: error.message } as const;
+
+  revalidatePath(`/contracts/${contractId}`);
+  return { ok: true } as const;
+}
+
+export async function sendContractToAmbassadorAction(_: any, formData: FormData) {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const contractId = String(formData.get("contractId") ?? "");
+
+  if (!contractId) {
+    return {
+      ok: false,
+      error: "Contract ID is required",
+    } as const;
+  }
+
+  // Get the contract to verify access and get ambassador info
+  const { data: contract, error: fetchError } = await supabase
+    .from("contracts")
+    .select(`
+      id,
+      client_id,
+      status,
+      campaign_ambassadors!inner(
+        ambassador_id,
+        ambassador_profiles!inner(
+          id,
+          full_name
+        )
+      )
+    `)
+    .eq("id", contractId)
+    .single();
+
+  if (fetchError || !contract) {
+    return { ok: false, error: "Contract not found" } as const;
+  }
+
+  // Verify user is the client owner
+  const { data: clientProfile } = await supabase
+    .from("client_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!clientProfile || contract.client_id !== clientProfile.id) {
+    return { ok: false, error: "Access denied" } as const;
+  }
+
+  // Only allow sending if contract is in draft status
+  if (contract.status !== "draft") {
+    return { ok: false, error: "Contract must be in draft status to send" } as const;
+  }
+
+  // Update contract status to pending_ambassador_signature
+  const { error: updateError } = await supabase
+    .from("contracts")
+    .update({ status: "pending_ambassador_signature" })
+    .eq("id", contractId);
+
+  if (updateError) {
+    return { ok: false, error: updateError.message } as const;
+  }
 
   revalidatePath(`/contracts/${contractId}`);
   return { ok: true } as const;

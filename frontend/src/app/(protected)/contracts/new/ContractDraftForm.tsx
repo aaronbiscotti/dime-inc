@@ -73,8 +73,15 @@ export default function ContractDraftForm({
       (async () => {
         for (const campaign of campaigns) {
           const result = await getCampaignAmbassadorsAction(campaign.id);
-          const ambs = result.ok ? result.data : [];
-          if (ambs && ambs.some((a: any) => a.id === ambassadorId)) {
+          const ambs = result.ok ? (result.data as any[]) : [];
+          if (
+            ambs &&
+            ambs.some(
+              (a: any) =>
+                a.ambassador_id === ambassadorId ||
+                a.ambassador_profiles?.id === ambassadorId
+            )
+          ) {
             setSelectedCampaignId(campaign.id);
             setSelectedAmbassadorIds([ambassadorId]);
             break;
@@ -124,11 +131,25 @@ export default function ContractDraftForm({
     const fetchAmbassadors = async () => {
       try {
         const result = await getCampaignAmbassadorsAction(selectedCampaignId);
-        const ambassadors = result.ok ? result.data : [];
-        setAmbassadors(ambassadors || []);
+        const rows = result.ok ? (result.data as any[]) : [];
+        const mapped = (rows || []).map((row: any) => ({
+          id: row.ambassador_profiles?.id || row.ambassador_id,
+          name: row.ambassador_profiles?.full_name || "Ambassador",
+          avatar_url: row.ambassador_profiles?.profile_photo_url || null,
+          instagram_handle: row.ambassador_profiles?.instagram_handle || null,
+          tiktok_handle: row.ambassador_profiles?.tiktok_handle || null,
+          twitter_handle: row.ambassador_profiles?.twitter_handle || null,
+        })) as AmbassadorSummary[];
+        setAmbassadors(mapped);
+        // Auto-select all ambassadors by default (merge with any provided via URL)
+        setSelectedAmbassadorIds((prev) => {
+          const all = mapped.map((m) => m.id).filter(Boolean) as string[];
+          return Array.from(new Set([...(prev || []), ...all]));
+        });
       } catch (error) {
         console.error("Error fetching ambassadors:", error);
         setAmbassadors([]);
+        setSelectedAmbassadorIds([]);
       } finally {
         setLoadingAmbassadors(false);
       }
@@ -197,30 +218,32 @@ export default function ContractDraftForm({
         ambassador_id: string;
         [key: string]: unknown;
       }>;
-      const caRow = caRows.find((row) =>
+      const selectedRows = caRows.filter((row) =>
         selectedAmbassadorIds.includes(row.ambassador_id)
       );
-      console.log("Matched caRow:", caRow);
-      if (!caRow) {
-        alert("No campaign_ambassador found for this campaign and ambassador.");
+      if (selectedRows.length === 0) {
+        alert(
+          "No campaign_ambassador found for the selected ambassador(s) and campaign."
+        );
         return;
       }
       if (!clientProfile?.id) {
         alert("Client profile not found.");
         return;
       }
-      const formData = new FormData();
-      formData.append("contractText", text);
-      formData.append(
-        "paymentType",
-        payType === "post" ? "pay_per_post" : "pay_per_cpm"
-      );
-      formData.append("startDate", startDate || "");
-      formData.append("campaignAmbassadorId", caRow.id);
-
-      const result = await createContractAction(null, formData);
-      if (!result.ok) {
-        throw new Error(result.error);
+      for (const row of selectedRows) {
+        const formData = new FormData();
+        formData.append("contractText", text);
+        formData.append(
+          "paymentType",
+          payType === "post" ? "pay_per_post" : "pay_per_cpm"
+        );
+        formData.append("startDate", startDate || "");
+        formData.append("campaignAmbassadorId", row.id);
+        const result = await createContractAction(null, formData);
+        if (!result.ok) {
+          throw new Error(result.error);
+        }
       }
       router.push("/contracts");
       router.refresh();
@@ -233,11 +256,26 @@ export default function ContractDraftForm({
   };
 
   if (showEditor) {
+    const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
+    const selectedAmbassadors = ambassadors.filter((a) =>
+      selectedAmbassadorIds.includes(a.id)
+    );
     return (
       <ContractTextEditor
         initialText={editorText}
         onBack={handleBackFromEditor}
         onSave={handleSaveFromEditor}
+        summary={{
+          clientName: clientName || clientProfile?.company_name || "",
+          campaignTitle: selectedCampaign?.title,
+          ambassadors: selectedAmbassadors.map((a) => ({
+            id: a.id,
+            name: a.name,
+            avatar_url: a.avatar_url || null,
+          })),
+          payType: payType,
+          startDate: startDate || undefined,
+        }}
       />
     );
   }
@@ -248,10 +286,10 @@ export default function ContractDraftForm({
       style={{ maxWidth: "100vw" }}
       onSubmit={handleSubmit}
     >
-      <div className="flex flex-row gap-8 w-full">
+      <div className="flex flex-row gap-6 w-full">
         {/* Main Form Card */}
         <div className="grow flex flex-col gap-6 min-w-0">
-          <div className="bg-white rounded-xl border border-gray-300 p-6 mb-0 w-full">
+          <div className="bg-white rounded-xl border border-gray-300 p-5 mb-0 w-full">
             <div className="flex items-center gap-2 mb-6">
               <FileText className="w-5 h-5 text-gray-700" />
               <span className="font-medium text-base text-gray-900">
@@ -325,7 +363,7 @@ export default function ContractDraftForm({
               )}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-300 p-6 w-full">
+          <div className="bg-white rounded-xl border border-gray-300 p-5 w-full">
             <div className="flex items-center gap-2 mb-6">
               <Eye className="w-5 h-5 text-gray-700" />
               <span className="font-medium text-base text-gray-900">
@@ -403,7 +441,7 @@ export default function ContractDraftForm({
           </div>
         </div>
         {/* Ambassador Card (Right) */}
-        <div className="flex-shrink-0 w-[320px]">
+        <div className="flex-shrink-0 w-[280px]">
           <div className="mb-4">
             <h2 className="text-base font-medium text-gray-900">
               Select Ambassadors

@@ -50,7 +50,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { createChatAction } from "@/app/(protected)/chat/actions";
-import { acceptCampaignInvitationAction } from "@/app/(protected)/campaigns/actions";
 
 interface ContextPanelProps {
   selectedChatId: string | null;
@@ -596,28 +595,6 @@ export function ContextPanel({ selectedChatId, userRole }: ContextPanelProps) {
             )}
           </div>
 
-          {/* Invite acceptance for ambassadors */}
-          {campaignAmbassador && campaignAmbassador.status === "proposal_received" && userRole === "ambassador" && (
-            <div className="mt-3">
-              <Button
-                className="w-full bg-[#f5d82e] hover:bg-[#ffe066] text-black rounded-full font-medium"
-                onClick={async () => {
-                  try {
-                    const fd = new FormData();
-                    fd.append("campaignAmbassadorId", campaignAmbassador.id);
-                    const res = await acceptCampaignInvitationAction(null as any, fd);
-                    if (!res.ok) throw new Error(res.error || "Failed to accept");
-                    // refresh
-                    setCampaignAmbassador({ ...campaignAmbassador, status: "contract_drafted" });
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-              >
-                Accept Invitation
-              </Button>
-            </div>
-          )}
 
           {/* Upload + Link sections */}
           <div className="mt-4 space-y-3">

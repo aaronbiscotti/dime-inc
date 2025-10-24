@@ -7,6 +7,7 @@ import { Database } from "@/types/database";
 import {
   getContractAction,
   signContractAction,
+  sendContractToAmbassadorAction,
 } from "@/app/(protected)/contracts/actions";
 
 type Contract = Database["public"]["Tables"]["contracts"]["Row"] & {
@@ -22,6 +23,13 @@ type Contract = Database["public"]["Tables"]["contracts"]["Row"] & {
 };
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  CheckCircle2,
+  Clock,
+  FileText,
+  User2,
+  Send,
+} from "lucide-react";
 
 export default function ContractDetailPage() {
   const { user, clientProfile, ambassadorProfile } = useAuth();
@@ -37,6 +45,7 @@ export default function ContractDetailPage() {
   const [signingAs, setSigningAs] = useState<"client" | "ambassador" | null>(
     null
   );
+  const [isSending, setIsSending] = useState(false);
 
   const fetchContract = async () => {
     if (!contractId) return;
@@ -72,28 +81,7 @@ export default function ContractDetailPage() {
       return;
     }
 
-    // Validate signature name based on who is signing
-    if (signingAs === "client" && clientProfile) {
-      if (
-        signatureName.trim().toLowerCase() !==
-        clientProfile.company_name.toLowerCase()
-      ) {
-        setError(
-          "Please type your company name exactly as it appears in your profile."
-        );
-        return;
-      }
-    } else if (signingAs === "ambassador" && ambassadorProfile) {
-      if (
-        signatureName.trim().toLowerCase() !==
-        ambassadorProfile.full_name.toLowerCase()
-      ) {
-        setError(
-          "Please type your full name exactly as it appears in your profile."
-        );
-        return;
-      }
-    }
+    // No validation needed - just require a name to be entered
 
     // Additional validation - check if already signed
     if (signingAs === "client" && contract.client_signed_at) {
@@ -131,6 +119,33 @@ export default function ContractDetailPage() {
     }
   };
 
+  const handleSendToAmbassador = async () => {
+    if (!contract) return;
+    
+    setIsSending(true);
+    setError(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append("contractId", contract.id);
+      
+      const result = await sendContractToAmbassadorAction(null, formData);
+      if (result.ok) {
+        await fetchContract(); // Re-fetch to show updated status
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to send contract. Please try again."
+      );
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="max-w-7xl mx-auto px-6 py-6 text-center text-gray-500">
@@ -139,10 +154,10 @@ export default function ContractDetailPage() {
     );
   }
 
-  if (error || !contract) {
+  if (!contract) {
     return (
       <main className="max-w-7xl mx-auto px-6 py-6 text-center text-red-500">
-        {error || "Contract not found."}
+        Contract not found.
       </main>
     );
   }
@@ -196,47 +211,60 @@ export default function ContractDetailPage() {
   return (
     <main className="max-w-7xl mx-auto px-6 py-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-medium text-gray-900">Contract Document</h1>
-        <Button variant="outline" className="rounded-full font-medium" onClick={() => router.push("/contracts")}>
+        <h1 className="text-2xl font-medium text-gray-900">Contract</h1>
+        <Button
+          variant="outline"
+          className="rounded-full font-medium"
+          onClick={() => router.push("/contracts")}
+        >
           Back to Contracts
         </Button>
       </div>
-      <div className="bg-white rounded-xl border border-gray-300 p-5 mb-5">
+
+      {/* Meta bar */}
+      <div className="bg-white rounded-xl border border-gray-300 p-4 mb-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-gray-700">
-          <div>
-            <div className="text-sm font-semibold text-gray-500 mb-1">
-              Campaign
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="w-4 h-4 text-gray-500" />
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500">Campaign</div>
+              <div className="text-sm font-medium truncate">
+                {contract.campaign_ambassadors?.campaigns?.title || "-"}
+              </div>
             </div>
-            <div>{contract.campaign_ambassadors?.campaigns?.title || "-"}</div>
           </div>
-          <div>
-            <div className="text-sm font-semibold text-gray-500 mb-1">
-              Ambassador
+          <div className="flex items-center gap-2 min-w-0">
+            <User2 className="w-4 h-4 text-gray-500" />
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500">Ambassador</div>
+              <div className="text-sm font-medium truncate">
+                {contract.campaign_ambassadors?.ambassador_profiles?.full_name || "-"}
+              </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-500" />
             <div>
-              {contract.campaign_ambassadors?.ambassador_profiles?.full_name ||
-                "-"}
+              <div className="text-xs text-gray-500">Created</div>
+              <div className="text-sm font-medium">
+                {contract.created_at
+                  ? new Date(contract.created_at).toLocaleDateString()
+                  : "-"}
+              </div>
             </div>
           </div>
-          <div>
-            <div className="text-sm font-semibold text-gray-500 mb-1">
-              Created
-            </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-gray-500" />
             <div>
-              {contract.created_at
-                ? new Date(contract.created_at).toLocaleDateString()
-                : "-"}
+              <div className="text-xs text-gray-500">Status</div>
+              <div className="text-sm font-medium">{getStatusChip(contract.status)}</div>
             </div>
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-gray-500 mb-1">
-              Status
-            </div>
-            <div>{getStatusChip(contract.status)}</div>
           </div>
         </div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-300 p-6 whitespace-pre-wrap font-serif text-base leading-relaxed min-h-[360px]">
+
+      {/* Document */}
+      <div className="bg-white rounded-xl border border-gray-300 p-5 whitespace-pre-wrap font-serif text-base leading-relaxed min-h-[320px]">
         {contract.contract_text}
       </div>
 
@@ -262,11 +290,11 @@ export default function ContractDetailPage() {
               }`}
             >
               {contract.status === "active" ? (
-                <span className="text-green-600 text-lg">✓</span>
+                <CheckCircle2 className="text-green-600 w-5 h-5" />
               ) : contract.status === "draft" ? (
-                <span className="text-gray-600 text-lg">📄</span>
+                <FileText className="text-gray-600 w-5 h-5" />
               ) : (
-                <span className="text-yellow-600 text-lg">⏳</span>
+                <Clock className="text-yellow-600 w-5 h-5" />
               )}
             </div>
             <h2 className="text-lg font-medium text-gray-900">
@@ -288,9 +316,21 @@ export default function ContractDetailPage() {
 
           {contract.status === "draft" && (
             <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-              <p className="text-gray-700">
+              <p className="text-gray-700 mb-4">
                 This contract is in draft status. Once both parties sign, it will become active.
               </p>
+              {isClientOwner && (
+                <Button
+                  onClick={handleSendToAmbassador}
+                  disabled={isSending}
+                  className="bg-[#f5d82e] hover:bg-[#ffe066] text-black font-medium rounded-full px-6"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Send className="w-4 h-4" />
+                    {isSending ? "Sending..." : "Send to Ambassador"}
+                  </span>
+                </Button>
+              )}
             </div>
           )}
 
@@ -308,9 +348,9 @@ export default function ContractDetailPage() {
               <div className="text-center">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-white border-2 border-current">
                   {contract.client_signed_at ? (
-                    <span className="text-green-600 text-2xl">✓</span>
+                    <CheckCircle2 className="text-green-600 w-8 h-8" />
                   ) : (
-                    <span className="text-blue-600 text-2xl">C</span>
+                    <User2 className="text-blue-600 w-8 h-8" />
                   )}
                 </div>
                 <h3 className="font-medium text-base mb-2">Client Signature</h3>
@@ -349,9 +389,9 @@ export default function ContractDetailPage() {
               <div className="text-center">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-white border-2 border-current">
                   {contract.ambassador_signed_at ? (
-                    <span className="text-green-600 text-2xl">✓</span>
+                    <CheckCircle2 className="text-green-600 w-8 h-8" />
                   ) : (
-                    <span className="text-purple-600 text-2xl">A</span>
+                    <User2 className="text-purple-600 w-8 h-8" />
                   )}
                 </div>
                 <h3 className="font-medium text-base mb-2">
@@ -394,21 +434,13 @@ export default function ContractDetailPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type your{" "}
-                {signingAs === "client" ? "company name" : "full name"} to sign:{" "}
-                <span className="font-bold text-blue-600">
-                  {signingAs === "client"
-                    ? clientProfile?.company_name
-                    : ambassadorProfile?.full_name}
-                </span>
+                Type your name to sign as {signingAs === "client" ? "Client Representative" : "Ambassador"}:
               </label>
               <Input
                 type="text"
                 value={signatureName}
                 onChange={(e) => setSignatureName(e.target.value)}
-                placeholder={`Type your ${
-                  signingAs === "client" ? "company name" : "full name"
-                } exactly as shown`}
+                placeholder={`Enter your name as ${signingAs === "client" ? "Client Representative" : "Ambassador"}`}
                 className="mt-1"
               />
             </div>
@@ -470,9 +502,8 @@ export default function ContractDetailPage() {
           <div>
             <h3 className="font-medium">Client Signature</h3>
             {contract.client_signed_at ? (
-              <p className="text-green-600 mt-2">
-                ✓ Signed on{" "}
-                {new Date(contract.client_signed_at).toLocaleString()}
+              <p className="text-green-600 mt-2 inline-flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" /> Signed on {new Date(contract.client_signed_at).toLocaleString()}
               </p>
             ) : (
               <p className="text-gray-500 mt-2">Not signed yet</p>
@@ -481,9 +512,8 @@ export default function ContractDetailPage() {
           <div>
             <h3 className="font-medium">Ambassador Signature</h3>
             {contract.ambassador_signed_at ? (
-              <p className="text-green-600 mt-2">
-                ✓ Signed on{" "}
-                {new Date(contract.ambassador_signed_at).toLocaleString()}
+              <p className="text-green-600 mt-2 inline-flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" /> Signed on {new Date(contract.ambassador_signed_at).toLocaleString()}
               </p>
             ) : (
               <p className="text-gray-500 mt-2">Not signed yet</p>

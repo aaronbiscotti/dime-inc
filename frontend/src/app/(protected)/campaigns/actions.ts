@@ -397,7 +397,11 @@ export async function inviteAmbassadorToCampaignAction(_: any, formData: FormDat
   if (existing?.id) {
     const { error: upErr } = await supabase
       .from("campaign_ambassadors")
-      .update({ chat_room_id: chatId, status: existing.status || "proposal_received" })
+      .update({ 
+        chat_room_id: chatId, 
+        status: "contract_drafted",
+        selected_at: new Date().toISOString()
+      })
       .eq("id", existing.id);
     if (upErr) return { ok: false, error: upErr.message } as const;
   } else {
@@ -407,62 +411,20 @@ export async function inviteAmbassadorToCampaignAction(_: any, formData: FormDat
         campaign_id: campaignId,
         ambassador_id: ambassadorProfileId,
         chat_room_id: chatId,
-        status: "proposal_received",
+        status: "contract_drafted",
+        selected_at: new Date().toISOString(),
       });
     if (insErr) return { ok: false, error: insErr.message } as const;
   }
 
-  // Post a system message noting the campaign invite
+  // Post a system message noting the ambassador was added to the campaign
   await supabase.from("messages").insert({
     chat_room_id: chatId,
     sender_id: user.id,
     message_type: "system",
-    content: `Invitation to campaign: ${campaign.title}`,
+    content: `Ambassador added to campaign: ${campaign.title}`,
   });
 
   return { ok: true, data: { chatId } } as const;
 }
 
-// Ambassador accepts an invitation in chat
-export async function acceptCampaignInvitationAction(_: any, formData: FormData) {
-  const user = await requireUser();
-  const supabase = await createClient();
-
-  const campaignAmbassadorId = String(formData.get("campaignAmbassadorId") ?? "").trim();
-  if (!campaignAmbassadorId) return { ok: false, error: "Missing invitation id" } as const;
-
-  // Verify the logged-in user owns this ambassador profile
-  const { data: ca, error: caErr } = await supabase
-    .from("campaign_ambassadors")
-    .select("id, ambassador_id, chat_room_id")
-    .eq("id", campaignAmbassadorId)
-    .single();
-  if (caErr || !ca) return { ok: false, error: "Invitation not found" } as const;
-
-  const { data: amb } = await supabase
-    .from("ambassador_profiles")
-    .select("id, user_id")
-    .eq("id", ca.ambassador_id)
-    .single();
-  if (!amb || amb.user_id !== user.id) return { ok: false, error: "Not authorized" } as const;
-
-  // Update and return the updated row to the client
-  const { data: updated, error: upErr } = await supabase
-    .from("campaign_ambassadors")
-    .update({ status: "contract_drafted", selected_at: new Date().toISOString() })
-    .eq("id", ca.id)
-    .select("id,status,selected_at,campaign_id,ambassador_id,chat_room_id")
-    .single();
-  if (upErr) return { ok: false, error: upErr.message } as const;
-  if (!updated) return { ok: false, error: "Update failed" } as const;
-
-  // Send system message
-  await supabase.from("messages").insert({
-    chat_room_id: ca.chat_room_id as string,
-    sender_id: user.id,
-    message_type: "system",
-    content: "Ambassador accepted the campaign invitation",
-  });
-
-  return { ok: true, data: updated } as const;
-}

@@ -21,7 +21,6 @@ import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 import { MessageStatus } from "./MessageStatus";
 import { markChatReadAction, renameChatAction } from "@/app/(protected)/chat/actions";
-import { acceptProposalAction } from "@/app/(protected)/ambassador/actions";
 import { Modal } from "@/components/ui/modal";
 
 interface Message {
@@ -74,11 +73,6 @@ export function ChatArea({
     useState<ChatParticipant | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [proposalStatus, setProposalStatus] = useState<
-    | { id: string; status: "proposal_received" | "contract_drafted" | "contract_signed" | "active" | "complete" | "terminated" }
-    | null
-  >(null);
-  const [accepting, setAccepting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -736,41 +730,6 @@ export function ChatArea({
       </div>
     </div>
 
-      {/* Proposal acceptance (ambassador) */}
-      {userRole === "ambassador" && proposalStatus?.status === "proposal_received" && (
-        <div className="mx-4 mt-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
-          <div className="flex flex-col md:flex-row md:items-end gap-3">
-            <div className="flex-1">
-              <div className="font-medium text-gray-900 mb-1">Proposal pending</div>
-              <div className="text-sm text-gray-700">Accept the proposal to proceed.</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={async () => {
-                  if (!selectedChatId || !proposalStatus?.id) return;
-                  setAccepting(true);
-                  setErrorMessage(null);
-                  try {
-                    const fd = new FormData();
-                    fd.append("chatRoomId", selectedChatId);
-                    const res = await acceptProposalAction(null as any, fd);
-                    if (!res.ok) setErrorMessage(res.error);
-                    else if (res.data) setProposalStatus({ id: res.data.id, status: res.data.status as any });
-                  } catch (err: any) {
-                    setErrorMessage(err?.message || "Failed to accept proposal");
-                  } finally {
-                    setAccepting(false);
-                  }
-                }}
-                disabled={accepting}
-                className="bg-gray-900 hover:bg-black text-white"
-              >
-                {accepting ? "Accepting..." : "Accept Proposal"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Error Message */}
       {errorMessage && (
