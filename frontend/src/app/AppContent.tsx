@@ -10,9 +10,9 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   const { loading, user } = useAuth();
   const pathname = usePathname();
 
-  // Don't show skeleton on login/signup pages
+  // Don't show skeleton on signin/signup pages
   const isAuthPage =
-    pathname?.startsWith("/login") ||
+    pathname?.startsWith("/signin") ||
     pathname?.startsWith("/signup") ||
     pathname === "/";
 

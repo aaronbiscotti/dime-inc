@@ -18,12 +18,14 @@ export default async function ExplorePage() {
   const campaigns = campaignsResult.ok ? campaignsResult.data : [];
 
   return (
-    <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Explore</h1>
-      <ExploreInterfaceClient
-        initialAmbassadors={ambassadors}
-        initialCampaigns={campaigns}
-      />
-    </main>
+    <div className="pt-4">
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <h1 className="text-2xl font-semibold mb-6">Explore</h1>
+        <ExploreInterfaceClient
+          initialAmbassadors={ambassadors}
+          initialCampaigns={campaigns}
+        />
+      </div>
+    </div>
   );
 }

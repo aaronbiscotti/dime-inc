@@ -34,24 +34,51 @@ const AuthContext = createContext<AuthContextType>({
   clearAuthState: () => {},
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [ambassadorProfile, setAmbassadorProfile] =
-    useState<AmbassadorProfile | null>(null);
+export function AuthProvider({
+  children,
+  initialUser = null,
+  initialProfile = null,
+  initialAmbassadorProfile = null,
+  initialClientProfile = null,
+}: {
+  children: React.ReactNode;
+  initialUser?: User | null;
+  initialProfile?: Profile | null;
+  initialAmbassadorProfile?: AmbassadorProfile | null;
+  initialClientProfile?: ClientProfile | null;
+}) {
+  const hasServerSeed = Boolean(initialUser && initialProfile);
+
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [profile, setProfile] = useState<Profile | null>(initialProfile);
+  const [ambassadorProfile, setAmbassadorProfile] = useState<
+    AmbassadorProfile | null
+  >(initialAmbassadorProfile);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(
-    null
+    initialClientProfile
   );
   const [userRole, setUserRole] = useState<"client" | "ambassador" | null>(
-    null
+    (initialProfile?.role as "client" | "ambassador" | null) ?? null
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasServerSeed);
 
   const supabase = supabaseBrowser();
 
   async function fetchUserProfile(userId: string) {
     try {
       console.log("Fetching profile for user", userId);
+      console.log("Current loading state:", loading);
+
+      // Check if Supabase is properly configured
+      if (
+        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      ) {
+        console.error("Supabase environment variables not configured");
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
 
       // Fetch base profile
       const { data: profileData, error: profileError } = await supabase
@@ -148,12 +175,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Set initial loading state
-    setLoading(true);
+    // Only set loading true when we have no server seed
+    setLoading((prev) => (hasServerSeed ? false : true));
 
     // Check current session immediately on mount
     const checkInitialSession = async () => {
       try {
+        // Check if Supabase is properly configured
+        if (
+          !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+          !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        ) {
+          console.error("Supabase environment variables not configured");
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+            setAmbassadorProfile(null);
+            setClientProfile(null);
+            setLoading(false);
+          }
+          return;
+        }
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -162,10 +205,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
 
         const currentUser = session?.user ?? null;
-        setUser(currentUser);
+        // If we had a server seed, avoid redundant state churn when unchanged
+        setUser((prev) => (prev?.id === currentUser?.id ? prev : currentUser));
 
         if (currentUser) {
-          await fetchUserProfile(currentUser.id);
+          // Only fetch if we don't already have a profile from server seed
+          if (!hasServerSeed) {
+            await fetchUserProfile(currentUser.id);
+          } else {
+            setLoading(false);
+          }
         } else {
           console.log("No initial session found, clearing all profile data");
           setProfile(null);
@@ -194,7 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Auth loading timeout - forcing loading to false");
         setLoading(false);
       }
-    }, 10000); // 10 second timeout
+    }, 5000); // 5 second timeout - reduced from 10s
 
     // onAuthStateChange fires an INITIAL_SESSION event on page load,
     // which is more reliable than getSession() after a redirect.
@@ -206,13 +255,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log("Auth state change:", event, session?.user?.id);
+      console.log("Session:", session);
+      console.log("User:", session?.user);
 
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
+      setUser((prev) => (prev?.id === currentUser?.id ? prev : currentUser));
 
       if (currentUser) {
         // If a user is found, fetch their profile. `fetchUserProfile` will set loading to false.
-        await fetchUserProfile(currentUser.id);
+        // Avoid re-fetch if server already provided profile
+        if (!hasServerSeed) {
+          await fetchUserProfile(currentUser.id);
+        } else {
+          setLoading(false);
+        }
       } else {
         // If no user is found (on initial load or after sign out), clear all profile data.
         console.log("No user found, clearing all profile data");

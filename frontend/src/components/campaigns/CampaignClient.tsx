@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Navbar } from "@/components/layout/Navbar";
 import { getMySubmissionsAction } from "@/app/(protected)/submissions/actions";
 import { Database } from "@/types/database";
 import {
@@ -150,7 +149,6 @@ export default function CampaignClient({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
       <div className="pt-4">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <button

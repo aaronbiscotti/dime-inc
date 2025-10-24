@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const role = searchParams.get("role") as "ambassador" | "client" | null;
   const { user, profile, loading: authLoading } = useAuth();
 
@@ -45,10 +46,8 @@ export default function SignInPage() {
     if (result?.error) {
       setError(result.error);
       setLoading(false);
-    } else if (result?.success && result?.redirectTo) {
-      // Use window.location.href for a full page reload to ensure fresh auth state
-      window.location.href = result.redirectTo;
     }
+    // Server-side redirect will handle navigation, no client-side logic needed
   }
 
   return (

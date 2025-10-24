@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Navbar } from "@/components/layout/Navbar";
 import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 import { Database } from "@/types/database";
 import { ChevronRight } from "lucide-react";
@@ -30,7 +29,6 @@ export default function CampaignsListClient({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
       <main className="max-w-7xl mx-auto px-6 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

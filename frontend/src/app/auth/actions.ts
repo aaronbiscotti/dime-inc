@@ -77,18 +77,15 @@ export async function signIn(formData: FormData) {
   revalidatePath("/client/dashboard", "layout");
   revalidatePath("/ambassador/dashboard", "layout");
 
-  // Return the redirect path instead of redirecting
+  // Perform server-side redirect instead of returning JSON
   if (!profile || !profile.onboarding_completed) {
-    return {
-      success: true,
-      redirectTo: `/onboarding/${profile?.role || "client"}`,
-    };
+    redirect(`/onboarding/${profile?.role || "client"}`);
   }
 
   const dashboardPath =
     profile.role === "client" ? "/client/dashboard" : "/ambassador/dashboard";
 
-  return { success: true, redirectTo: dashboardPath };
+  redirect(dashboardPath);
 }
 
 export async function signOut() {

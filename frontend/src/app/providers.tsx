@@ -3,8 +3,26 @@
 import { useEffect } from "react";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ToastProvider } from "@/components/ui/toast";
+import type { User } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type AmbassadorProfile = Database["public"]["Tables"]["ambassador_profiles"]["Row"];
+type ClientProfile = Database["public"]["Tables"]["client_profiles"]["Row"];
+
+export function Providers({
+  children,
+  initialUser = null,
+  initialProfile = null,
+  initialAmbassadorProfile = null,
+  initialClientProfile = null,
+}: {
+  children: React.ReactNode;
+  initialUser?: User | null;
+  initialProfile?: Profile | null;
+  initialAmbassadorProfile?: AmbassadorProfile | null;
+  initialClientProfile?: ClientProfile | null;
+}) {
   // Suppress browser extension errors in development
   useEffect(() => {
     const originalError = console.error;
@@ -38,7 +56,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastProvider>
-      <AuthProvider>
+      <AuthProvider
+        initialUser={initialUser}
+        initialProfile={initialProfile}
+        initialAmbassadorProfile={initialAmbassadorProfile}
+        initialClientProfile={initialClientProfile}
+      >
         {children}
       </AuthProvider>
     </ToastProvider>

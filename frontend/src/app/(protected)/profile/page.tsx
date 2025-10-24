@@ -4,7 +4,6 @@ import {
   getAmbassadorWithProfile,
 } from "@/lib/auth/server";
 // Note: Portfolio and campaign data will be fetched client-side
-import { Navbar } from "@/components/layout/Navbar";
 import { ProfileSidebarClient } from "@/components/profile/ProfileSidebarClient";
 import { ProfileClient } from "@/components/profile/ProfileClient";
 
@@ -35,28 +34,25 @@ export default async function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <div className="pt-4">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="grid md:grid-cols-3 gap-6">
-            <div>
-              <ProfileSidebarClient
-                profile={profile}
-                ambassadorProfile={ambassadorProfile}
-                clientProfile={clientProfile}
-              />
-            </div>
+    <div className="pt-4">
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="grid md:grid-cols-3 gap-6">
+          <div>
+            <ProfileSidebarClient
+              profile={profile}
+              ambassadorProfile={ambassadorProfile}
+              clientProfile={clientProfile}
+            />
+          </div>
 
-            <div className="md:col-span-2">
-              <ProfileClient
-                profile={profile}
-                ambassadorProfile={ambassadorProfile}
-                clientProfile={clientProfile}
-                portfolioItems={portfolioItems}
-                campaigns={campaigns}
-              />
-            </div>
+          <div className="md:col-span-2">
+            <ProfileClient
+              profile={profile}
+              ambassadorProfile={ambassadorProfile}
+              clientProfile={clientProfile}
+              portfolioItems={portfolioItems}
+              campaigns={campaigns}
+            />
           </div>
         </div>
       </div>

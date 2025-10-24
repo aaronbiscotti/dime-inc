@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginRedirect() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const role = searchParams.get('role')
+export default function SigninRedirect() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const role = searchParams.get("role");
 
   useEffect(() => {
     // Redirect to the new auth route with role parameter
-    const redirectUrl = role ? `/signin?role=${role}` : '/'
-    router.replace(redirectUrl)
-  }, [router, role])
+    const redirectUrl = role ? `/signin?role=${role}` : "/";
+    router.replace(redirectUrl);
+  }, [router, role]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -21,5 +21,5 @@ export default function LoginRedirect() {
         <p className="text-gray-600">Redirecting...</p>
       </div>
     </div>
-  )
+  );
 }

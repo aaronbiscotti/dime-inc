@@ -7,9 +7,24 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { signOut } from "@/app/auth/actions";
 import Image from "next/image";
+import type { User } from "@supabase/supabase-js";
 
-export function Navbar() {
+type Props = {
+  initialUser?: User | null;
+  initialProfile?: {
+    id: string;
+    role?: string;
+    full_name?: string;
+    avatar_url?: string;
+  } | null;
+};
+
+export default function Navbar({ initialUser, initialProfile }: Props) {
   const { user, profile, loading, clearAuthState } = useAuth();
+
+  // Prefer server truth for first paint; hydrate to client state later.
+  const effectiveUser = user ?? initialUser;
+  const effectiveProfile = profile ?? initialProfile ?? null;
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -35,8 +50,9 @@ export function Navbar() {
     }
   };
 
-  // Show loading skeleton while auth state is being determined
-  if (loading) {
+  // Show loading skeleton only if we have no server-provided auth fallback
+  const hasServerSeed = Boolean(initialUser && initialProfile);
+  if (loading && !hasServerSeed) {
     return (
       <nav className="bg-white border-b border-gray-300 w-full">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -56,7 +72,7 @@ export function Navbar() {
     );
   }
 
-  if (!user || !profile) {
+  if (!effectiveUser || !effectiveProfile) {
     return null;
   }
 
@@ -68,7 +84,7 @@ export function Navbar() {
           <div className="flex items-center space-x-8">
             <Link
               href={
-                profile.role === "client"
+                effectiveProfile.role === "client"
                   ? "/client/dashboard"
                   : "/ambassador/dashboard"
               }
@@ -85,7 +101,7 @@ export function Navbar() {
             </Link>
 
             <div className="flex items-center space-x-6">
-              {profile.role === "client" ? (
+              {effectiveProfile.role === "client" ? (
                 <>
                   {/* Client Navigation */}
                   <Link

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Providers } from "./providers";
+import ProvidersServer from "./ProvidersServer";
 import { AppContent } from "./AppContent";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 
@@ -20,10 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} antialiased`}>
-        <Providers>
+        <ProvidersServer>
           <AppContent>{children}</AppContent>
           <DebugPanel />
-        </Providers>
+        </ProvidersServer>
       </body>
     </html>
   );

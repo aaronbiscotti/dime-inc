@@ -10,7 +10,7 @@ export async function getServerUser() {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect("/login");
+    redirect("/signin");
   }
 
   return user;
