@@ -240,8 +240,8 @@ export default function AmbassadorCampaignDetails() {
           {/* Apply Button */}
           <div className="pt-4">
             <button
-              onClick={() => setShowApplyModal(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-[#f5d82e] text-black font-medium rounded-lg hover:bg-[#e5c820] transition-colors"
+              disabled
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-gray-300 text-gray-500 font-medium rounded-lg cursor-not-allowed transition-colors"
             >
               <Send className="w-4 h-4" />
               Apply to Campaign

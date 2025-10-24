@@ -43,7 +43,7 @@ export function AmbassadorCard({ ambassador }: AmbassadorCardProps) {
               {ambassador.name.charAt(0)}
             </div>
             <h3 className="font-semibold text-gray-900">{ambassador.name}</h3>
-            <p className="text-sm text-gray-600">@{ambassador.username}</p>
+            <p className="text-sm text-gray-600">{ambassador.username.startsWith('@') ? ambassador.username : `@${ambassador.username}`}</p>
           </div>
 
           <p className="text-sm text-gray-700 mb-4 line-clamp-2">

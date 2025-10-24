@@ -310,9 +310,9 @@ export default function ExploreInterfaceClient({
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
                           {[
-                            influencer.twitter_handle && `@${influencer.twitter_handle} · Twitter`,
-                            influencer.instagram_handle && `@${influencer.instagram_handle} · Instagram`,
-                            influencer.tiktok_handle && `@${influencer.tiktok_handle} · TikTok`,
+                            influencer.twitter_handle && `${influencer.twitter_handle.startsWith('@') ? '' : '@'}${influencer.twitter_handle} · Twitter`,
+                            influencer.instagram_handle && `${influencer.instagram_handle.startsWith('@') ? '' : '@'}${influencer.instagram_handle} · Instagram`,
+                            influencer.tiktok_handle && `${influencer.tiktok_handle.startsWith('@') ? '' : '@'}${influencer.tiktok_handle} · TikTok`,
                           ]
                             .filter(Boolean)
                             .join("  ·  ")}
