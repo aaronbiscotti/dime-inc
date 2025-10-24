@@ -210,14 +210,14 @@ export async function getCampaignAction(campaignId: string) {
   const supabase = await createClient();
 
   // Get the user's client profile ID if they are a client
-  const { data: clientProfile } = await supabase
+  const { data: clientProfile, error: clientError } = await supabase
     .from("client_profiles")
     .select("id")
     .eq("user_id", user.id)
     .single();
 
   // Get the user's ambassador profile ID if they are an ambassador
-  const { data: ambassadorProfile } = await supabase
+  const { data: ambassadorProfile, error: ambassadorError } = await supabase
     .from("ambassador_profiles")
     .select("id")
     .eq("user_id", user.id)
@@ -260,7 +260,7 @@ export async function getCampaignAction(campaignId: string) {
   }
   // If user has no profile, deny access
   else {
-    return { ok: false, error: "Access denied" } as const;
+    return { ok: false, error: "Access denied - no profile found" } as const;
   }
 
   const { data: campaign, error } = await campaignQuery.single();

@@ -96,31 +96,57 @@ export async function getCampaignSubmissionsAction(campaignId: string) {
   const supabase = await createClient();
 
   // Get the user's client profile ID if they are a client
-  const { data: clientProfile } = await supabase
+  const { data: clientProfile, error: clientError } = await supabase
     .from("client_profiles")
     .select("id")
     .eq("user_id", user.id)
     .single();
 
+  // Get the user's ambassador profile ID if they are an ambassador
+  const { data: ambassadorProfile, error: ambassadorError } = await supabase
+    .from("ambassador_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
+
   // Verify user has access to this campaign (either as client or ambassador)
-  const { data: campaignAccess, error: accessError } = await supabase
+  let accessQuery = supabase
     .from("campaigns")
     .select(
       `
       id,
       client_id,
-      campaign_ambassadors!inner(
+      campaign_ambassadors(
         ambassador_id
       )
     `
     )
-    .eq("id", campaignId)
-    .or(
-      clientProfile 
-        ? `client_id.eq.${clientProfile.id},campaign_ambassadors.ambassador_id.eq.${user.id}`
-        : `campaign_ambassadors.ambassador_id.eq.${user.id}`
-    )
-    .single();
+    .eq("id", campaignId);
+
+  // If user is a client, check if they own the campaign
+  if (clientProfile) {
+    accessQuery = accessQuery.eq("client_id", clientProfile.id);
+  }
+  // If user is an ambassador, check if they are part of the campaign
+  else if (ambassadorProfile) {
+    // For ambassadors, we need to check if they are in the campaign_ambassadors table
+    const { data: ambassadorAccess, error: ambassadorAccessError } = await supabase
+      .from("campaign_ambassadors")
+      .select("id")
+      .eq("campaign_id", campaignId)
+      .eq("ambassador_id", user.id)
+      .single();
+    
+    if (ambassadorAccessError || !ambassadorAccess) {
+      return { ok: false, error: "Access denied - not part of campaign" } as const;
+    }
+  }
+  // If user has no profile, deny access
+  else {
+    return { ok: false, error: "Access denied - no profile found" } as const;
+  }
+
+  const { data: campaignAccess, error: accessError } = await accessQuery.single();
 
   if (accessError || !campaignAccess) {
     return { ok: false, error: "Access denied" } as const;
